@@ -1,0 +1,8 @@
+{
+  "name": "IT Toolkit",
+  "description": "Herramienta de diagnóstico, mantenimiento, evaluación de hardware y optimización del sistema.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "it-toolkit",
+  "version": "1.0.0",
+  "description": "IT Toolkit - Diagnóstico y Mantenimiento",
+  "main": "server.js",
+  "author": "IT Department",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Build complete'",
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.18.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "fast-speedtest-api": "^0.3.2"
+  }
+}

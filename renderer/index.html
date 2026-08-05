@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>IT Toolkit - Diagnóstico y Mantenimiento</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="topbar">
+    <span class="topbar-icon">🛠️</span>
+    <span class="topbar-title">IT Toolkit - Diagnóstico y Mantenimiento</span>
+    <div class="topbar-right">
+      <button class="log-toggle" id="btn-log-toggle" title="Ver log de actividad">📄 Log</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Menú lateral con pestañas -->
+    <div class="sidebar">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="utilidades">🔧 Utilidades</button>
+        <button class="tab-btn" data-tab="red">📡 Red</button>
+        <button class="tab-btn" data-tab="reparacion">🛡️ Reparación</button>
+      </div>
+
+      <!-- Pestaña: Utilidades -->
+      <div class="tab-content active" id="tab-utilidades">
+        <button class="card" id="btn-diagnostico">
+          <span class="card-icon">🖥️</span>
+          <span class="card-text">
+            <span class="card-title">Diagnóstico del PC</span>
+            <span class="card-sub">RAM, CPU, GPU y disco duro</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-gpudrivers">
+          <span class="card-icon">🎮</span>
+          <span class="card-text">
+            <span class="card-title">Actualizar Drivers de la GPU</span>
+            <span class="card-sub">Detecta la tarjeta gráfica y su controlador</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-sysupdates">
+          <span class="card-icon">🔄</span>
+          <span class="card-text">
+            <span class="card-title">Comprobar Actualizaciones del Sistema</span>
+            <span class="card-sub">Windows Update, HP Support, historial y diagnóstico</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-eventlog">
+          <span class="card-icon">📋</span>
+          <span class="card-text">
+            <span class="card-title">Analizar Visor de Eventos</span>
+            <span class="card-sub">Apagados inesperados, errores críticos</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-highperf">
+          <span class="card-icon">⚡</span>
+          <span class="card-text">
+            <span class="card-title">Activar Alto Rendimiento</span>
+            <span class="card-sub">Configura el plan de energía de Windows</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-healthcheck">
+          <span class="card-icon">⭐</span>
+          <span class="card-text">
+            <span class="card-title">Evaluar Estado del Equipo</span>
+            <span class="card-sub">Puntuación global 1-10 y recomendaciones</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Pestaña: Red -->
+      <div class="tab-content" id="tab-red">
+        <button class="card" id="btn-speedtest">
+          <span class="card-icon">🌐</span>
+          <span class="card-text">
+            <span class="card-title">Test de Velocidad</span>
+            <span class="card-sub">Descarga, subida, ping y latencia</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-netoptions">
+          <span class="card-icon">⚙️</span>
+          <span class="card-text">
+            <span class="card-title">Opciones de Red</span>
+            <span class="card-sub">IP, DHCP/Manual, Liberar, Renovar IP y DNS</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Pestaña: Reparación -->
+      <div class="tab-content" id="tab-reparacion">
+        <div class="repair-info">
+          <span>⚠️</span> Estas utilidades requieren permisos de administrador. Se abrirá una ventana CMD visible.
+        </div>
+
+        <button class="card card-repair" id="btn-sfc">
+          <span class="card-icon">🧩</span>
+          <span class="card-text">
+            <span class="card-title">Ejecutar SFC /SCANNOW</span>
+            <span class="card-sub">Comprobador de archivos del sistema</span>
+          </span>
+        </button>
+
+        <button class="card card-repair" id="btn-dism">
+          <span class="card-icon">🛡️</span>
+          <span class="card-text">
+            <span class="card-title">Reparar Windows (DISM)</span>
+            <span class="card-sub">DISM /Online /Cleanup-Image /RestoreHealth</span>
+          </span>
+        </button>
+
+        <button class="card card-repair" id="btn-mdsched">
+          <span class="card-icon">🧠</span>
+          <span class="card-text">
+            <span class="card-title">Diagnóstico de Memoria de Windows</span>
+            <span class="card-sub">Comprobar problemas de RAM en el equipo (mdsched.exe)</span>
+          </span>
+        </button>
+
+        <button class="card card-repair" id="btn-cleantemp">
+          <span class="card-icon">🧹</span>
+          <span class="card-text">
+            <span class="card-title">Limpiar Archivos Temporales</span>
+            <span class="card-sub">Escaneo y eliminación de temporales, caché y prefetch</span>
+          </span>
+        </button>
+
+        <div class="repair-note">
+          <b>SFC /SCANNOW</b> — Comprueba la integridad de los archivos protegidos del sistema y repara los
+          dañados (la consola no se cierra automáticamente).<br><br>
+          <b>DISM</b> — Repara la imagen de Windows descargando archivos oficiales desde Windows
+          Update (la consola no se cierra automáticamente).<br><br>
+          <b>Diagnóstico de Memoria</b> — Inicia la herramienta mdsched.exe para comprobar si la memoria RAM presenta errores físicos.
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel de resultados -->
+    <div class="panel" id="main-panel">
+      <h2 id="result-title">Selecciona una utilidad</h2>
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progress-bar">
+          <div class="progress-fill"></div>
+        </div>
+        <div class="status-text" id="status-text"></div>
+      </div>
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+
+  <!-- Panel de Log (oculto por defecto) -->
+  <div class="log-panel" id="log-panel">
+    <div class="log-header">
+      <span>📄 Log de actividad</span>
+      <div class="log-header-actions">
+        <span id="log-file-path" class="log-path"></span>
+        <button id="btn-open-log-folder">📁 Abrir carpeta</button>
+        <button id="btn-clear-log-view">🗑 Limpiar vista</button>
+        <button id="btn-log-close">✕</button>
+      </div>
+    </div>
+    <div class="log-body" id="log-body"></div>
+  </div>
+
+  <div class="statusbar" id="statusbar"></div>
+
+  <script src="api-bridge.js"></script>
+  <script src="renderer.js"></script>
+</body>
+
+</html>
