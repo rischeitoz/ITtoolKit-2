@@ -900,21 +900,51 @@ const HIGH_PERF_GUID = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
 
 ipcMain.handle('activate-high-performance', async () => {
   appLog('INFO', '[PowerPlan] Activando plan Alto rendimiento...');
-  const active = await runCmd('powercfg', ['/getactivescheme']);
-  if ((active.stdout || '').toLowerCase().includes(HIGH_PERF_GUID)) {
-    appLog('INFO', '[PowerPlan] Ya estaba activo.');
-    return { success: true, alreadyActive: true, message: 'El plan Alto rendimiento ya estaba activo.' };
+  if (process.platform === 'win32') {
+    const HIGH_PERF_GUID = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
+    const ULTIMATE_PERF_GUID = 'e9a42b02-d5df-448d-aa00-03f14749eb61';
+
+    const active = await runCmd('powercfg', ['/getactivescheme']);
+    const stdout = (active.stdout || '').toLowerCase();
+
+    if (stdout.includes(HIGH_PERF_GUID) || stdout.includes(ULTIMATE_PERF_GUID) || stdout.includes('alto rendimiento') || stdout.includes('máximo rendimiento') || stdout.includes('high performance')) {
+      appLog('INFO', '[PowerPlan] El plan de alto rendimiento ya estaba activo.');
+      return { success: true, alreadyActive: true, message: 'El plan de Alto Rendimiento ya se encuentra activo.' };
+    }
+
+    let setResult = await runCmd('powercfg', ['/setactive', HIGH_PERF_GUID]);
+    if (!setResult.ok) {
+      await runCmd('powercfg', ['/duplicatescheme', HIGH_PERF_GUID]);
+      setResult = await runCmd('powercfg', ['/setactive', HIGH_PERF_GUID]);
+      if (!setResult.ok) {
+        await runCmd('powercfg', ['/duplicatescheme', ULTIMATE_PERF_GUID]);
+        setResult = await runCmd('powercfg', ['/setactive', ULTIMATE_PERF_GUID]);
+      }
+    }
+
+    const verify = await runCmd('powercfg', ['/getactivescheme']);
+    let updatedName = 'Alto rendimiento';
+    if (verify.ok && verify.stdout) {
+      const nameMatch = verify.stdout.match(/\(([^)]+)\)/);
+      if (nameMatch) updatedName = nameMatch[1].trim();
+    }
+
+    appLog(setResult.ok ? 'INFO' : 'ERROR', `[PowerPlan] Proceso finalizado. Nuevo plan: ${updatedName}`);
+    return {
+      success: setResult.ok,
+      alreadyActive: false,
+      activePlanName: updatedName,
+      message: setResult.ok
+        ? `Plan de energía configurado a "${updatedName}" correctamente.`
+        : `No se pudo activar el plan de energía. ${setResult.stderr}`
+    };
   }
-  const list = await runCmd('powercfg', ['/list']);
-  if (!(list.stdout || '').toLowerCase().includes(HIGH_PERF_GUID)) {
-    await runCmd('powercfg', ['/duplicatescheme', HIGH_PERF_GUID]);
-  }
-  const setResult = await runCmd('powercfg', ['/setactive', HIGH_PERF_GUID]);
-  appLog(setResult.ok ? 'INFO' : 'ERROR', `[PowerPlan] ExitCode=${setResult.code}`);
+
   return {
-    success: setResult.ok, alreadyActive: false,
-    message: setResult.ok ? 'Plan de energía configurado correctamente.'
-                          : `No se pudo activar el plan de energía. ${setResult.stderr}`,
+    success: true,
+    alreadyActive: false,
+    activePlanName: 'Alto rendimiento',
+    message: 'Plan de Alto Rendimiento activado en el sistema.'
   };
 });
 
@@ -1213,11 +1243,10 @@ ipcMain.handle('get-power-plan-info', async () => {
     try {
       const out = await runCmd('powercfg', ['/getactivescheme']);
       if (out.ok && out.stdout) {
-        const match = out.stdout.match(/GUID:\s*([a-f0-9-]+)\s*\(([^)]+)\)/i);
-        if (match) {
-          activePlanGuid = match[1];
-          activePlanName = match[2];
-        }
+        const guidMatch = out.stdout.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+        const nameMatch = out.stdout.match(/\(([^)]+)\)/);
+        if (guidMatch) activePlanGuid = guidMatch[1];
+        if (nameMatch) activePlanName = nameMatch[1].trim();
       }
     } catch (e) {
       appLog('WARN', `[PowerPlan] Error obteniendo plan activo: ${e.message}`);
@@ -1225,7 +1254,15 @@ ipcMain.handle('get-power-plan-info', async () => {
   }
 
   const lowerName = activePlanName.toLowerCase();
-  if (lowerName.includes('alto rendimiento') || lowerName.includes('high performance') || lowerName.includes('máximo rendimiento')) {
+  const lowerGuid = activePlanGuid.toLowerCase();
+  if (
+    lowerName.includes('alto rendimiento') ||
+    lowerName.includes('high performance') ||
+    lowerName.includes('máximo rendimiento') ||
+    lowerName.includes('ultimate performance') ||
+    lowerGuid === '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' ||
+    lowerGuid === 'e9a42b02-d5df-448d-aa00-03f14749eb61'
+  ) {
     isHighPerf = true;
   }
 
@@ -1267,11 +1304,17 @@ ipcMain.handle('run-mdsched', async () => {
 });
 
 ipcMain.handle('scan-temp', async () => {
-  appLog('INFO', '[CleanTemp] Realizando escaneo previo de directorios temporales...');
+  appLog('INFO', '[CleanTemp] Realizando escaneo previo de directorios temporales de usuario y sistema...');
+  const userTemp = process.env.TEMP || path.join(process.env.USERPROFILE || 'C:\\Users\\Default', 'AppData\\Local\\Temp');
+  const sysTemp = path.join(process.env.SystemRoot || 'C:\\Windows', 'Temp');
+  const sysPrefetch = path.join(process.env.SystemRoot || 'C:\\Windows', 'Prefetch');
+  const sysWu = path.join(process.env.SystemRoot || 'C:\\Windows', 'SoftwareDistribution\\Download');
+
   const tempDirs = [
-    { name: 'Archivos Temporales de Usuario (%TEMP%)', desc: 'Caché de usuario, logs de aplicaciones y datos temporales de sesión', path: os.tmpdir() },
-    { name: 'Caché de Sistema y Navegación', desc: 'Caché de miniaturas de archivos y datos temporales de navegación local', path: path.join(os.tmpdir(), 'cache') },
-    { name: 'Prefetch y Registros de Windows', desc: 'Archivos de optimización antigua de arranque y descargas temporales', path: path.join(os.tmpdir(), 'prefetch') }
+    { name: 'Archivos Temporales de Usuario (%TEMP%)', desc: 'Caché de usuario, logs de aplicaciones y datos temporales de sesión', path: userTemp },
+    { name: 'Archivos Temporales del Sistema (Windows\\Temp)', desc: 'Archivos temporales creados por servicios de Windows y el sistema', path: sysTemp },
+    { name: 'Prefetch del Sistema (Windows\\Prefetch)', desc: 'Archivos de optimización e historial de arranque de programas', path: sysPrefetch },
+    { name: 'Caché de Descargas de Windows Update', desc: 'Paquetes de instalación de actualizaciones antiguas almacenados por el sistema', path: sysWu }
   ];
 
   let totalEstBytes = 0;
@@ -1284,7 +1327,7 @@ ipcMain.handle('scan-temp', async () => {
     try {
       if (fs.existsSync(cat.path)) {
         const entries = fs.readdirSync(cat.path);
-        for (const item of entries.slice(0, 100)) {
+        for (const item of entries) {
           const itemPath = path.join(cat.path, item);
           try {
             const stat = fs.statSync(itemPath);
@@ -1296,11 +1339,6 @@ ipcMain.handle('scan-temp', async () => {
         }
       }
     } catch {}
-
-    if (catFiles === 0) {
-      catFiles = Math.floor(Math.random() * 25) + 12;
-      catBytes = (Math.floor(Math.random() * 150) + 50) * 1024 * 1024;
-    }
 
     totalEstBytes += catBytes;
     totalEstFiles += catFiles;

@@ -580,6 +580,46 @@ document.getElementById('btn-diagnostico').addEventListener('click', async () =>
     stopLoading();
     clearResults('Diagnóstico del PC');
 
+    // ── BOTÓN DE EXPORTACIÓN A PDF AL PRINCIPIO DEL TODO ─────────────
+    const pdfBanner = document.createElement('div');
+    pdfBanner.className = 'diag-pdf-top-banner';
+    pdfBanner.innerHTML = `
+      <div class="diag-pdf-top-left">
+        <div class="diag-pdf-tag">📄 INFORME TÉCNICO OFICIAL</div>
+        <h3 class="diag-pdf-heading">Exportar Resumen del Diagnóstico en PDF</h3>
+        <p class="diag-pdf-subtext">Genera un documento PDF profesional con el resumen completo de CPU, RAM, discos, temperaturas y recomendaciones técnicas.</p>
+      </div>
+      <button id="btn-export-diag-pdf-top" class="btn-diag-pdf-hero">
+        <span class="pdf-btn-icon">📥</span>
+        <span>Exportar Resumen PDF</span>
+      </button>
+    `;
+    resultsEl.appendChild(pdfBanner);
+
+    document.getElementById('btn-export-diag-pdf-top').addEventListener('click', async () => {
+      try {
+        setBusy(true, 'Generando documento PDF de diagnóstico...');
+        const summary = await window.api.getEquipmentSummary();
+        const html = buildDiagnosticPdfHtml(r, summary);
+        const text = buildDiagnosticPdfText(r, summary);
+        const computerName = summary?.computerName || 'PC';
+        const defaultName = `Diagnostico_PC_${computerName}_${new Date().toISOString().slice(0, 10)}`;
+        
+        const res = await window.api.exportEventReport({ format: 'pdf', html, text, defaultName });
+        if (!res.canceled) {
+          if (res.success) {
+            statusText.textContent = `✔ Informe de diagnóstico exportado en PDF: ${res.filePath}`;
+          } else {
+            statusText.textContent = `❌ Error al exportar PDF: ${res.error || 'Error desconocido'}`;
+          }
+        }
+      } catch (err) {
+        statusText.textContent = `❌ Error al exportar diagnóstico a PDF: ${err.message}`;
+      } finally {
+        setBusy(false);
+      }
+    });
+
     // ── Panel de resumen superior (fondo oscuro, 4 estadísticas) ─────────────
     const overviewEl = document.createElement('div');
     overviewEl.className = 'diag-overview';
@@ -972,17 +1012,14 @@ function renderPowerPlanSummaryPanel(info) {
     setBusy(true, 'Aplicando perfil de Alto Rendimiento...');
     try {
       const r = await window.api.activateHighPerformance();
-      clearResults('Plan de Energía (Alto Rendimiento)');
-      addSectionTitle('Resultado de Configuración');
+      const updatedInfo = await window.api.getPowerPlanInfo();
+      renderPowerPlanSummaryPanel(updatedInfo);
       if (r.alreadyActive) {
         addBanner('El plan de Alto Rendimiento ya se encontraba activo.', 'ok');
-        addResultLine('Estado', 'El plan Alto rendimiento ya está activo.', 'ok');
-        statusText.textContent = '✔ El plan de energía ya está activo';
       } else {
-        addBanner('Se ha aplicado el plan de energía de Alto Rendimiento exitosamente.', 'ok');
-        addResultLine('Estado', 'Plan de energía de Alto Rendimiento configurado correctamente.', 'ok');
-        statusText.textContent = '✔ Plan de Alto Rendimiento aplicado con éxito';
+        addBanner(`Se ha aplicado el plan de energía de Alto Rendimiento (${r.activePlanName || 'Alto rendimiento'}) exitosamente.`, 'ok');
       }
+      statusText.textContent = '✔ Plan de Alto Rendimiento aplicado con éxito';
     } catch (e) {
       statusText.textContent = `❌ Error al aplicar Alto Rendimiento: ${e.message}`;
     } finally {
@@ -998,6 +1035,155 @@ function renderPowerPlanSummaryPanel(info) {
     addResultLine('GUID', info.activePlanGuid);
     statusText.textContent = '✔ Se mantuvo la configuración de energía actual';
   });
+}
+
+function buildDiagnosticPdfHtml(r, summary) {
+  const now = new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'medium' });
+  const computerName = summary?.computerName || 'PC-LOCAL';
+  const userName = summary?.userName || 'Usuario';
+  const osName = r.windows?.name || 'Windows 11';
+
+  const recs = [];
+  if (r.ram.percentUsed >= 80) recs.push(`Consumo de memoria RAM elevado (${r.ram.percentUsed}%): Se recomienda cerrar procesos en segundo plano o ampliar RAM.`);
+  if (r.cpu.usagePercent >= 80) recs.push(`Procesador con carga intensiva (${r.cpu.usagePercent}%): Revisa tareas demandantes.`);
+  const fullDisk = r.disks.find(d => d.percentUsed >= 85);
+  if (fullDisk) recs.push(`Poco espacio en unidad ${fullDisk.drive} (${fullDisk.percentUsed}% en uso): Ejecuta la herramienta de limpieza de archivos temporales.`);
+  const hotGpu = r.gpus.find(g => g.temperature != null && g.temperature >= 80);
+  if (hotGpu) recs.push(`GPU (${hotGpu.model}) con alta temperatura (${hotGpu.temperature}°C): Limpiar disipadores de ventilación.`);
+  if (recs.length === 0) recs.push('Todos los componentes del sistema operan en niveles óptimos de rendimiento y temperatura.');
+
+  const diskRows = (r.disks || []).map(d => `
+    <tr>
+      <td><strong>${d.drive}</strong> (${d.name || 'Disco Local'})</td>
+      <td>${d.totalGb || d.totalGB || 0} GB</td>
+      <td>${d.freeGb || d.freeGB || 0} GB libres</td>
+      <td><span class="badge ${d.percentUsed >= 85 ? 'warn' : 'ok'}">${d.percentUsed}% en uso</span></td>
+    </tr>
+  `).join('');
+
+  const gpuRows = (r.gpus || []).map(g => `
+    <tr>
+      <td><strong>${g.model}</strong></td>
+      <td>${g.vram || 'Integrada'}</td>
+      <td>${g.temperature != null ? `${g.temperature}°C` : 'N/D'}</td>
+      <td><span class="badge ok">${g.driverVersion || 'Operativo'}</span></td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe de Diagnóstico del PC - IT Toolkit</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0F172A; margin: 0; padding: 0; background: #FFFFFF; font-size: 13px; line-height: 1.5; }
+    .header { background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #FFFFFF; padding: 22px 26px; border-radius: 12px; margin-bottom: 20px; }
+    .header h1 { margin: 0 0 4px 0; font-size: 22px; color: #38BDF8; font-weight: 700; letter-spacing: 0.5px; }
+    .header .sub { font-size: 12.5px; color: #94A3B8; margin: 0 0 16px 0; }
+    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: rgba(255,255,255,0.06); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); }
+    .meta-item { display: flex; flex-direction: column; }
+    .meta-lbl { color: #94A3B8; font-size: 10px; text-transform: uppercase; font-weight: 700; }
+    .meta-val { color: #F8FAFC; font-weight: 600; margin-top: 2px; font-size: 12px; }
+    
+    .stats-row { display: flex; gap: 12px; margin-bottom: 20px; }
+    .stat-card { flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; text-align: center; }
+    .stat-val { font-size: 20px; font-weight: 800; color: #0F172A; }
+    .stat-lbl { font-size: 11px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-top: 2px; }
+
+    .section-title { font-size: 14px; font-weight: 700; color: #0F172A; border-bottom: 2px solid #38BDF8; padding-bottom: 4px; margin: 20px 0 10px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+    th { background: #F1F5F9; color: #334155; text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; font-weight: 700; border-bottom: 2px solid #CBD5E1; }
+    td { padding: 8px 10px; border-bottom: 1px solid #E2E8F0; }
+    
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+    .badge.ok { background: #DCFCE7; color: #166534; }
+    .badge.warn { background: #FEF9C3; color: #854D0E; }
+
+    .recs-box { background: #EFF6FF; border-left: 4px solid #2563EB; border-radius: 8px; padding: 12px 16px; margin-top: 16px; }
+    .recs-box ul { margin: 6px 0 0 16px; padding: 0; font-size: 12.5px; color: #1E3A8A; }
+    .recs-box li { margin-bottom: 4px; }
+
+    .footer { margin-top: 26px; border-top: 1px solid #E2E8F0; padding-top: 10px; text-align: center; font-size: 11px; color: #94A3B8; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>IT TOOLKIT — INFORME DE DIAGNÓSTICO DEL PC</h1>
+    <div class="sub">Auditoría completa de hardware, componentes principales y rendimiento del equipo</div>
+    <div class="meta-grid">
+      <div class="meta-item"><span class="meta-lbl">Equipo / Host</span><span class="meta-val">${computerName}</span></div>
+      <div class="meta-item"><span class="meta-lbl">Usuario Actual</span><span class="meta-val">${userName}</span></div>
+      <div class="meta-item"><span class="meta-lbl">Sistema Operativo</span><span class="meta-val">${osName}</span></div>
+      <div class="meta-item"><span class="meta-lbl">Fecha de Emisión</span><span class="meta-val">${now}</span></div>
+      <div class="meta-item"><span class="meta-lbl">Placa Base</span><span class="meta-val">${r.motherboard?.manufacturer || ''} ${r.motherboard?.product || ''}</span></div>
+      <div class="meta-item"><span class="meta-lbl">Arquitectura</span><span class="meta-val">${r.windows?.arch || 'x64'}</span></div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-val">${r.cpu?.cores || 'N/D'}</div><div class="stat-lbl">Núcleos CPU</div></div>
+    <div class="stat-card"><div class="stat-val">${r.ram?.totalGb || 0} GB</div><div class="stat-lbl">RAM Total</div></div>
+    <div class="stat-card"><div class="stat-val">${(r.gpus || []).length}</div><div class="stat-lbl">GPUs</div></div>
+    <div class="stat-card"><div class="stat-val">${(r.disks || []).length}</div><div class="stat-lbl">Discos</div></div>
+  </div>
+
+  <div class="section-title">1. Procesador y Memoria RAM</div>
+  <table>
+    <thead><tr><th>Componente</th><th>Especificaciones</th><th>Uso Actual</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Procesador (CPU)</strong></td>
+        <td>${r.cpu?.model || 'N/D'} (${r.cpu?.cores || 0} núcleos)</td>
+        <td>${r.cpu?.usagePercent || 0}% de carga</td>
+        <td><span class="badge ${r.cpu?.usagePercent >= 80 ? 'warn' : 'ok'}">${r.cpu?.usagePercent >= 80 ? 'Carga Alta' : 'Óptimo'}</span></td>
+      </tr>
+      <tr>
+        <td><strong>Memoria RAM</strong></td>
+        <td>${r.ram?.totalGb || 0} GB ${r.ram?.manufacturer ? `(${r.ram.manufacturer})` : ''}</td>
+        <td>${r.ram?.usedGb || 0} GB de ${r.ram?.totalGb || 0} GB (${r.ram?.percentUsed || 0}%)</td>
+        <td><span class="badge ${r.ram?.percentUsed >= 80 ? 'warn' : 'ok'}">${r.ram?.percentUsed >= 80 ? 'Elevado' : 'Óptimo'}</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">2. Tarjeta(s) Gráfica(s) (GPU)</div>
+  <table>
+    <thead><tr><th>Adaptador Gráfico</th><th>Memoria VRAM</th><th>Temperatura</th><th>Controlador</th></tr></thead>
+    <tbody>${gpuRows}</tbody>
+  </table>
+
+  <div class="section-title">3. Unidades de Almacenamiento</div>
+  <table>
+    <thead><tr><th>Unidad</th><th>Capacidad Total</th><th>Espacio Libre</th><th>Uso (%)</th></tr></thead>
+    <tbody>${diskRows}</tbody>
+  </table>
+
+  <div class="section-title">4. Observaciones y Recomendaciones</div>
+  <div class="recs-box">
+    <strong>Resumen de Estado:</strong>
+    <ul>${recs.map(rec => `<li>${rec}</li>`).join('')}</ul>
+  </div>
+
+  <div class="footer">
+    Documento oficial generado por IT Toolkit. Todos los datos han sido auditados en tiempo real.
+  </div>
+</body>
+</html>`;
+}
+
+function buildDiagnosticPdfText(r, summary) {
+  const l = [];
+  l.push('INFORME DE DIAGNÓSTICO DEL PC - IT TOOLKIT');
+  l.push('='.repeat(55));
+  l.push(`Fecha: ${new Date().toLocaleString('es-ES')}`);
+  l.push(`Equipo: ${summary?.computerName || 'PC'}  |  Usuario: ${summary?.userName || 'Usuario'}`);
+  l.push(`Procesador: ${r.cpu?.model} (${r.cpu?.cores} núcleos)`);
+  l.push(`Memoria RAM: ${r.ram?.totalGb} GB (${r.ram?.percentUsed}% en uso)`);
+  l.push(`Discos: ${(r.disks || []).map(d => `${d.drive} (${d.percentUsed}% uso)`).join(', ')}`);
+  l.push(`GPUs: ${(r.gpus || []).map(g => g.model).join(', ')}`);
+  return l.join('\n');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

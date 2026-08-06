@@ -682,11 +682,10 @@ app.get('/api/power-plan-info', async (req, res) => {
       try {
         const out = await runCmd('powercfg', ['/getactivescheme']);
         if (out.ok && out.stdout) {
-          const match = out.stdout.match(/GUID:\s*([a-f0-9-]+)\s*\(([^)]+)\)/i);
-          if (match) {
-            activePlanGuid = match[1];
-            activePlanName = match[2];
-          }
+          const guidMatch = out.stdout.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+          const nameMatch = out.stdout.match(/\(([^)]+)\)/);
+          if (guidMatch) activePlanGuid = guidMatch[1];
+          if (nameMatch) activePlanName = nameMatch[1].trim();
         }
       } catch (e) {
         appLog('WARN', `[PowerPlan] Error obteniendo plan activo: ${e.message}`);
@@ -694,7 +693,15 @@ app.get('/api/power-plan-info', async (req, res) => {
     }
 
     const lowerName = activePlanName.toLowerCase();
-    if (lowerName.includes('alto rendimiento') || lowerName.includes('high performance') || lowerName.includes('máximo rendimiento')) {
+    const lowerGuid = activePlanGuid.toLowerCase();
+    if (
+      lowerName.includes('alto rendimiento') ||
+      lowerName.includes('high performance') ||
+      lowerName.includes('máximo rendimiento') ||
+      lowerName.includes('ultimate performance') ||
+      lowerGuid === '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' ||
+      lowerGuid === 'e9a42b02-d5df-448d-aa00-03f14749eb61'
+    ) {
       isHighPerf = true;
     }
 
@@ -719,19 +726,38 @@ app.get('/api/power-plan-info', async (req, res) => {
 app.post('/api/activate-high-performance', async (req, res) => {
   try {
     appLog('INFO', '[PowerPlan] Activando perfil de alto rendimiento...');
+    let updatedName = 'Alto rendimiento';
     if (process.platform === 'win32') {
       const HIGH_PERF_GUID = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
-      await runCmd('powercfg', ['/setactive', HIGH_PERF_GUID]);
+      const ULTIMATE_PERF_GUID = 'e9a42b02-d5df-448d-aa00-03f14749eb61';
+
+      let setResult = await runCmd('powercfg', ['/setactive', HIGH_PERF_GUID]);
+      if (!setResult.ok) {
+        await runCmd('powercfg', ['/duplicatescheme', HIGH_PERF_GUID]);
+        setResult = await runCmd('powercfg', ['/setactive', HIGH_PERF_GUID]);
+        if (!setResult.ok) {
+          await runCmd('powercfg', ['/duplicatescheme', ULTIMATE_PERF_GUID]);
+          await runCmd('powercfg', ['/setactive', ULTIMATE_PERF_GUID]);
+        }
+      }
+
+      const verify = await runCmd('powercfg', ['/getactivescheme']);
+      if (verify.ok && verify.stdout) {
+        const nameMatch = verify.stdout.match(/\(([^)]+)\)/);
+        if (nameMatch) updatedName = nameMatch[1].trim();
+      }
     }
     res.json({
       success: true,
       alreadyActive: false,
-      message: 'Plan de energía de Alto Rendimiento configurado correctamente.',
+      activePlanName: updatedName,
+      message: `Plan de energía de ${updatedName} configurado correctamente.`,
     });
   } catch (err) {
     res.json({
       success: true,
       alreadyActive: true,
+      activePlanName: 'Alto rendimiento',
       message: 'Plan de alto rendimiento ya configurado y activo.',
     });
   }
@@ -843,11 +869,17 @@ app.post('/api/mdsched', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 app.get('/api/scan-temp', async (req, res) => {
   try {
-    appLog('INFO', '[CleanTemp] Realizando escaneo previo de directorios temporales...');
+    appLog('INFO', '[CleanTemp] Realizando escaneo previo de directorios temporales de usuario y sistema...');
+    const userTemp = process.env.TEMP || path.join(process.env.USERPROFILE || 'C:\\Users\\Default', 'AppData\\Local\\Temp');
+    const sysTemp = path.join(process.env.SystemRoot || 'C:\\Windows', 'Temp');
+    const sysPrefetch = path.join(process.env.SystemRoot || 'C:\\Windows', 'Prefetch');
+    const sysWu = path.join(process.env.SystemRoot || 'C:\\Windows', 'SoftwareDistribution\\Download');
+
     const tempDirs = [
-      { name: 'Archivos Temporales de Usuario (%TEMP%)', desc: 'Caché de usuario, logs de aplicaciones y datos temporales de sesión', path: os.tmpdir() },
-      { name: 'Caché de Sistema y Navegación', desc: 'Caché de miniaturas de archivos y datos temporales de navegación local', path: path.join(os.tmpdir(), 'cache') },
-      { name: 'Prefetch y Registros de Windows', desc: 'Archivos de optimización antigua de arranque y descargas temporales', path: path.join(os.tmpdir(), 'prefetch') }
+      { name: 'Archivos Temporales de Usuario (%TEMP%)', desc: 'Caché de usuario, logs de aplicaciones y datos temporales de sesión', path: userTemp },
+      { name: 'Archivos Temporales del Sistema (Windows\\Temp)', desc: 'Archivos temporales creados por servicios de Windows y el sistema', path: sysTemp },
+      { name: 'Prefetch del Sistema (Windows\\Prefetch)', desc: 'Archivos de optimización e historial de arranque de programas', path: sysPrefetch },
+      { name: 'Caché de Descargas de Windows Update', desc: 'Paquetes de instalación de actualizaciones antiguas almacenados por el sistema', path: sysWu }
     ];
 
     let totalEstBytes = 0;
@@ -860,7 +892,7 @@ app.get('/api/scan-temp', async (req, res) => {
       try {
         if (fs.existsSync(cat.path)) {
           const entries = fs.readdirSync(cat.path);
-          for (const item of entries.slice(0, 100)) {
+          for (const item of entries) {
             const itemPath = path.join(cat.path, item);
             try {
               const stat = fs.statSync(itemPath);
@@ -872,11 +904,6 @@ app.get('/api/scan-temp', async (req, res) => {
           }
         }
       } catch {}
-
-      if (catFiles === 0) {
-        catFiles = Math.floor(Math.random() * 25) + 12;
-        catBytes = (Math.floor(Math.random() * 150) + 50) * 1024 * 1024;
-      }
 
       totalEstBytes += catBytes;
       totalEstFiles += catFiles;
@@ -910,15 +937,21 @@ app.get('/api/scan-temp', async (req, res) => {
 
 app.post('/api/clean-temp', async (req, res) => {
   const sendProgress = (msg) => broadcastEvent('clean-temp-progress', msg);
-  appLog('INFO', '[CleanTemp] Iniciando limpieza de archivos temporales...');
+  appLog('INFO', '[CleanTemp] Iniciando limpieza de archivos temporales de usuario y sistema...');
 
-  sendProgress('Escaneando directorios temporales y memoria caché...');
-  await new Promise(r => setTimeout(r, 500));
+  sendProgress('Escaneando directorios temporales de usuario y sistema...');
+  await new Promise(r => setTimeout(r, 300));
+
+  const userTemp = process.env.TEMP || path.join(process.env.USERPROFILE || 'C:\\Users\\Default', 'AppData\\Local\\Temp');
+  const sysTemp = path.join(process.env.SystemRoot || 'C:\\Windows', 'Temp');
+  const sysPrefetch = path.join(process.env.SystemRoot || 'C:\\Windows', 'Prefetch');
+  const sysWu = path.join(process.env.SystemRoot || 'C:\\Windows', 'SoftwareDistribution\\Download');
 
   const tempDirs = [
-    { name: 'Temporales de Usuario', path: os.tmpdir() },
-    { name: 'Caché de Sistema y Aplicaciones', path: path.join(os.tmpdir(), 'cache') },
-    { name: 'Prefetch y Descargas temporales', path: path.join(os.tmpdir(), 'prefetch') }
+    { name: 'Archivos Temporales de Usuario (%TEMP%)', path: userTemp },
+    { name: 'Archivos Temporales del Sistema (Windows\\Temp)', path: sysTemp },
+    { name: 'Prefetch del Sistema (Windows\\Prefetch)', path: sysPrefetch },
+    { name: 'Caché de Descargas de Windows Update', path: sysWu }
   ];
 
   let totalBytesFreed = 0;

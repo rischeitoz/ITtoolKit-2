@@ -2433,3 +2433,83 @@ body {
   border-color: #38BDF8;
   box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
 }
+
+/* ─── Banner CTA Exportar PDF en Diagnóstico del PC ─── */
+.diag-pdf-top-banner {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.diag-pdf-top-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, #38BDF8 0%, #2563EB 100%);
+}
+
+.diag-pdf-top-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diag-pdf-tag {
+  font-size: 11px;
+  font-weight: 800;
+  color: #38BDF8;
+  letter-spacing: 0.8px;
+}
+
+.diag-pdf-heading {
+  font-size: 16px;
+  font-weight: 700;
+  color: #F8FAFC;
+  margin: 0;
+}
+
+.diag-pdf-subtext {
+  font-size: 12.5px;
+  color: #94A3B8;
+  margin: 0;
+  max-width: 620px;
+}
+
+.btn-diag-pdf-hero {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  border: 1px solid #3B82F6;
+  border-radius: 10px;
+  padding: 12px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+}
+
+.btn-diag-pdf-hero:hover {
+  background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+}
+
+.pdf-btn-icon {
+  font-size: 20px;
+}
