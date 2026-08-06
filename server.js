@@ -8,7 +8,7 @@ const http = require('http');
 const { execFile, exec } = require('child_process');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -1443,10 +1443,19 @@ app.post('/api/system-updates-action', async (req, res) => {
 // Static files from renderer
 app.use(express.static(path.join(__dirname, 'renderer')));
 
-app.get('*all', (req, res) => {
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'renderer', 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`IT Toolkit server running on http://0.0.0.0:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`IT Toolkit server running on http://localhost:${PORT}`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n[ERROR] El puerto ${PORT} ya está ocupado por otro proceso.`);
+    console.error(`Puedes usar otro puerto especificando la variable PORT: PORT=3001 npm start\n`);
+  } else {
+    console.error('[ERROR] Error al iniciar el servidor:', err.message);
+  }
 });
