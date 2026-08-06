@@ -35,28 +35,12 @@ npm run dist
 El ejecutable aparece en `dist/ITToolkit.exe`. Este mismo comando se ejecutó
 en el entorno de Anthropic usando Wine para generar el .exe que se te entrega.
 
-## Corrección importante: la ventana de credenciales de administrador no aparecía
+## Eliminación completa de PowerShell
 
-**Causa del problema:** PowerShell no permite combinar `Start-Process -Verb RunAs`
-(que es lo que dispara el aviso de UAC) con `-RedirectStandardOutput` /
-`-RedirectStandardError` en la misma llamada — son parámetros mutuamente
-excluyentes. La primera versión de SFC y DISM intentaba elevar permisos y
-capturar la salida al mismo tiempo con esa combinación, así que PowerShell
-lanzaba un error inmediato y el aviso de UAC **nunca llegaba a mostrarse**.
+A petición del usuario, **ninguna utilidad del proyecto utiliza PowerShell**. 
 
-**Solución aplicada:**
-- Para SFC y DISM: el comando y su redirección de salida (`> archivo 2>&1`)
-  ahora se ejecutan dentro de un `.bat` temporal, y solo se eleva la ejecución
-  de ese `.bat` (`Start-Process -Verb RunAs` sin parámetros de redirección).
-  Así el UAC aparece siempre correctamente.
-- Para **Analizar Visor de Eventos**: ahora también solicita permisos de
-  administrador (mismo mecanismo, con un script de PowerShell temporal en
-  vez de un `.bat`), tal como pediste. Esto además evita fallos silenciosos
-  en entornos donde la lectura del registro de eventos esté restringida por
-  política de grupo.
-- Si el técnico cancela el aviso de UAC (pulsa "No"), la aplicación lo
-  detecta y lo indica claramente en el resultado, en vez de fallar sin
-  explicación.
+- Toda consulta del sistema se realiza vía **CMD, WMIC, REG, SC, `wevtutil` o APIs nativas de Node.js**.
+- La ejecución con permisos elevados (UAC) para SFC, DISM, Diagnóstico de Memoria (`mdsched.exe`) y reinicio de servicios se realiza mediante el método nativo `ShellExecute "runas"` ejecutado con `cscript` (VBScript) sobre consola CMD. Esto garantiza compatibilidad universal sin requerir permisos de ejecución de PowerShell.
 
 ## Notas técnicas sobre la Utilidad 8
 

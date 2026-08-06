@@ -102,6 +102,28 @@ function runExec(cmdStr, timeoutMs = 15000) {
   });
 }
 
+function runElevatedCommand(exe, args = '', windowStyle = 1) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve({ ok: false, error: 'Plataforma no compatible' });
+    const tmp = os.tmpdir();
+    const vbsFile = path.join(tmp, `admin_run_${Date.now()}_${Math.floor(Math.random() * 1000)}.vbs`);
+    const vbsCode = [
+      'Set oShell = CreateObject("Shell.Application")',
+      `oShell.ShellExecute "${exe.replace(/\\/g, '\\\\')}", "${args.replace(/"/g, '""')}", "", "runas", ${windowStyle}`
+    ].join('\r\n');
+    try {
+      fs.writeFileSync(vbsFile, vbsCode, 'utf8');
+      execFile('cscript', ['//nologo', vbsFile], { timeout: 5000 }, (err) => {
+        try { fs.unlinkSync(vbsFile); } catch (e) {}
+        if (err) resolve({ ok: false, error: err.message });
+        else resolve({ ok: true });
+      });
+    } catch (e) {
+      resolve({ ok: false, error: e.message });
+    }
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. BARRA DE ESTADO INFERIOR & EQUIPMENT SUMMARY
 // ─────────────────────────────────────────────────────────────────────────────
@@ -725,8 +747,7 @@ app.post('/api/sfc', async (req, res) => {
   if (process.platform === 'win32') {
     try {
       sendProgress('Abriendo consola CMD con permisos de administrador...');
-      const command = 'powershell -Command "Start-Process cmd.exe -Verb RunAs -ArgumentList \'/k sfc /scannow & pause\'"';
-      await runCmd(command, [], 8000);
+      await runElevatedCommand('cmd.exe', '/k sfc /scannow & pause');
       appLog('INFO', '[SFC] Ventana CMD con SFC lanzada con /k y pause (permanecerá abierta).');
       res.json({
         success: true,
@@ -763,8 +784,7 @@ app.post('/api/dism', async (req, res) => {
   if (process.platform === 'win32') {
     try {
       sendProgress('Abriendo consola CMD con permisos de administrador...');
-      const command = 'powershell -Command "Start-Process cmd.exe -Verb RunAs -ArgumentList \'/k dism /online /cleanup-image /restorehealth & pause\'"';
-      await runCmd(command, [], 8000);
+      await runElevatedCommand('cmd.exe', '/k dism /online /cleanup-image /restorehealth & pause');
       appLog('INFO', '[DISM] Ventana CMD con DISM lanzada con /k y pause (permanecerá abierta).');
       res.json({
         success: true,
@@ -794,12 +814,11 @@ app.post('/api/dism', async (req, res) => {
 });
 
 app.post('/api/mdsched', async (req, res) => {
-  appLog('INFO', '[MDSched] Ejecutando Diagnóstico de Memoria de Windows (mdsched.exe)...');
+  appLog('INFO', '[MDSched] Ejecutando Diagnóstico de Memoria de Windows (mdsched.exe) sin PowerShell...');
 
   if (process.platform === 'win32') {
     try {
-      const command = 'powershell -Command "Start-Process mdsched.exe -Verb RunAs"';
-      await runCmd(command, [], 8000);
+      await runElevatedCommand('mdsched.exe');
       appLog('INFO', '[MDSched] Herramienta mdsched.exe lanzada con permisos de administrador.');
       res.json({
         success: true,
@@ -1253,74 +1272,128 @@ app.get('/api/system-updates', async (req, res) => {
     if (process.platform === 'win32') {
       // 1. Check HP Manufacturer & HP Support Assistant
       try {
-        const mfgRes = await runCmd('powershell', ['-Command', '(Get-WmiObject Win32_ComputerSystem).Manufacturer'], 2500);
-        const mfg = mfgRes.stdout ? mfgRes.stdout.trim() : '';
-        if (/HP|Hewlett-Packard/i.test(mfg)) {
+        const regMfg = await runCmd('reg', ['query', 'HKLM\\HARDWARE\\DESCRIPTION\\System\\BIOS', '/v', 'SystemManufacturer'], 2500);
+        const mfgText = regMfg.stdout ? regMfg.stdout.trim() : '';
+        if (/HP|Hewlett-Packard/i.test(mfgText)) {
           hpSupport.isHpDevice = true;
-          hpSupport.notes = 'Equipo HP detectado. Los controladores del fabricante están coordinados con HP Support Assistant.';
-        }
-
-        // Check if HP Support Assistant service or app folder exists
-        const hpSvc = await runCmd('powershell', ['-Command', 'Get-Service -Name "*HP*" | Select-Object Name, Status, DisplayName | ConvertTo-Json'], 3000);
-        if (hpSvc.ok && hpSvc.stdout && hpSvc.stdout.trim().length > 5) {
-          hpSupport.isInstalled = true;
-          hpSupport.status = 'Instalado y Operativo';
-          hpSupport.version = '9.25.18.0';
-          hpSupport.notes = 'HP Support Assistant está activo en el sistema para actualizaciones de drivers y firmware de HP.';
         } else {
-          const hpFiles = await runCmd('powershell', ['-Command', 'Test-Path "C:\\Program Files*\\HP\\HP Support Framework"'], 2500);
-          if (hpFiles.ok && /True/i.test(hpFiles.stdout)) {
-            hpSupport.isInstalled = true;
-            hpSupport.status = 'Instalado';
-            hpSupport.version = '9.20.10.1';
-            hpSupport.notes = 'HP Support Framework instalado correctamente.';
+          const wmiMfg = await runCmd('wmic', ['computersystem', 'get', 'manufacturer', '/format:csv'], 2500);
+          if (wmiMfg.ok && /HP|Hewlett-Packard/i.test(wmiMfg.stdout)) {
+            hpSupport.isHpDevice = true;
           }
         }
+
+        // Detect HP Support Assistant via native file paths, registry, or service status
+        let isInstalled = false;
+        const hpPaths = [
+          'C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe',
+          'C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe',
+          'C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe',
+          'C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe'
+        ];
+        for (const p of hpPaths) {
+          if (fs.existsSync(p)) {
+            isInstalled = true;
+            break;
+          }
+        }
+
+        if (!isInstalled) {
+          const reg1 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\HP\\HP Support Framework'], 2000);
+          const reg2 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\WOW6432Node\\HP\\HP Support Framework'], 2000);
+          if (reg1.ok || reg2.ok) {
+            isInstalled = true;
+          }
+        }
+
+        if (!isInstalled) {
+          const svcHp = await runCmd('sc', ['query', 'HPAppHelperService'], 2000);
+          const svcHp2 = await runCmd('sc', ['query', 'HPFrameworkService'], 2000);
+          if ((svcHp.ok && !/1060/i.test(svcHp.stdout)) || (svcHp2.ok && !/1060/i.test(svcHp2.stdout))) {
+            isInstalled = true;
+          }
+        }
+
+        hpSupport.isInstalled = isInstalled;
+        hpSupport.status = isInstalled ? 'Instalado y Operativo' : 'No Instalado';
+        hpSupport.version = isInstalled ? 'Detectado en el sistema' : 'No disponible';
+        hpSupport.notes = isInstalled
+          ? (hpSupport.isHpDevice 
+              ? 'HP Support Assistant está activo en el sistema para actualizaciones de drivers y firmware de HP.' 
+              : 'HP Support Framework detectado en el equipo.')
+          : 'HP Support Assistant no está instalado en este sistema. Los controladores se gestionan mediante Windows Update.';
       } catch (e) {
         appLog('WARN', `[SystemUpdates] Error al verificar HP Support: ${e.message}`);
       }
 
-      // 2. Check Windows Update Services real status
+      // 2. Check Windows Update Services real status via WMIC
       try {
-        const svcRes = await runCmd('powershell', ['-Command', 'Get-Service -Name wuauserv, bits, dosvc, cryptsvc | Select-Object Name, DisplayName, Status, StartType | ConvertTo-Json'], 3500);
+        const svcRes = await runCmd('wmic', ['service', 'where', "Name='wuauserv' or Name='bits' or Name='dosvc' or Name='cryptsvc'", 'get', 'DisplayName,Name,StartMode,State', '/format:csv'], 3500);
         if (svcRes.ok && svcRes.stdout) {
-          const parsed = JSON.parse(svcRes.stdout);
-          const list = Array.isArray(parsed) ? parsed : [parsed];
-          services = list.map(s => {
-            const isRunning = String(s.Status).toLowerCase().includes('running') || s.Status === 4;
-            return {
-              name: s.Name,
-              displayName: s.DisplayName || s.Name,
-              status: isRunning ? 'Ejecutándose' : 'Detenido',
-              startType: s.StartType === 2 ? 'Automático' : s.StartType === 3 ? 'Manual' : String(s.StartType || 'Automático'),
-              ok: isRunning
-            };
-          });
+          const lines = svcRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          const parsedSvcs = [];
+          for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(',').map(p => p.trim());
+            if (parts.length >= 5) {
+              const dispName = parts[1];
+              const name = parts[2];
+              const startMode = parts[3];
+              const state = parts[4];
+              if (name) {
+                const isRunning = /running/i.test(state);
+                parsedSvcs.push({
+                  name,
+                  displayName: dispName || name,
+                  status: isRunning ? 'Ejecutándose' : 'Detenido',
+                  startType: /auto/i.test(startMode) ? 'Automático' : /manual/i.test(startMode) ? 'Manual' : startMode,
+                  ok: isRunning
+                });
+              }
+            }
+          }
+          if (parsedSvcs.length > 0) {
+            services = parsedSvcs;
+          }
         }
       } catch (e) {
         appLog('WARN', `[SystemUpdates] Error al consultar servicios de Windows Update: ${e.message}`);
       }
 
-      // 3. Check Windows Update History (HotFixes)
+      // 3. Check Windows Update History (HotFixes) via WMIC
       try {
-        const hfRes = await runCmd('powershell', ['-Command', 'Get-HotFix | Select-Object -First 10 HotFixID, Description, InstalledOn | ConvertTo-Json'], 4000);
+        const hfRes = await runCmd('wmic', ['qfe', 'get', 'HotFixID,Description,InstalledOn', '/format:csv'], 4000);
         if (hfRes.ok && hfRes.stdout) {
-          const parsedHf = JSON.parse(hfRes.stdout);
-          const list = Array.isArray(parsedHf) ? parsedHf : [parsedHf];
-          history = list.filter(Boolean).map(item => ({
-            hotfixId: item.HotFixID || 'KB-Windows',
-            description: item.Description || 'Actualización de Windows',
-            installedOn: item.InstalledOn ? (typeof item.InstalledOn === 'string' ? item.InstalledOn : new Date(item.InstalledOn).toLocaleDateString('es-ES')) : 'Reciente'
-          }));
+          const lines = hfRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          const parsedHistory = [];
+          for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(',').map(p => p.trim());
+            if (parts.length >= 4) {
+              const desc = parts[1] || 'Actualización de Windows';
+              const kb = parts[2] || 'KB-Windows';
+              const rawDate = parts[3];
+              let dateStr = 'Reciente';
+              if (rawDate && rawDate !== 'InstalledOn') dateStr = rawDate;
+              if (kb && kb.startsWith('KB')) {
+                parsedHistory.push({
+                  hotfixId: kb,
+                  description: desc,
+                  installedOn: dateStr
+                });
+              }
+            }
+          }
+          if (parsedHistory.length > 0) {
+            history = parsedHistory.slice(0, 10);
+          }
         }
       } catch (e) {
         appLog('WARN', `[SystemUpdates] Error al consultar historial de actualizaciones: ${e.message}`);
       }
 
-      // 4. Check Pending Reboot
+      // 4. Check Pending Reboot via REG QUERY
       try {
-        const rebootRes = await runCmd('powershell', ['-Command', 'Test-Path "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending"'], 2500);
-        if (rebootRes.ok && /True/i.test(rebootRes.stdout)) {
+        const rebootRes = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Component Based Servicing\\RebootPending'], 2500);
+        if (rebootRes.ok && rebootRes.stdout && !/ERROR/i.test(rebootRes.stdout)) {
           windowsUpdate.rebootPending = true;
           diagnostics.rebootPending = true;
           diagnostics.issuesCount++;
@@ -1332,16 +1405,35 @@ app.get('/api/system-updates', async (req, res) => {
         }
       } catch (e) {}
 
-      // 5. Check Pending Updates Searcher
+      // 5. Check Pending Updates Searcher via VBScript COM Object
       try {
-        const wuSearcher = await runCmd('powershell', ['-Command', '$s = New-Object -ComObject Microsoft.Update.Session; $searcher = $s.CreateUpdateSearcher(); $res = $searcher.Search("IsInstalled=0 and IsHidden=0"); foreach($u in $res.Updates){ write-output ($u.Title + "###" + $u.KBArticleIDs + "###" + $u.Categories[0].Name) }'], 8000);
+        const vbsPath = path.join(os.tmpdir(), `wu_search_${Date.now()}.vbs`);
+        const vbsCode = [
+          'On Error Resume Next',
+          'Set s = CreateObject("Microsoft.Update.Session")',
+          'Set searcher = s.CreateUpdateSearcher()',
+          'Set res = searcher.Search("IsInstalled=0 and IsHidden=0")',
+          'If Err.Number = 0 And Not res Is Nothing Then',
+          '    For Each u In res.Updates',
+          '        strKb = "KB-Windows"',
+          '        If u.KBArticleIDs.Count > 0 Then strKb = "KB" & u.KBArticleIDs(0)',
+          '        strCat = "Actualización de Calidad"',
+          '        If u.Categories.Count > 0 Then strCat = u.Categories(0).Name',
+          '        WScript.Echo u.Title & "###" & strKb & "###" & strCat',
+          '    Next',
+          'End If'
+        ].join('\r\n');
+        fs.writeFileSync(vbsPath, vbsCode, 'utf8');
+        const wuSearcher = await runCmd('cscript', ['//nologo', vbsPath], 6000);
+        try { fs.unlinkSync(vbsPath); } catch (e) {}
+
         if (wuSearcher.ok && wuSearcher.stdout) {
-          const lines = wuSearcher.stdout.split('\n').map(l => l.trim()).filter(Boolean);
+          const lines = wuSearcher.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
           const pending = lines.map(line => {
             const parts = line.split('###');
             return {
               title: parts[0] || 'Actualización de Windows',
-              kb: parts[1] ? `KB${parts[1]}` : 'KB-Windows',
+              kb: parts[1] || 'KB-Windows',
               category: parts[2] || 'Actualización de Calidad',
               size: 'Aproximadamente 120-400 MB'
             };
@@ -1408,26 +1500,26 @@ app.post('/api/system-updates-action', async (req, res) => {
     let message = '';
     if (action === 'open-windows-update') {
       if (process.platform === 'win32') {
-        await runCmd('powershell', ['-Command', 'Start-Process ms-settings:windowsupdate'], 3000);
+        await runCmd('cmd.exe', ['/c', 'start ms-settings:windowsupdate'], 3000);
       }
       message = 'Se ha abierto la ventana oficial de Windows Update en el Panel de Configuración.';
     } else if (action === 'open-hp-support') {
       if (process.platform === 'win32') {
         try {
-          await runCmd('powershell', ['-Command', 'Start-Process hpsupportassistant:'], 3000);
+          await runCmd('cmd.exe', ['/c', 'start hpsupportassistant:'], 3000);
         } catch {
-          await runCmd('powershell', ['-Command', 'Start-Process "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe"'], 3000);
+          await runCmd('cmd.exe', ['/c', 'start "" "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe"'], 3000);
         }
       }
       message = 'Se ha iniciado la aplicación HP Support Assistant en el sistema.';
     } else if (action === 'run-troubleshooter') {
       if (process.platform === 'win32') {
-        await runCmd('powershell', ['-Command', 'msdt.exe /id WindowsUpdateDiagnostic'], 3000);
+        await runCmd('cmd.exe', ['/c', 'msdt.exe /id WindowsUpdateDiagnostic'], 3000);
       }
       message = 'Se ha iniciado el Solucionador de Problemas oficial de Windows Update.';
     } else if (action === 'restart-services') {
       if (process.platform === 'win32') {
-        await runCmd('powershell', ['-Command', 'Start-Process cmd.exe -Verb RunAs -ArgumentList \'/k net stop wuauserv & net stop bits & net start wuauserv & net start bits & pause\'' ], 4000);
+        await runElevatedCommand('cmd.exe', '/k net stop wuauserv & net stop bits & net start wuauserv & net start bits & pause');
       }
       message = 'Se han reiniciado los servicios de Windows Update (wuauserv y bits).';
     } else {

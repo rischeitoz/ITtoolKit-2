@@ -822,13 +822,17 @@ document.getElementById('btn-diagnostico').addEventListener('click', async () =>
 
         const di = document.createElement('div');
         di.className = `diag-disk-item ${d.status}`;
+
+        const cleanBrand = (d.brand || '').replace(/^\(+|\)+$/g, '').trim();
+        const cleanModel = (d.model || 'Disco Local Fijo').replace(/^\(+|\)+$/g, '').trim();
+
         di.innerHTML = `
           <div class="diag-disk-header">
-            <span class="diag-disk-drive">💿 Disco ${d.drive} (${d.brand || 'SSD/HDD'})</span>
+            <span class="diag-disk-drive">💿 Disco ${d.drive} ${cleanBrand ? `(${cleanBrand})` : ''}</span>
             <span class="diag-card-status-badge ${d.status}">${statusLabel}</span>
           </div>
-          <div style="font-size:12px;color:var(--accent-light);font-family:monospace;margin:3px 0 6px 0;">
-            ${d.model || 'Disco Físico'}
+          <div class="diag-disk-model">
+            ${cleanModel}
           </div>
           <div class="diag-disk-details">
             <b>${d.freeGb} GB</b> libres de ${d.totalGb} GB
@@ -2220,9 +2224,9 @@ document.getElementById('btn-sysupdates').addEventListener('click', async () => 
 
 function renderSystemUpdatesPanel(data) {
   clearResults('Comprobar Actualizaciones del Sistema');
-  addSectionTitle('Resumen de Actualizaciones y Servicios del Sistema');
+  addSectionTitle('Resumen de Actualizaciones del Sistema');
 
-  const { windowsUpdate, hpSupport, history, services, diagnostics } = data;
+  const { windowsUpdate, hpSupport, history } = data;
 
   // 1. SECCIÓN: WINDOWS UPDATE
   const wuCard = document.createElement('div');
@@ -2296,25 +2300,28 @@ function renderSystemUpdatesPanel(data) {
   hpCard.className = 'net-card';
   hpCard.style.marginBottom = '20px';
 
-  const hpStatusColor = hpSupport.isInstalled ? '#34D399' : (hpSupport.isHpDevice ? '#FBBF24' : '#94A3B8');
-  const hpBadgeText = hpSupport.isHpDevice ? '💻 HP SUPPORT ASSISTANT (EQUIPO HP DETECTADO)' : '💻 HP SUPPORT FRAMEWORK (GENÉRICO)';
+  const isHpInstalled = hpSupport && hpSupport.isInstalled;
+  const hpStatusColor = isHpInstalled ? '#34D399' : '#F87171';
+  const hpBadgeText = hpSupport.isHpDevice ? '💻 HP SUPPORT ASSISTANT (EQUIPO HP)' : '💻 HP SUPPORT ASSISTANT';
 
   hpCard.innerHTML = `
     <div class="net-card-header">
       <div>
-        <span class="net-badge" style="background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(168, 85, 247, 0.3);">
+        <span class="net-badge" style="background: ${isHpInstalled ? 'rgba(168, 85, 247, 0.15)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isHpInstalled ? '#C084FC' : '#FCA5A5'}; border: 1px solid ${isHpInstalled ? 'rgba(168, 85, 247, 0.3)' : 'rgba(239, 68, 68, 0.3)'};">
           ${hpBadgeText}
         </span>
         <h3 class="net-title" style="margin-top: 6px;">
           <span>Controladores y Firmware del Fabricante HP</span>
         </h3>
         <div style="font-size: 11.5px; color: #94A3B8; margin-top: 2px;">
-          Versión detectada: ${hpSupport.version}
+          Estado de Instalación: <b style="color: ${hpStatusColor};">${isHpInstalled ? 'Instalado' : 'No instalado'}</b>
         </div>
       </div>
       <div style="text-align: right;">
         <span style="font-size: 11px; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Estado HP Support</span>
-        <div style="font-size: 14px; font-weight: 700; color: ${hpStatusColor};">${hpSupport.status}</div>
+        <div style="font-size: 14px; font-weight: 700; color: ${hpStatusColor};">
+          ${isHpInstalled ? '🟢 Instalado y Operativo' : '🔴 No Instalado'}
+        </div>
       </div>
     </div>
 
@@ -2325,7 +2332,7 @@ function renderSystemUpdatesPanel(data) {
       </div>
       <div class="net-detail-item">
         <span class="net-detail-label">Aplicación HP Support</span>
-        <span class="net-detail-value">${hpSupport.appName} (${hpSupport.version})</span>
+        <span class="net-detail-value">${hpSupport.appName}</span>
       </div>
       <div class="net-detail-item" style="grid-column: 1 / -1;">
         <span class="net-detail-label">Detalles y Cobertura de Controladores</span>
@@ -2333,20 +2340,29 @@ function renderSystemUpdatesPanel(data) {
       </div>
     </div>
 
-    ${hpSupport.isInstalled ? `
-      <div style="margin-top: 14px;">
+    ${!isHpInstalled ? `
+      <div style="margin-top: 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 12px 16px; color: #FCA5A5; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+        <span>⚠️</span> <b>HP Support Assistant no está instalado en este equipo.</b>
+      </div>
+    ` : ''}
+
+    <div style="margin-top: 14px;">
+      ${isHpInstalled ? `
         <button class="btn-net-act primary" id="btn-hp-open" style="width: 100%;">
           🚀 Abrir HP Support Assistant para Buscar Drivers
         </button>
-      </div>
-    ` : ''}
+      ` : `
+        <button class="btn-net-act" id="btn-hp-open" disabled style="width: 100%; opacity: 0.45; cursor: not-allowed; background: rgba(255, 255, 255, 0.05); color: #94A3B8; border: 1px solid rgba(255, 255, 255, 0.1);">
+          🔒 HP Support Assistant No Instalado (No disponible)
+        </button>
+      `}
+    </div>
   `;
   resultsEl.appendChild(hpCard);
 
   // 3. SECCIÓN: HISTORIAL DE ACTUALIZACIONES
   const histCard = document.createElement('div');
   histCard.className = 'net-card';
-  histCard.style.marginBottom = '20px';
 
   let historyHtml = '';
   if (history && history.length > 0) {
@@ -2361,13 +2377,17 @@ function renderSystemUpdatesPanel(data) {
             </tr>
           </thead>
           <tbody>
-            ${history.map(item => `
-              <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #E2E8F0;">
-                <td style="padding: 10px; font-weight: 700; color: #60A5FA;">${item.hotfixId}</td>
-                <td style="padding: 10px;">${item.description}</td>
-                <td style="padding: 10px; color: #34D399; font-weight: 600;">${item.installedOn}</td>
-              </tr>
-            `).join('')}
+            ${history.map(item => {
+              const rawDate = item.installedOn;
+              const displayDate = (!rawDate || rawDate === 'Invalid Date' || String(rawDate).includes('Invalid')) ? 'Reciente' : rawDate;
+              return `
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #E2E8F0;">
+                  <td style="padding: 10px; font-weight: 700; color: #60A5FA;">${item.hotfixId}</td>
+                  <td style="padding: 10px;">${item.description}</td>
+                  <td style="padding: 10px; color: #34D399; font-weight: 600;">${displayDate}</td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -2395,98 +2415,6 @@ function renderSystemUpdatesPanel(data) {
   `;
   resultsEl.appendChild(histCard);
 
-  // 4. SECCIÓN: ESTADO DE SERVICIOS
-  const svcCard = document.createElement('div');
-  svcCard.className = 'net-card';
-  svcCard.style.marginBottom = '20px';
-
-  svcCard.innerHTML = `
-    <div class="net-card-header">
-      <div>
-        <span class="net-badge" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3);">
-          ⚙️ ESTADO DE SERVICIOS
-        </span>
-        <h3 class="net-title" style="margin-top: 6px;">
-          <span>Servicios del Motor de Actualización de Windows</span>
-        </h3>
-      </div>
-      <button class="btn-net-act" id="btn-restart-services" style="padding: 6px 12px; font-size: 12px;">
-        🔄 Reiniciar Servicios de Actualización
-      </button>
-    </div>
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px;">
-      ${services.map(s => `
-        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid ${s.ok ? 'rgba(52, 211, 153, 0.2)' : 'rgba(239, 68, 68, 0.3)'}; border-radius: 8px; padding: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-weight: 700; color: #F8FAFC; font-size: 13px;">${s.name}</span>
-            <span style="font-size: 11px; font-weight: 700; color: ${s.ok ? '#34D399' : '#EF4444'};">
-              ${s.ok ? '🟢 ' + s.status : '🔴 ' + s.status}
-            </span>
-          </div>
-          <div style="font-size: 11.5px; color: #94A3B8;">${s.displayName}</div>
-          <div style="font-size: 10.5px; color: #64748B; margin-top: 4px;">Tipo de inicio: ${s.startType}</div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-  resultsEl.appendChild(svcCard);
-
-  // 5. SECCIÓN: DIAGNÓSTICO Y DETECCIÓN DE PROBLEMAS
-  const diagCard = document.createElement('div');
-  diagCard.className = 'net-card';
-
-  const diagColor = diagnostics.issuesCount > 0 ? '#FBBF24' : '#34D399';
-
-  let issuesHtml = '';
-  if (diagnostics.issues && diagnostics.issues.length > 0) {
-    issuesHtml = `
-      <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
-        ${diagnostics.issues.map(iss => `
-          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 10px 14px; color: #FBBF24;">
-            <div style="font-weight: 700; font-size: 13px;">⚠️ ${iss.title}</div>
-            <div style="font-size: 12px; color: #CBD5E1; margin-top: 2px;">${iss.description}</div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  } else {
-    issuesHtml = `
-      <div style="margin-top: 12px; background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.2); border-radius: 8px; padding: 12px 16px; color: #34D399; font-size: 13px;">
-        🟢 No se han detectado bloqueos ni incidencias en el motor de actualizaciones de Windows.
-      </div>
-    `;
-  }
-
-  diagCard.innerHTML = `
-    <div class="net-card-header">
-      <div>
-        <span class="net-badge" style="background: rgba(239, 68, 68, 0.15); color: #FCA5A5; border: 1px solid rgba(239, 68, 68, 0.3);">
-          🩺 DIAGNÓSTICO DE ACTUALIZACIONES
-        </span>
-        <h3 class="net-title" style="margin-top: 6px;">
-          <span>Análisis de Incidencias y Caché de Descarga</span>
-        </h3>
-      </div>
-      <div style="text-align: right;">
-        <span style="font-size: 11px; color: #94A3B8; text-transform: uppercase;">Diagnóstico Global</span>
-        <div style="font-size: 14px; font-weight: 700; color: ${diagColor};">
-          ${diagnostics.issuesCount > 0 ? `⚠️ ${diagnostics.issuesCount} Incidencia(s) Detectada(s)` : '🟢 Estado Saludable'}
-        </div>
-      </div>
-    </div>
-
-    ${issuesHtml}
-
-    <div style="margin-top: 14px; font-size: 12.5px; color: #CBD5E1;">
-      <b>Recomendaciones del Diagnosticador:</b>
-      <ul style="margin: 6px 0 0 18px; padding: 0;">
-        ${(diagnostics.recommendations || []).map(r => `<li style="margin-bottom: 4px;">${r}</li>`).join('')}
-      </ul>
-    </div>
-  `;
-  resultsEl.appendChild(diagCard);
-
   // Event handlers
   document.getElementById('btn-wu-open').addEventListener('click', async () => {
     try {
@@ -2506,8 +2434,9 @@ function renderSystemUpdatesPanel(data) {
     }
   });
 
-  if (document.getElementById('btn-hp-open')) {
-    document.getElementById('btn-hp-open').addEventListener('click', async () => {
+  const hpBtn = document.getElementById('btn-hp-open');
+  if (hpBtn && !hpBtn.disabled) {
+    hpBtn.addEventListener('click', async () => {
       try {
         const res = await window.api.runSystemUpdatesAction({ action: 'open-hp-support' });
         addBanner(res.message, 'ok');
@@ -2516,16 +2445,4 @@ function renderSystemUpdatesPanel(data) {
       }
     });
   }
-
-  document.getElementById('btn-restart-services').addEventListener('click', async () => {
-    setBusy(true, 'Solicitando reinicio de servicios de Windows Update...');
-    try {
-      const res = await window.api.runSystemUpdatesAction({ action: 'restart-services' });
-      addBanner(res.message, 'ok');
-    } catch (e) {
-      addBanner(`Error al reiniciar servicios: ${e.message}`, 'error');
-    } finally {
-      setBusy(false);
-    }
-  });
 }
