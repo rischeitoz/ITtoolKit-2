@@ -34,6 +34,35 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
+// ── Panel de Log ─────────────────────────────────────────────────────────────
+const logPanel = document.getElementById('log-panel');
+const logBody = document.getElementById('log-body');
+
+document.getElementById('btn-log-toggle').addEventListener('click', () => {
+  logPanel.classList.toggle('visible');
+});
+document.getElementById('btn-log-close').addEventListener('click', () => {
+  logPanel.classList.remove('visible');
+});
+document.getElementById('btn-clear-log-view').addEventListener('click', () => {
+  logBody.innerHTML = '';
+});
+document.getElementById('btn-open-log-folder').addEventListener('click', () => {
+  window.api.openLogFolder();
+});
+
+window.api.getLogPath().then(p => {
+  if (p) document.getElementById('log-file-path').textContent = p;
+});
+
+window.api.onAppLog((entry) => {
+  const line = document.createElement('p');
+  line.className = `log-line ${entry.level || 'INFO'}`;
+  line.textContent = `[${entry.ts}] [${entry.level}] ${entry.message}`;
+  logBody.appendChild(line);
+  logBody.scrollTop = logBody.scrollHeight;
+});
+
 // ── Helpers de UI ────────────────────────────────────────────────────────────
 function setBusy(busy, text = '') {
   progressBar.classList.toggle('active', busy);

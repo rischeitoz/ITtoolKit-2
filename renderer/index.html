@@ -11,7 +11,9 @@
   <div class="topbar">
     <span class="topbar-icon">🛠️</span>
     <span class="topbar-title">IT Toolkit - Diagnóstico y Mantenimiento</span>
-    <div class="topbar-right"></div>
+    <div class="topbar-right">
+      <button class="log-toggle" id="btn-log-toggle" title="Ver log de actividad">📄 Log</button>
+    </div>
   </div>
 
   <div class="main">
@@ -152,6 +154,20 @@
       </div>
       <div class="results" id="results"></div>
     </div>
+  </div>
+
+  <!-- Panel de Log (oculto por defecto) -->
+  <div class="log-panel" id="log-panel">
+    <div class="log-header">
+      <span>📄 Log de actividad</span>
+      <div class="log-header-actions">
+        <span id="log-file-path" class="log-path"></span>
+        <button id="btn-open-log-folder">📁 Abrir carpeta</button>
+        <button id="btn-clear-log-view">🗑 Limpiar vista</button>
+        <button id="btn-log-close">✕</button>
+      </div>
+    </div>
+    <div class="log-body" id="log-body"></div>
   </div>
 
   <div class="statusbar" id="statusbar"></div>
