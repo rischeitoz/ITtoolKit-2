@@ -1,9 +1,9 @@
-// IT Toolkit Web API Bridge (Replaces Electron IPC in web environment)
+// HCPToolKit Web API Bridge (Replaces Electron IPC in web environment)
 
 (function () {
   // If running in Electron native desktop app, preload.js already provides window.api
   if (window.api && window.api.isElectron) {
-    console.log('[IT Toolkit] Entorno Electron nativo detectado. Usando IPC de Electron.');
+    console.log('[HCPToolKit] Entorno Electron nativo detectado. Usando IPC de Electron.');
     return;
   }
   const eventCallbacks = {

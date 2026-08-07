@@ -8,7 +8,7 @@ const fs    = require('fs');
 // ─────────────────────────────────────────────────────────────────────────────
 // LOG DE ACTIVIDAD
 // ─────────────────────────────────────────────────────────────────────────────
-const LOG_DIR = path.join(os.homedir(), 'ITToolkit_Logs');
+const LOG_DIR = path.join(os.homedir(), 'HCPToolKit_Logs');
 let logStream   = null;
 let logFilePath = null;
 let mainWindow;
@@ -17,9 +17,9 @@ function initLog() {
   try {
     if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const file  = path.join(LOG_DIR, `ITToolkit_${stamp}.log`);
+    const file  = path.join(LOG_DIR, `HCPToolKit_${stamp}.log`);
     logStream   = fs.createWriteStream(file, { flags: 'a', encoding: 'utf8' });
-    appLog('INFO', `=== IT Toolkit iniciado. Log: ${file} ===`);
+    appLog('INFO', `=== HCPToolKit iniciado. Log: ${file} ===`);
     appLog('INFO', `Equipo: ${os.hostname()} | Usuario: ${os.userInfo().username} | OS: ${os.type()} ${os.release()}`);
     return file;
   } catch (e) { console.error('Log init error:', e.message); return null; }
@@ -40,11 +40,15 @@ function appLog(level, message) {
 // VENTANA PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 function createWindow() {
+  const icoPath = path.join(__dirname, 'build', 'icon.ico');
+  const pngPath = path.join(__dirname, 'renderer', 'logo.png');
+  const iconPath = fs.existsSync(icoPath) ? icoPath : (fs.existsSync(pngPath) ? pngPath : undefined);
+
   mainWindow = new BrowserWindow({
     width: 1150, height: 750, minWidth: 950, minHeight: 620,
-    title: 'IT Toolkit - Diagnóstico y Mantenimiento',
+    title: 'HCPToolKit - Diagnóstico y Mantenimiento',
     backgroundColor: '#F5F6F8',
-    icon: path.join(__dirname, 'build', 'icon.ico'),
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   mainWindow.setMenuBarVisibility(false);
@@ -53,7 +57,7 @@ function createWindow() {
 
 app.whenReady().then(() => { logFilePath = initLog(); createWindow(); });
 app.on('window-all-closed', () => {
-  appLog('INFO', '=== IT Toolkit cerrado ===');
+  appLog('INFO', '=== HCPToolKit cerrado ===');
   if (logStream) logStream.end();
   if (process.platform !== 'darwin') app.quit();
 });
@@ -1001,7 +1005,7 @@ function runCmdVisible(command, label, event, channel) {
       `title ${windowTitle}`,
       'echo.',
       `echo  ====================================================`,
-      `echo   IT Toolkit - ${label}`,
+      `echo   HCPToolKit - ${label}`,
       `echo  ====================================================`,
       'echo.',
       command,

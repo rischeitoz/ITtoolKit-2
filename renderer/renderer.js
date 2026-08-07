@@ -163,7 +163,7 @@ async function updateStatusBar() {
   const now = new Date();
   const fecha = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   statusBar.textContent =
-    `IT Toolkit v${APP_VERSION}   |   ${fecha}   |   Equipo: ${s.computerName}   |   ` +
+    `HCPToolKit v${APP_VERSION}   |   ${fecha}   |   Equipo: ${s.computerName}   |   ` +
     `Usuario: ${s.userName}   |   SO: ${s.operatingSystem}   |   Encendido hace: ${s.uptimeText}`;
 }
 updateStatusBar();
@@ -1074,7 +1074,7 @@ function buildDiagnosticPdfHtml(r, summary) {
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Informe de Diagnóstico del PC - IT Toolkit</title>
+  <title>Informe de Diagnóstico del PC - HCPToolKit</title>
   <style>
     @page { size: A4; margin: 12mm; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0F172A; margin: 0; padding: 0; background: #FFFFFF; font-size: 13px; line-height: 1.5; }
@@ -1110,7 +1110,7 @@ function buildDiagnosticPdfHtml(r, summary) {
 </head>
 <body>
   <div class="header">
-    <h1>IT TOOLKIT — INFORME DE DIAGNÓSTICO DEL PC</h1>
+    <h1>HCPTOOLKIT — INFORME DE DIAGNÓSTICO DEL PC</h1>
     <div class="sub">Auditoría completa de hardware, componentes principales y rendimiento del equipo</div>
     <div class="meta-grid">
       <div class="meta-item"><span class="meta-lbl">Equipo / Host</span><span class="meta-val">${computerName}</span></div>
@@ -1167,7 +1167,7 @@ function buildDiagnosticPdfHtml(r, summary) {
   </div>
 
   <div class="footer">
-    Documento oficial generado por IT Toolkit. Todos los datos han sido auditados en tiempo real.
+    Documento oficial generado por HCPToolKit. Todos los datos han sido auditados en tiempo real.
   </div>
 </body>
 </html>`;
@@ -1175,7 +1175,7 @@ function buildDiagnosticPdfHtml(r, summary) {
 
 function buildDiagnosticPdfText(r, summary) {
   const l = [];
-  l.push('INFORME DE DIAGNÓSTICO DEL PC - IT TOOLKIT');
+  l.push('INFORME DE DIAGNÓSTICO DEL PC - HCPTOOLKIT');
   l.push('='.repeat(55));
   l.push(`Fecha: ${new Date().toLocaleString('es-ES')}`);
   l.push(`Equipo: ${summary?.computerName || 'PC'}  |  Usuario: ${summary?.userName || 'Usuario'}`);
@@ -1687,7 +1687,7 @@ function buildReportHtml(summary, report) {
     td,th{border:1px solid #E2E4E9;padding:6px 8px;text-align:left;}
     th{background:#F5F6F8;} ul{padding-left:18px;}
   </style></head><body>
-    <h1>Informe del Visor de Eventos - IT Toolkit</h1>
+    <h1>Informe del Visor de Eventos - HCPToolKit</h1>
     <div class="meta">Fecha: ${new Date().toLocaleString('es-ES')}<br/>
     Equipo: ${summary.computerName} | Usuario: ${summary.userName} | SO: ${summary.operatingSystem}<br/>
     Rango: últimos ${report.daysBack} días</div>
@@ -1705,7 +1705,7 @@ function buildReportHtml(summary, report) {
 
 function buildReportText(summary, report) {
   const l = [];
-  l.push('INFORME DEL VISOR DE EVENTOS - IT TOOLKIT');
+  l.push('INFORME DEL VISOR DE EVENTOS - HCPTOOLKIT');
   l.push('='.repeat(50));
   l.push(`Fecha: ${new Date().toLocaleString('es-ES')}`);
   l.push(`Equipo: ${summary.computerName}  |  Usuario: ${summary.userName}  |  SO: ${summary.operatingSystem}`);

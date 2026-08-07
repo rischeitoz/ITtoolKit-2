@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: true }));
 // ─────────────────────────────────────────────────────────────────────────────
 // LOG DE ACTIVIDAD & SSE (Server-Sent Events)
 // ─────────────────────────────────────────────────────────────────────────────
-const LOG_DIR = path.join(os.homedir(), 'ITToolkit_Logs');
+const LOG_DIR = path.join(os.homedir(), 'HCPToolKit_Logs');
 let logFilePath = null;
 let logStream = null;
 const logHistory = [];
@@ -27,14 +27,14 @@ function initLog() {
   try {
     if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    logFilePath = path.join(LOG_DIR, `ITToolkit_${stamp}.log`);
+    logFilePath = path.join(LOG_DIR, `HCPToolKit_${stamp}.log`);
     logStream = fs.createWriteStream(logFilePath, { flags: 'a', encoding: 'utf8' });
-    appLog('INFO', `=== IT Toolkit iniciado. Log: ${logFilePath} ===`);
+    appLog('INFO', `=== HCPToolKit iniciado. Log: ${logFilePath} ===`);
     const user = os.userInfo ? (os.userInfo().username || 'user') : 'user';
     appLog('INFO', `Equipo: ${os.hostname()} | Usuario: ${user} | OS: ${os.type()} ${os.release()} (${os.arch()})`);
   } catch (e) {
     console.error('Log init error:', e.message);
-    logFilePath = path.join(os.tmpdir(), 'ITToolkit.log');
+    logFilePath = path.join(os.tmpdir(), 'HCPToolKit.log');
   }
   return logFilePath;
 }
@@ -1638,7 +1638,7 @@ app.get('*', (req, res) => {
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`IT Toolkit server running on http://localhost:${PORT}`);
+  console.log(`HCPToolKit server running on http://localhost:${PORT}`);
 });
 
 server.on('error', (err) => {

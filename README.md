@@ -1,4 +1,4 @@
-# IT Toolkit - Diagnóstico y Mantenimiento (Electron)
+# HCPToolKit - Diagnóstico y Mantenimiento (Electron)
 
 Aplicación de escritorio para el departamento de IT, compilada como `.exe` de
 Windows portable (un único archivo, sin instalación).
