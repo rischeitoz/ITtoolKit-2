@@ -42,9 +42,9 @@ function appLog(level, message) {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1150, height: 750, minWidth: 950, minHeight: 620,
-    title: 'HCPToolKit - Diagnóstico y Mantenimiento',
+    title: 'IT Toolkit - Diagnóstico y Mantenimiento',
     backgroundColor: '#F5F6F8',
-    icon: path.join(__dirname, 'renderer', 'icon.png'),
+    icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   mainWindow.setMenuBarVisibility(false);

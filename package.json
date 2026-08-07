@@ -1,7 +1,7 @@
 {
-  "name": "hcptoolkit",
+  "name": "it-toolkit",
   "version": "1.0.0",
-  "description": "HCPToolKit - Diagnóstico y Mantenimiento",
+  "description": "IT Toolkit - Diagnóstico y Mantenimiento",
   "main": "main.js",
   "author": "IT Department",
   "license": "UNLICENSED",
