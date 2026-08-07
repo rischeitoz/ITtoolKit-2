@@ -852,6 +852,28 @@ function renderPingResultsReport(containerEl, r) {
 // ═══════════════════════════════════════════════════════════════════════════════
 document.getElementById('btn-info-equipo')?.addEventListener('click', async () => {
   clearResults('Información del Equipo');
+
+  // Animación de Carga Visual fluida y atractiva
+  const loadingEl = document.createElement('div');
+  loadingEl.className = 'sysinfo-loading-container panel-fade-in';
+  loadingEl.innerHTML = `
+    <div class="sysinfo-loading-scanner">
+      <div class="sysinfo-scanner-ring"></div>
+      <div class="sysinfo-scanner-core">
+        <span class="sysinfo-loading-icon">💻</span>
+      </div>
+    </div>
+    <div class="sysinfo-loading-title">Obteniendo Datos e Identificación del Equipo...</div>
+    <div class="sysinfo-loading-subtitle">Consultando arquitectura, nombre NetBIOS/DNS, dominio Active Directory/Grupo y parámetros del sistema</div>
+    <div class="sysinfo-loading-steps-strip">
+      <span class="step-chip active">🔍 Nombre NetBIOS / Hostname</span>
+      <span class="step-chip active">🛡️ Pertenencia a Dominio</span>
+      <span class="step-chip active">👤 Usuario e Identificación</span>
+      <span class="step-chip active">⚙️ Registro HKLM & Hardware</span>
+    </div>
+  `;
+  resultsEl.appendChild(loadingEl);
+
   setBusy(true, 'Obteniendo datos e identificación del sistema...');
   try {
     const info = await window.api.getSystemInfoDetails();
@@ -894,7 +916,7 @@ document.getElementById('btn-info-equipo')?.addEventListener('click', async () =
           <input type="text" id="input-computer-name" class="info-text-input" value="${info.computerName}" placeholder="Nombre del PC (máx. 15 caracteres)" />
           <button id="btn-save-computer-name" class="info-action-btn primary">💾 Cambiar Nombre</button>
         </div>
-        <small class="info-field-help">⚠️ Cambiar el nombre requiere reiniciar el sistema para tener efecto. Sin usar PowerShell.</small>
+        <small class="info-field-help">⚠️ Cambiar el nombre requiere reiniciar el sistema para tener efecto.</small>
       </div>
       <div id="status-computer-name" class="info-feedback-box" style="display:none;"></div>
     `;

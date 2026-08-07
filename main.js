@@ -2143,38 +2143,77 @@ ipcMain.handle('get-system-info-details', async () => {
   let workgroup = 'WORKGROUP';
 
   if (process.platform === 'win32') {
+    // 1. WMIC List format
     try {
-      const csRes = await runCmd('wmic', ['computersystem', 'get', 'Domain,PartOfDomain,Workgroup', '/format:csv'], 3000);
+      const csRes = await runCmd('wmic', ['computersystem', 'get', 'Domain,PartOfDomain,Workgroup', '/format:list'], 3000);
       if (csRes.ok && csRes.stdout) {
-        const lines = csRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const lines = csRes.stdout.split(/\r?\n/);
         for (const line of lines) {
-          if (line.startsWith('Node,') || line.toLowerCase().includes('domain,')) continue;
-          const parts = line.split(',').map(p => p.trim());
-          if (parts.length >= 4) {
-            const dom = parts[1];
-            const partOf = parts[2].toUpperCase() === 'TRUE';
-            const wg = parts[3];
-            if (dom) domain = dom;
-            isPartOfDomain = partOf;
-            if (wg) workgroup = wg;
+          const [k, ...v] = line.split('=');
+          if (!k || v.length === 0) continue;
+          const key = k.trim().toLowerCase();
+          const val = v.join('=').trim();
+          if (key === 'domain' && val) domain = val;
+          if (key === 'partofdomain') {
+            isPartOfDomain = val.toUpperCase() === 'TRUE' || val === '1';
           }
+          if (key === 'workgroup' && val) workgroup = val;
         }
       }
     } catch (e) {
       appLog('WARN', `[SystemInfo] Error consultando domain/workgroup con wmic: ${e.message}`);
     }
 
-    if (domain === 'WORKGROUP' && !isPartOfDomain) {
-      try {
-        const netRes = await runCmd('net', ['config', 'workstation'], 3000);
-        if (netRes.ok && netRes.stdout) {
-          const domMatch = /Dominio de la estación de trabajo\s+(.+)/i.exec(netRes.stdout) ||
-                           /Workstation domain\s+(.+)/i.exec(netRes.stdout);
-          if (domMatch && domMatch[1]) {
-            domain = domMatch[1].trim();
+    // 2. Variables de entorno de Windows (USERDNSDOMAIN, USERDOMAIN)
+    const envUserDnsDomain = process.env.USERDNSDOMAIN;
+    const envUserDomain = process.env.USERDOMAIN;
+    if (envUserDnsDomain && envUserDnsDomain.trim().length > 0) {
+      domain = envUserDnsDomain.trim();
+      isPartOfDomain = true;
+    } else if (envUserDomain && envUserDomain.trim().length > 0) {
+      const uDom = envUserDomain.trim().toUpperCase();
+      const hName = hostname.toUpperCase();
+      if (uDom !== 'WORKGROUP' && uDom !== 'GRUPO_TRABAJO' && uDom !== hName) {
+        if (!domain || domain === 'WORKGROUP') domain = uDom;
+        isPartOfDomain = true;
+      }
+    }
+
+    // 3. Command: net config workstation
+    try {
+      const netRes = await runCmd('net', ['config', 'workstation'], 3000);
+      if (netRes.ok && netRes.stdout) {
+        const domMatch = /Dominio de la estación de trabajo\s+(.+)/i.exec(netRes.stdout) ||
+                         /Workstation domain\s+(.+)/i.exec(netRes.stdout);
+        if (domMatch && domMatch[1]) {
+          const domVal = domMatch[1].trim();
+          if (domVal) {
+            domain = domVal;
+            const upper = domVal.toUpperCase();
+            if (upper !== 'WORKGROUP' && upper !== 'GRUPO_TRABAJO' && upper !== hostname.toUpperCase()) {
+              isPartOfDomain = true;
+            }
           }
         }
-      } catch {}
+      }
+    } catch (e) {}
+
+    // 4. Registro de Windows: HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters
+    try {
+      const regKey = 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters';
+      const domReg = await runCmd('reg', ['query', regKey, '/v', 'Domain']);
+      const nvDomReg = await runCmd('reg', ['query', regKey, '/v', 'NV Domain']);
+      const dVal = /Domain\s+REG_SZ\s+(.+)/i.exec(domReg.stdout || '')?.[1]?.trim() ||
+                   /NV Domain\s+REG_SZ\s+(.+)/i.exec(nvDomReg.stdout || '')?.[1]?.trim();
+      if (dVal && dVal.length > 0 && dVal.toUpperCase() !== 'WORKGROUP' && dVal.toUpperCase() !== 'GRUPO_TRABAJO') {
+        domain = dVal;
+        isPartOfDomain = true;
+      }
+    } catch (e) {}
+
+    // Validación final: Si el dominio no es WORKGROUP o GRUPO_TRABAJO, se marca como Dominio
+    if (domain && domain.toUpperCase() !== 'WORKGROUP' && domain.toUpperCase() !== 'GRUPO_TRABAJO') {
+      isPartOfDomain = true;
     }
   }
 

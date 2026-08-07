@@ -59,7 +59,7 @@ A petición del usuario, **ninguna utilidad del proyecto utiliza PowerShell**.
 
 ## Notas técnicas sobre la Utilidad 7
 
-- Se consulta el log **System** de Windows vía PowerShell (`Get-WinEvent`),
+- Se consulta el log **System** de Windows vía `wevtutil.exe` (CMD nativo de Windows),
   filtrando por los IDs de evento asociados a: Kernel-Power (41, 6008),
   reinicios/apagados normales (1074, 6005, 6006), BugCheck (1001),
   WHEA-Logger (17,18,19,47), errores de disco/NTFS (7,11,51,153,55) y
