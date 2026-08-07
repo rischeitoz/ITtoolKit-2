@@ -42,6 +42,62 @@ body.dark-theme {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+body.dark-theme * {
+  scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+/* ─── Barras de Desplazamiento (Scrollbars) Personalizadas, Fluidas y Modernas ─── */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.03);
+  border-radius: 12px;
+  margin: 3px;
+}
+
+body.dark-theme ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2563EB;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:hover {
+  background: #3B82F6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #1D4ED8;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:active {
+  background: #60A5FA;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -53,6 +109,13 @@ body {
   flex-direction: column;
   overflow: hidden;
   transition: background 0.25s ease, color 0.25s ease;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4), 0 0 24px rgba(15, 23, 42, 0.12);
+}
+
+body.dark-theme {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 32px rgba(0, 0, 0, 0.5);
 }
 
 /* ─── Topbar ─── */
@@ -68,8 +131,8 @@ body {
   font-weight: 600;
   flex-shrink: 0;
   gap: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.25);
+  box-shadow: inset 0 -1px 0 rgba(59, 130, 246, 0.15), 0 4px 16px rgba(0, 0, 0, 0.22);
 }
 
 .topbar-left {
@@ -265,11 +328,17 @@ body {
   flex-direction: column;
   flex-shrink: 0;
   min-height: 0;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.25s ease, background 0.25s ease;
 }
 
 .tab-bar {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
@@ -277,20 +346,21 @@ body {
   flex: 1;
   padding: 8px 10px;
   border: 1px solid var(--card-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--card);
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: all 0.15s;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tab-btn.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
 }
 
 .tab-btn:not(.active):hover {
@@ -306,6 +376,9 @@ body {
   flex: 1;
   min-height: 0;
   opacity: 0;
+  padding-right: 6px;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 
 .tab-content.active {
@@ -331,19 +404,20 @@ body {
   gap: 12px;
   background: var(--card);
   border: 1px solid var(--card-border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 14px 16px;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
   flex-shrink: 0;
-  transition: background 0.12s, border-color 0.12s, transform 0.1s;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
 }
 
 .card:hover:not(:disabled) {
   background: var(--accent-light);
   border-color: var(--accent);
-  transform: translateX(2px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.15);
 }
 
 .card:disabled {
@@ -405,13 +479,17 @@ body {
   flex: 1;
   background: var(--card);
   border: 1px solid var(--card-border);
-  border-radius: 10px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 22px;
   overflow-y: auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  box-shadow: var(--shadow-md);
+  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
 }
 
 .panel h2 {
