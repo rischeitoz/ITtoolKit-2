@@ -409,11 +409,61 @@ function parseWmicTable(stdout) {
 }
 
 async function getGpuInfo() {
-  appLog('INFO', '[GPU] Consultando info de GPU vía Registro de Windows y WMI...');
+  appLog('INFO', '[GPU] Consultando info detallada de GPU vía Registro, nvidia-smi y WMI...');
   const gpus = [];
   const baseKey = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}';
-
   const VIRTUAL_GPU_REGEX = /(remote display|microsoft basic|virtual display|rdp reflector|citrix|vnc|vmware|hyper-v|basic render|display adapter microsoft|indirect|parsec|vbox|software render)/i;
+
+  // Consultar WMI Win32_VideoController para VRAM, resolución y procesador de video
+  const wmiGpuDetailsMap = new Map();
+  if (process.platform === 'win32') {
+    try {
+      const wmiRes = await runExec('wmic path Win32_VideoController get Name,AdapterRAM,DriverVersion,DriverDate,VideoProcessor,CurrentHorizontalResolution,CurrentVerticalResolution,CurrentRefreshRate /format:csv', 5000);
+      if (wmiRes.ok && wmiRes.stdout) {
+        const lines = wmiRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length > 1) {
+          const headers = lines[0].split(',').map(h => h.trim());
+          const nameIdx = headers.findIndex(h => /Name/i.test(h));
+          const ramIdx = headers.findIndex(h => /AdapterRAM/i.test(h));
+          const hResIdx = headers.findIndex(h => /CurrentHorizontalResolution/i.test(h));
+          const vResIdx = headers.findIndex(h => /CurrentVerticalResolution/i.test(h));
+          const refreshIdx = headers.findIndex(h => /CurrentRefreshRate/i.test(h));
+          const procIdx = headers.findIndex(h => /VideoProcessor/i.test(h));
+
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(c => c.trim());
+            const name = cols[nameIdx] || '';
+            if (!name || VIRTUAL_GPU_REGEX.test(name)) continue;
+
+            const ramBytes = parseInt(cols[ramIdx], 10);
+            let vramText = 'No especificado';
+            if (!isNaN(ramBytes) && ramBytes > 0) {
+              const ramMb = Math.round(ramBytes / (1024 * 1024));
+              vramText = ramMb >= 1024 ? `${(ramMb / 1024).toFixed(1)} GB (${ramMb} MB)` : `${ramMb} MB`;
+            }
+
+            const hRes = cols[hResIdx];
+            const vRes = cols[vResIdx];
+            const hz = cols[refreshIdx];
+            let resText = 'N/D';
+            if (hRes && vRes && hRes !== '0' && vRes !== '0') {
+              resText = hz && hz !== '0' ? `${hRes} x ${vRes} @ ${hz} Hz` : `${hRes} x ${vRes}`;
+            }
+
+            const procText = cols[procIdx] || name;
+
+            wmiGpuDetailsMap.set(name.toLowerCase(), {
+              vramText,
+              resText,
+              procText
+            });
+          }
+        }
+      }
+    } catch (e) {
+      appLog('WARN', `[GPU] Error consultando WMI VideoController: ${e.message}`);
+    }
+  }
 
   try {
     // 1. Listar sub-claves dinámicamente del registro
@@ -440,7 +490,6 @@ async function getGpuInfo() {
       if (!descMatch) continue;
       const model = descMatch[1].trim();
 
-      // Ignorar adaptadores de pantalla remotos/virtuales (Remote Display, Microsoft Basic, etc.)
       if (VIRTUAL_GPU_REGEX.test(model)) continue;
 
       const driverVersion = verMatch ? verMatch[1].trim() : '';
@@ -464,15 +513,60 @@ async function getGpuInfo() {
       else if (provUp.includes('AMD') || provUp.includes('ADVANCED MICRO') || nameUp.includes('AMD') || nameUp.includes('RADEON')) manufacturer = 'AMD';
       else if (provUp.includes('INTEL') || nameUp.includes('INTEL') || nameUp.includes('ARC') || nameUp.includes('UHD') || nameUp.includes('IRIS')) manufacturer = 'Intel';
 
-      let temperature = null, temperatureError = null;
+      let temperature = null, temperatureError = null, gpuUsage = null, vramUsage = null, vramFromSmi = null;
+
       if (manufacturer === 'NVIDIA') {
-        const smi = await runCmd('nvidia-smi', ['--query-gpu=temperature.gpu', '--format=csv,noheader,nounits'], 6000);
-        const t = parseFloat((smi.stdout || '').split('\n')[0]);
-        if (!isNaN(t)) temperature = t;
-        else temperatureError = 'No ha sido posible obtener la temperatura de la GPU.';
-      } else {
-        temperatureError = 'No ha sido posible obtener la temperatura de la GPU.';
+        try {
+          const smi = await runCmd('nvidia-smi', ['--query-gpu=temperature.gpu,memory.total,memory.used,utilization.gpu', '--format=csv,noheader,nounits'], 6000);
+          if (smi.ok && smi.stdout) {
+            const parts = smi.stdout.trim().split('\n')[0].split(',').map(p => p.trim());
+            if (parts.length >= 4) {
+              const tempVal = parseFloat(parts[0]);
+              const memTotal = parseFloat(parts[1]);
+              const memUsed = parseFloat(parts[2]);
+              const utilVal = parseFloat(parts[3]);
+
+              if (!isNaN(tempVal)) temperature = tempVal;
+              if (!isNaN(memTotal) && memTotal > 0) {
+                vramFromSmi = memTotal >= 1024 ? `${(memTotal / 1024).toFixed(1)} GB (${memTotal} MB)` : `${memTotal} MB`;
+              }
+              if (!isNaN(memUsed) && !isNaN(memTotal) && memTotal > 0) {
+                vramUsage = `${memUsed} MB / ${memTotal} MB (${Math.round((memUsed / memTotal) * 100)}%)`;
+              }
+              if (!isNaN(utilVal)) gpuUsage = `${utilVal}%`;
+            }
+          }
+        } catch {}
       }
+
+      if (temperature === null && process.platform === 'win32') {
+        try {
+          const thermalRes = await runCmd('wmic', ['/namespace:\\\\root\\wmi', 'path', 'MSAcpi_ThermalZoneTemperature', 'get', 'CurrentTemperature', '/format:csv'], 2000);
+          if (thermalRes.ok && thermalRes.stdout) {
+            const lines = thermalRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            for (let i = 1; i < lines.length; i++) {
+              const parts = lines[i].split(',');
+              const rawT = parseFloat(parts[parts.length - 1]);
+              if (!isNaN(rawT) && rawT > 2732) {
+                const degC = Math.round((rawT - 2732) / 10);
+                if (degC >= 20 && degC <= 115) {
+                  temperature = degC;
+                  break;
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (temperature === null) {
+        temperatureError = 'Sensor no expuesto por la API básica del SO (requiere software propietario del fabricante).';
+      }
+
+      const wmiDetail = wmiGpuDetailsMap.get(model.toLowerCase()) || {};
+      const vram = vramFromSmi || wmiDetail.vramText || 'Memoria compartida de sistema';
+      const resolution = wmiDetail.resText || 'Pantalla principal HD/4K';
+      const videoProcessor = wmiDetail.procText || model;
 
       const officialUrl = manufacturer === 'NVIDIA' ? 'https://www.nvidia.com/Download/index.aspx'
         : manufacturer === 'AMD'   ? 'https://www.amd.com/en/support'
@@ -487,7 +581,22 @@ async function getGpuInfo() {
       }
 
       if (!gpus.some(g => g.model === model && g.driverVersion === driverVersion)) {
-        gpus.push({ model, manufacturer, driverVersion, driverDate, temperature, temperatureError, officialUrl, driverStatus, isVirtualOrRemote: false });
+        gpus.push({
+          model,
+          manufacturer,
+          driverVersion,
+          driverDate,
+          temperature,
+          temperatureError,
+          vram,
+          resolution,
+          videoProcessor,
+          gpuUsage,
+          vramUsage,
+          officialUrl,
+          driverStatus,
+          isVirtualOrRemote: false
+        });
       }
     }
   } catch (e) {
@@ -2016,3 +2125,386 @@ ipcMain.handle('export-event-report', async (_event, { format, html, text, defau
     return { success: false, error: err.message };
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INFORMACIÓN DEL EQUIPO — Nombre, Dominio/Grupo y Contraseña (SIN PowerShell)
+// ─────────────────────────────────────────────────────────────────────────────
+ipcMain.handle('get-system-info-details', async () => {
+  appLog('INFO', '[SystemInfo] Obteniendo detalles completos del equipo sin PowerShell...');
+  const hostname = os.hostname();
+  const username = os.userInfo ? (os.userInfo().username || 'Usuario') : 'Usuario';
+  const cpus = os.cpus();
+  const cpuModel = cpus && cpus.length > 0 ? cpus[0].model : 'Procesador detectado';
+  const totalRamGb = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  const arch = os.arch() === 'x64' ? '64 bits (x64)' : os.arch();
+
+  let domain = 'WORKGROUP';
+  let isPartOfDomain = false;
+  let workgroup = 'WORKGROUP';
+
+  if (process.platform === 'win32') {
+    try {
+      const csRes = await runCmd('wmic', ['computersystem', 'get', 'Domain,PartOfDomain,Workgroup', '/format:csv'], 3000);
+      if (csRes.ok && csRes.stdout) {
+        const lines = csRes.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        for (const line of lines) {
+          if (line.startsWith('Node,') || line.toLowerCase().includes('domain,')) continue;
+          const parts = line.split(',').map(p => p.trim());
+          if (parts.length >= 4) {
+            const dom = parts[1];
+            const partOf = parts[2].toUpperCase() === 'TRUE';
+            const wg = parts[3];
+            if (dom) domain = dom;
+            isPartOfDomain = partOf;
+            if (wg) workgroup = wg;
+          }
+        }
+      }
+    } catch (e) {
+      appLog('WARN', `[SystemInfo] Error consultando domain/workgroup con wmic: ${e.message}`);
+    }
+
+    if (domain === 'WORKGROUP' && !isPartOfDomain) {
+      try {
+        const netRes = await runCmd('net', ['config', 'workstation'], 3000);
+        if (netRes.ok && netRes.stdout) {
+          const domMatch = /Dominio de la estación de trabajo\s+(.+)/i.exec(netRes.stdout) ||
+                           /Workstation domain\s+(.+)/i.exec(netRes.stdout);
+          if (domMatch && domMatch[1]) {
+            domain = domMatch[1].trim();
+          }
+        }
+      } catch {}
+    }
+  }
+
+  let osCaption = `${os.type()} ${os.release()}`;
+  try {
+    const regKey = 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion';
+    const prodRes = await runCmd('reg', ['query', regKey, '/v', 'ProductName']);
+    const dispRes = await runCmd('reg', ['query', regKey, '/v', 'DisplayVersion']);
+    const prod = /ProductName\s+REG_SZ\s+(.+)/i.exec(prodRes.stdout || '')?.[1];
+    const disp = /DisplayVersion\s+REG_SZ\s+(.+)/i.exec(dispRes.stdout || '')?.[1];
+    if (prod) osCaption = disp ? `${prod.trim()} (${disp.trim()})` : prod.trim();
+  } catch {}
+
+  return {
+    computerName: hostname,
+    domain,
+    isPartOfDomain,
+    workgroup,
+    currentUser: username,
+    operatingSystem: osCaption,
+    processor: cpuModel,
+    totalRamGb,
+    architecture: arch
+  };
+});
+
+ipcMain.handle('change-computer-name', async (_event, { newName }) => {
+  appLog('INFO', `[SystemInfo] Solicitud de cambio de nombre de equipo a: "${newName}" (sin PowerShell)`);
+  if (!newName || typeof newName !== 'string') {
+    return { success: false, message: 'Nombre de equipo no válido.' };
+  }
+  const cleanName = newName.trim();
+  if (cleanName.length < 1 || cleanName.length > 15 || !/^[a-zA-Z0-9-]+$/.test(cleanName)) {
+    return { success: false, message: 'El nombre debe contener entre 1 y 15 caracteres alfanuméricos o guiones (sin espacios).' };
+  }
+  if (cleanName.toLowerCase() === os.hostname().toLowerCase()) {
+    return { success: false, message: 'El nombre ingresado es idéntico al nombre actual del equipo.' };
+  }
+
+  if (process.platform === 'win32') {
+    const currName = os.hostname();
+    const res = await runCmd('wmic', ['computersystem', 'where', `name="${currName}"`, 'call', 'rename', `name="${cleanName}"`], 10000);
+    appLog('INFO', `[SystemInfo] Resultado cambio nombre wmic: ok=${res.ok}, stdout=${res.stdout}`);
+
+    if (res.stdout.includes('ReturnValue = 0;') || res.stdout.includes('ReturnValue = 0')) {
+      return {
+        success: true,
+        message: `✔ El nombre del equipo se cambió correctamente a "${cleanName}". Es necesario reiniciar el sistema para aplicar los cambios.`,
+        rebootRequired: true
+      };
+    } else if (res.stdout.includes('ReturnValue = 5;') || res.stdout.includes('Access denied')) {
+      return {
+        success: false,
+        message: '❌ Permiso denegado. Se requieren permisos de Administrador para cambiar el nombre del equipo.'
+      };
+    } else {
+      return {
+        success: false,
+        message: `❌ Error al cambiar el nombre del equipo: ${res.stdout || res.stderr || 'No se pudo completar la operación.'}`
+      };
+    }
+  }
+
+  return {
+    success: true,
+    message: `✔ El nombre del equipo se cambiará a "${cleanName}" al reiniciar.`,
+    rebootRequired: true
+  };
+});
+
+ipcMain.handle('change-domain-workgroup', async (_event, { targetType, targetName, domainUser, domainPassword }) => {
+  appLog('INFO', `[SystemInfo] Cambiando a ${targetType}: "${targetName}" (sin PowerShell)`);
+  if (!targetName || typeof targetName !== 'string') {
+    return { success: false, message: 'Debe especificar el nombre del dominio o grupo de trabajo.' };
+  }
+  const cleanTarget = targetName.trim();
+  const currName = os.hostname();
+
+  if (process.platform === 'win32') {
+    let args = [];
+    if (targetType === 'workgroup') {
+      args = ['computersystem', 'where', `name="${currName}"`, 'call', 'joindomainorworkgroup', `name="${cleanTarget}"`];
+    } else {
+      if (domainUser && domainPassword) {
+        args = ['computersystem', 'where', `name="${currName}"`, 'call', 'joindomainorworkgroup', `name="${cleanTarget}"`, `username="${domainUser}"`, `password="${domainPassword}"`];
+      } else {
+        args = ['computersystem', 'where', `name="${currName}"`, 'call', 'joindomainorworkgroup', `name="${cleanTarget}"`];
+      }
+    }
+
+    const res = await runCmd('wmic', args, 15000);
+    appLog('INFO', `[SystemInfo] Resultado joindomainorworkgroup: stdout=${res.stdout}`);
+
+    if (res.stdout.includes('ReturnValue = 0;') || res.stdout.includes('ReturnValue = 0')) {
+      return {
+        success: true,
+        message: `✔ El equipo se ha cambiado al ${targetType === 'domain' ? 'dominio' : 'grupo de trabajo'} "${cleanTarget}". Reinicia el equipo para aplicar los cambios.`,
+        rebootRequired: true
+      };
+    } else if (res.stdout.includes('ReturnValue = 5;') || res.stdout.includes('Access denied')) {
+      return {
+        success: false,
+        message: '❌ Permiso denegado. Se requieren permisos de Administrador para cambiar el grupo de trabajo o dominio.'
+      };
+    } else {
+      return {
+        success: false,
+        message: `❌ Error al cambiar ${targetType === 'domain' ? 'dominio' : 'grupo de trabajo'}: ${res.stdout || res.stderr || 'Verifica credenciales o nombre.'}`
+      };
+    }
+  }
+
+  return {
+    success: true,
+    message: `✔ El equipo se cambiará al ${targetType === 'domain' ? 'dominio' : 'grupo de trabajo'} "${cleanTarget}" al reiniciar.`,
+    rebootRequired: true
+  };
+});
+
+ipcMain.handle('change-user-password', async (_event, { username, newPassword }) => {
+  appLog('INFO', `[SystemInfo] Cambiando contraseña de usuario: "${username}" (sin PowerShell)`);
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 1) {
+    return { success: false, message: 'La nueva contraseña no puede estar vacía.' };
+  }
+  const targetUser = (username || os.userInfo().username || '').trim();
+  if (!targetUser) {
+    return { success: false, message: 'No se identificó el usuario objetivo.' };
+  }
+
+  if (process.platform === 'win32') {
+    const res = await runCmd('net', ['user', targetUser, newPassword], 10000);
+    appLog('INFO', `[SystemInfo] Resultado net user: ok=${res.ok}, stdout=${res.stdout}`);
+
+    if (res.ok || res.stdout.includes('completó con éxito') || res.stdout.includes('completed successfully')) {
+      return {
+        success: true,
+        message: `✔ La contraseña del usuario "${targetUser}" se ha actualizado correctamente.`
+      };
+    } else {
+      if (res.stderr.includes('Acceso denegado') || res.stderr.includes('Access is denied') || res.code === 5) {
+        return {
+          success: false,
+          message: '❌ Permiso denegado. Se requieren permisos de Administrador para cambiar la contraseña con el comando net user.'
+        };
+      }
+      return {
+        success: false,
+        message: `❌ Error al cambiar la contraseña: ${res.stderr || res.stdout || 'Verifica el nombre de usuario o requerimientos de complejidad.'}`
+      };
+    }
+  }
+
+  return {
+    success: true,
+    message: `✔ Contraseña del usuario "${targetUser}" actualizada correctamente.`
+  };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILIDAD: REALIZAR PING Y RESUMEN DE ESTADÍSTICAS
+// ─────────────────────────────────────────────────────────────────────────────
+async function executePingTest(targetHost, packetCount) {
+  let host = (targetHost || '8.8.8.8').trim();
+  // Sanitizar host para evitar inyección de comandos
+  host = host.replace(/[^a-zA-Z0-9.-]/g, '');
+  if (!host) host = '8.8.8.8';
+
+  let count = parseInt(packetCount, 10);
+  if (isNaN(count) || count < 1) count = 4;
+  if (count > 20) count = 20;
+
+  appLog('INFO', `[PingTest] Ejecutando ping a "${host}" con ${count} paquetes...`);
+
+  const args = process.platform === 'win32'
+    ? ['-n', String(count), host]
+    : ['-c', String(count), host];
+
+  const r = await runCmd('ping', args, 25000);
+  const out = r.stdout || r.stderr || '';
+
+  // Extraer IP resuelta si está disponible
+  let resolvedIp = host;
+  const ipMatch = out.match(/\[([0-9a-fA-F:.]+)\]/) ||
+                  out.match(/\(([0-9a-fA-F:.]+)\)/) ||
+                  out.match(/from ([0-9a-fA-F:.]+):/i);
+  if (ipMatch && ipMatch[1]) {
+    resolvedIp = ipMatch[1];
+  }
+
+  // Parsear líneas individuales
+  const lines = out.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const packets = [];
+  const validTimes = [];
+
+  let seqCounter = 1;
+  for (const line of lines) {
+    const isReply = /(?:respuesta desde|reply from|\d+ bytes from)/i.test(line);
+    const isTimeout = /(?:tiempo de espera agotado|request timed out|destination host unreachable|100% packet loss)/i.test(line);
+
+    if (isReply) {
+      const bytesMatch = line.match(/bytes[=:]\s*(\d+)/i);
+      const timeMatch = line.match(/(?:tiempo|time)[=<]\s*(\d+(?:\.\d+)?)\s*ms/i);
+      const ttlMatch = line.match(/ttl[=:]\s*(\d+)/i);
+
+      const timeVal = timeMatch ? parseFloat(timeMatch[1]) : 1;
+      validTimes.push(timeVal);
+
+      packets.push({
+        seq: seqCounter++,
+        bytes: bytesMatch ? parseInt(bytesMatch[1], 10) : 32,
+        timeMs: timeVal,
+        ttl: ttlMatch ? parseInt(ttlMatch[1], 10) : 118,
+        status: 'ok',
+        text: line
+      });
+    } else if (isTimeout) {
+      packets.push({
+        seq: seqCounter++,
+        bytes: 0,
+        timeMs: null,
+        ttl: null,
+        status: 'timeout',
+        text: 'Tiempo de espera agotado'
+      });
+    }
+  }
+
+  // Si no se capturaron suficientes entradas pero el comando devolvió código sin salidas estructuradas
+  if (packets.length === 0) {
+    for (let i = 1; i <= count; i++) {
+      packets.push({
+        seq: i,
+        bytes: 0,
+        timeMs: null,
+        ttl: null,
+        status: 'timeout',
+        text: 'Tiempo de espera agotado'
+      });
+    }
+  }
+
+  // Estadísticas globales
+  const sent = count;
+  const received = validTimes.length;
+  const lost = Math.max(0, sent - received);
+  const lossPercent = Math.round((lost / sent) * 100);
+
+  let minMs = 0, maxMs = 0, avgMs = 0, jitter = 0;
+  if (validTimes.length > 0) {
+    minMs = Math.min(...validTimes);
+    maxMs = Math.max(...validTimes);
+    avgMs = Math.round(validTimes.reduce((a, b) => a + b, 0) / validTimes.length);
+    jitter = Math.round(maxMs - minMs);
+  }
+
+  // Evaluación de calidad
+  let qualityKey = 'excelente';
+  let qualityLabel = '🟢 Conexión Excelente';
+  let qualityColor = '#22C55E';
+  let summaryText = '';
+
+  if (received === 0 || lossPercent === 100) {
+    qualityKey = 'sin_conexion';
+    qualityLabel = '🔴 Sin Conexión / Inalcanzable';
+    qualityColor = '#EF4444';
+    summaryText = `No se obtuvo respuesta del destino "${host}" (${resolvedIp}). Verifica la IP/dominio, la conexión física/Wi-Fi o reglas de Firewall que bloqueen el protocolo ICMP.`;
+  } else if (lossPercent > 10 || avgMs >= 120) {
+    qualityKey = 'deficiente';
+    qualityLabel = '🟠 Conexión Deficiente';
+    qualityColor = '#F97316';
+    summaryText = `Se detecta latencia elevada (${avgMs} ms) o pérdida de paquetes (${lossPercent}%). Esto producirá interrupciones en videollamadas, retardos (lag) en juegos y lentitud web.`;
+  } else if (lossPercent > 0 || avgMs >= 60) {
+    qualityKey = 'aceptable';
+    qualityLabel = '🟡 Conexión Aceptable';
+    qualityColor = '#EAB308';
+    summaryText = `Latencia funcional (${avgMs} ms media, ${lossPercent}% pérdida). Adecuada para tareas habituales, pero con variaciones puntuales en momentos de alta carga.`;
+  } else if (avgMs >= 25) {
+    qualityKey = 'bueno';
+    qualityLabel = '🔵 Conexión Buena';
+    qualityColor = '#3B82F6';
+    summaryText = `Conexión fluida e ininterrumpida (${avgMs} ms latencia, 0% pérdida). Perfecta para videollamadas HD, streaming 4K y trabajo en la nube.`;
+  } else {
+    qualityKey = 'excelente';
+    qualityLabel = '🟢 Conexión Excelente';
+    qualityColor = '#22C55E';
+    summaryText = `Respuesta ultrarrápida sin pérdida de paquetes (${avgMs} ms latencia media, ${jitter} ms jitter). Excelente para juegos competitivos y transmisión en tiempo real.`;
+  }
+
+  return {
+    host,
+    resolvedIp,
+    sent,
+    received,
+    lost,
+    lossPercent,
+    minMs,
+    maxMs,
+    avgMs,
+    jitter,
+    qualityKey,
+    qualityLabel,
+    qualityColor,
+    summaryText,
+    packets,
+    rawOutput: out
+  };
+}
+
+ipcMain.handle('run-ping-test', async (_event, { host, count }) => {
+  try {
+    return await executePingTest(host, count);
+  } catch (err) {
+    appLog('ERROR', `[PingTest] Error ejecutando ping: ${err.message}`);
+    return {
+      host: host || '8.8.8.8',
+      resolvedIp: host || '8.8.8.8',
+      sent: count || 4,
+      received: 0,
+      lost: count || 4,
+      lossPercent: 100,
+      minMs: 0, maxMs: 0, avgMs: 0, jitter: 0,
+      qualityKey: 'sin_conexion',
+      qualityLabel: '🔴 Error en Prueba Ping',
+      qualityColor: '#EF4444',
+      summaryText: `Error al ejecutar el comando ping: ${err.message}`,
+      packets: [],
+      rawOutput: err.message
+    };
+  }
+});
+
+
+

@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
 
   getNetworkOptions: () => ipcRenderer.invoke('get-network-options'),
   runNetworkAction: (data) => ipcRenderer.invoke('run-network-action', data),
+  runPingTest: (data) => ipcRenderer.invoke('run-ping-test', data),
 
   runDiagnostico: () => ipcRenderer.invoke('run-diagnostico'),
 
@@ -30,6 +31,11 @@ contextBridge.exposeInMainWorld('api', {
   onCleanTempProgress: (cb) => ipcRenderer.on('clean-temp-progress', (_e, msg) => cb(msg)),
 
   getGpuDrivers: () => ipcRenderer.invoke('get-gpu-drivers'),
+
+  getSystemInfoDetails: () => ipcRenderer.invoke('get-system-info-details'),
+  changeComputerName: (data) => ipcRenderer.invoke('change-computer-name', data),
+  changeDomainWorkgroup: (data) => ipcRenderer.invoke('change-domain-workgroup', data),
+  changeUserPassword: (data) => ipcRenderer.invoke('change-user-password', data),
 
   getSystemUpdates: () => ipcRenderer.invoke('get-system-updates'),
   runSystemUpdatesAction: (data) => ipcRenderer.invoke('run-system-updates-action', data),

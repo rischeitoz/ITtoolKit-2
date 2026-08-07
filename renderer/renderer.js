@@ -16,7 +16,7 @@ const statusText = document.getElementById('status-text');
 const statusBar = document.getElementById('statusbar');
 
 const ALL_BTN_IDS = [
-  'btn-speedtest', 'btn-netoptions',
+  'btn-info-equipo', 'btn-speedtest', 'btn-ping', 'btn-netoptions',
   'btn-diagnostico', 'btn-gpudrivers', 'btn-sysupdates', 'btn-eventlog', 'btn-highperf', 'btn-healthcheck',
   'btn-sfc', 'btn-dism', 'btn-mdsched', 'btn-cleantemp',
 ];
@@ -541,6 +541,543 @@ function startDiagLoadingSequence() {
 
   return () => clearInterval(timer);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Utilidad — Realizar Ping (ICMP) y Resumen de Estadísticas
+// ═══════════════════════════════════════════════════════════════════════════════
+document.getElementById('btn-ping')?.addEventListener('click', () => {
+  renderPingUtilityUI();
+});
+
+function renderPingUtilityUI(initialHost = '8.8.8.8') {
+  clearResults('Realizar Ping');
+
+  const container = document.createElement('div');
+  container.className = 'ping-container panel-fade-in';
+
+  // Card de Configuración
+  const configCard = document.createElement('div');
+  configCard.className = 'ping-card';
+  configCard.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <span style="font-size:28px;">📡</span>
+      <div>
+        <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text-primary);">Prueba de Conectividad y Ping (ICMP)</h3>
+        <p style="margin:2px 0 0 0; font-size:13px; color:var(--text-secondary);">
+          Mide la latencia, variación de tiempo (jitter) y estabilidad de respuesta con cualquier servidor o IP.
+        </p>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Destinos Frecuentes</label>
+      <div class="ping-presets" style="margin-top:6px;">
+        <button class="ping-preset-chip ${initialHost === '8.8.8.8' ? 'active' : ''}" data-host="8.8.8.8">🌐 Google DNS (8.8.8.8)</button>
+        <button class="ping-preset-chip ${initialHost === '1.1.1.1' ? 'active' : ''}" data-host="1.1.1.1">⚡ Cloudflare DNS (1.1.1.1)</button>
+        <button class="ping-preset-chip ${initialHost === 'www.google.com' ? 'active' : ''}" data-host="www.google.com">🔍 Web Google (www.google.com)</button>
+        <button class="ping-preset-chip ${initialHost === '192.168.1.1' ? 'active' : ''}" data-host="192.168.1.1">🏠 Router Local (192.168.1.1)</button>
+      </div>
+    </div>
+
+    <div class="info-input-grid">
+      <div>
+        <label style="font-size:13px; font-weight:600; color:var(--text-primary);">Dirección IP o Nombre de Host</label>
+        <input type="text" id="ping-host-input" class="info-text-input" value="${initialHost}" placeholder="Ej: 8.8.8.8, google.com o 192.168.1.1" style="width:100%; margin-top:4px;" />
+      </div>
+      <div>
+        <label style="font-size:13px; font-weight:600; color:var(--text-primary);">Paquetes a Enviar</label>
+        <select id="ping-count-select" class="info-text-input" style="width:100%; margin-top:4px;">
+          <option value="4" selected>4 Paquetes (Rápido - ~3s)</option>
+          <option value="8">8 Paquetes (Estándar - ~6s)</option>
+          <option value="12">12 Paquetes (Detallado - ~10s)</option>
+          <option value="20">20 Paquetes (Extensivo - ~16s)</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="btn-run-ping-action" class="info-action-btn primary" style="margin-top:16px; width:100%; justify-content:center; font-size:15px; padding:12px;">
+      📡 Iniciar Prueba Ping
+    </button>
+  `;
+
+  container.appendChild(configCard);
+
+  const resultsArea = document.createElement('div');
+  resultsArea.id = 'ping-results-area';
+  container.appendChild(resultsArea);
+
+  resultsEl.appendChild(container);
+
+  // Chips
+  const chips = configCard.querySelectorAll('.ping-preset-chip');
+  const hostInput = configCard.querySelector('#ping-host-input');
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      hostInput.value = chip.getAttribute('data-host');
+    });
+  });
+
+  // Action
+  const runBtn = configCard.querySelector('#btn-run-ping-action');
+  runBtn?.addEventListener('click', async () => {
+    const host = hostInput.value.trim() || '8.8.8.8';
+    const count = parseInt(configCard.querySelector('#ping-count-select').value, 10) || 4;
+
+    resultsArea.innerHTML = `
+      <div class="ping-card panel-fade-in" style="text-align:center; padding:30px;">
+        <div class="spinner" style="margin:0 auto 16px auto;"></div>
+        <h3 style="margin:0 0 6px 0; font-size:16px; color:var(--text-primary);">Enviando paquetes ICMP a ${host}...</h3>
+        <p style="margin:0; font-size:13px; color:var(--text-secondary);">Calculando latencia, tiempo mínimo, medio y pérdida de paquetes...</p>
+      </div>
+    `;
+
+    setBusy(true, `Efectuando ping a ${host}...`);
+
+    try {
+      const res = await window.api.runPingTest({ host, count });
+      setBusy(false);
+      renderPingResultsReport(resultsArea, res);
+      statusText.textContent = `✔ Ping finalizado: ${res.received}/${res.sent} respuestas (${res.avgMs} ms media)`;
+    } catch (err) {
+      setBusy(false);
+      resultsArea.innerHTML = `
+        <div class="info-feedback-box error">
+          ❌ Error al ejecutar la prueba de ping: ${err.message}
+        </div>
+      `;
+      statusText.textContent = `❌ Error en la prueba de ping: ${err.message}`;
+    }
+  });
+}
+
+function renderPingResultsReport(containerEl, r) {
+  containerEl.innerHTML = '';
+
+  const report = document.createElement('div');
+  report.className = 'panel-fade-in';
+  report.style.display = 'flex';
+  report.style.flexDirection = 'column';
+  report.style.gap = '16px';
+
+  // 1. Banner
+  const hero = document.createElement('div');
+  hero.className = 'ping-hero-banner';
+  hero.innerHTML = `
+    <div class="ping-hero-left">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <span style="font-size:12px; font-weight:800; background:rgba(255,255,255,0.15); padding:3px 10px; border-radius:12px;">HOST: ${r.host}</span>
+        ${r.resolvedIp !== r.host ? `<span style="font-size:12px; color:#94A3B8;">[${r.resolvedIp}]</span>` : ''}
+      </div>
+      <h3>${r.qualityLabel}</h3>
+      <p>${r.summaryText}</p>
+    </div>
+    <div class="ping-hero-metrics">
+      <div class="ping-metric-block">
+        <div class="ping-metric-val">${r.avgMs} <span style="font-size:14px; font-weight:600;">ms</span></div>
+        <div class="ping-metric-lbl">Latencia Media</div>
+      </div>
+      <div class="ping-metric-block">
+        <div class="ping-metric-val" style="color:${r.lossPercent === 0 ? '#4ADE80' : '#F87171'};">${r.lossPercent}%</div>
+        <div class="ping-metric-lbl">Pérdida</div>
+      </div>
+      <div class="ping-metric-block">
+        <div class="ping-metric-val" style="color:#FBBF24;">${r.jitter} <span style="font-size:14px; font-weight:600;">ms</span></div>
+        <div class="ping-metric-lbl">Jitter</div>
+      </div>
+    </div>
+  `;
+  report.appendChild(hero);
+
+  // 2. KPIs
+  const kpiGrid = document.createElement('div');
+  kpiGrid.className = 'ping-kpi-grid';
+  kpiGrid.innerHTML = `
+    <div class="ping-kpi-card">
+      <span class="ping-kpi-title">📦 Paquetes Transmitidos</span>
+      <span class="ping-kpi-val">${r.received} / ${r.sent} <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">recibidos</span></span>
+      <small style="font-size:11px; color:${r.lost === 0 ? 'var(--ok)' : 'var(--error)'}; font-weight:600;">
+        ${r.lost === 0 ? '✔ Sin pérdidas' : `⚠️ ${r.lost} paquetes perdidos (${r.lossPercent}%)`}
+      </small>
+    </div>
+    <div class="ping-kpi-card">
+      <span class="ping-kpi-title">⏱️ Latencia Mínima / Máxima</span>
+      <span class="ping-kpi-val">${r.minMs} - ${r.maxMs} <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">ms</span></span>
+      <small style="font-size:11px; color:var(--text-secondary);">Rango de variación de respuesta</small>
+    </div>
+    <div class="ping-kpi-card">
+      <span class="ping-kpi-title">📊 Variación (Jitter)</span>
+      <span class="ping-kpi-val">${r.jitter} <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">ms</span></span>
+      <small style="font-size:11px; color:${r.jitter < 15 ? 'var(--ok)' : 'var(--warn)'}; font-weight:600;">
+        ${r.jitter < 15 ? '🟢 Alta Estabilidad' : '🟡 Variación Apreciable'}
+      </small>
+    </div>
+    <div class="ping-kpi-card">
+      <span class="ping-kpi-title">🌐 Evaluación de Calidad</span>
+      <span class="ping-kpi-val" style="font-size:16px; color:${r.qualityColor};">${r.qualityKey.toUpperCase()}</span>
+      <small style="font-size:11px; color:var(--text-secondary);">Score basado en retardo y pérdida</small>
+    </div>
+  `;
+  report.appendChild(kpiGrid);
+
+  // 3. Aptitud por Servicio
+  const suitCard = document.createElement('div');
+  suitCard.className = 'ping-card';
+
+  const gamingOk = r.lossPercent === 0 && r.avgMs < 45 && r.jitter < 15;
+  const gamingWarn = r.lossPercent <= 5 && r.avgMs < 90;
+
+  const voipOk = r.lossPercent === 0 && r.jitter < 25 && r.avgMs < 100;
+  const voipWarn = r.lossPercent <= 5;
+
+  const streamOk = r.lossPercent <= 2 && r.avgMs < 120;
+
+  suitCard.innerHTML = `
+    <h3 style="margin:0 0 10px 0; font-size:16px; font-weight:700; color:var(--text-primary);">
+      🎯 Informe de Experiencia para Aplicaciones
+    </h3>
+    <div class="ping-suitability-grid">
+      <div class="ping-suitability-item">
+        <span class="ping-suitability-icon">🎮</span>
+        <div class="ping-suitability-text">
+          <span class="ping-suitability-label">Juegos Competitivos Online</span>
+          <span class="ping-suitability-status" style="color:${gamingOk ? 'var(--ok)' : gamingWarn ? 'var(--warn)' : 'var(--error)'};">
+            ${gamingOk ? '🟢 Óptimo (Respuesta Inmediata)' : gamingWarn ? '🟡 Aceptable (Posible ligero lag)' : '🔴 No Recomendado (Lags/Cortes)'}
+          </span>
+        </div>
+      </div>
+      <div class="ping-suitability-item">
+        <span class="ping-suitability-icon">📞</span>
+        <div class="ping-suitability-text">
+          <span class="ping-suitability-label">Videollamadas (Teams/Zoom/Meet)</span>
+          <span class="ping-suitability-status" style="color:${voipOk ? 'var(--ok)' : voipWarn ? 'var(--warn)' : 'var(--error)'};">
+            ${voipOk ? '🟢 Excelente (Audio/Video nítido)' : voipWarn ? '🟡 Moderado (Riesgo de robotización)' : '🔴 Deficiente (Pérdida de voz/congelamientos)'}
+          </span>
+        </div>
+      </div>
+      <div class="ping-suitability-item">
+        <span class="ping-suitability-icon">📺</span>
+        <div class="ping-suitability-text">
+          <span class="ping-suitability-label">Streaming 4K y Navegación Web</span>
+          <span class="ping-suitability-status" style="color:${streamOk ? 'var(--ok)' : 'var(--error)'};">
+            ${streamOk ? '🟢 Fluido (Carga rápida y buffer estable)' : '🔴 Lento (Interrupciones y almacenamiento en búfer)'}
+          </span>
+        </div>
+      </div>
+    </div>
+  `;
+  report.appendChild(suitCard);
+
+  // 4. Tabla de Muestras
+  if (r.packets && r.packets.length > 0) {
+    const tableCard = document.createElement('div');
+    tableCard.className = 'ping-card';
+    tableCard.innerHTML = `
+      <h3 style="margin:0 0 12px 0; font-size:16px; font-weight:700; color:var(--text-primary);">
+        📋 Registro Detallado de Muestras ICMP
+      </h3>
+      <div class="ping-table-wrapper">
+        <table class="ping-table">
+          <thead>
+            <tr>
+              <th># Secuencia</th>
+              <th>Bytes</th>
+              <th>Tiempo de Respuesta</th>
+              <th>TTL</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${r.packets.map(p => {
+              const maxBar = Math.max(r.maxMs || 100, 50);
+              const pct = p.timeMs != null ? Math.min(100, Math.round((p.timeMs / maxBar) * 100)) : 0;
+              const barColor = p.timeMs == null ? '#EF4444' : p.timeMs < 30 ? '#22C55E' : p.timeMs < 80 ? '#F59E0B' : '#EF4444';
+              return `
+                <tr>
+                  <td style="font-weight:700;">#${p.seq}</td>
+                  <td>${p.bytes ? p.bytes + ' B' : '—'}</td>
+                  <td>
+                    ${p.timeMs != null ? `
+                      <div class="ping-bar-bg">
+                        <div class="ping-bar-fill" style="width:${Math.max(5, pct)}%; background:${barColor};"></div>
+                      </div>
+                      <b>${p.timeMs} ms</b>
+                    ` : '<span style="color:var(--error); font-weight:700;">Sin Respuesta</span>'}
+                  </td>
+                  <td>${p.ttl != null ? p.ttl : '—'}</td>
+                  <td>
+                    ${p.status === 'ok' ? '<span style="color:var(--ok); font-weight:700;">🟢 OK</span>' : '<span style="color:var(--error); font-weight:700;">🔴 Tiempo Agotado</span>'}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+    report.appendChild(tableCard);
+  }
+
+  // 5. Botón copiar
+  const actionBar = document.createElement('div');
+  actionBar.style.display = 'flex';
+  actionBar.style.gap = '12px';
+  actionBar.style.flexWrap = 'wrap';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'info-action-btn';
+  copyBtn.style.background = 'var(--card)';
+  copyBtn.style.border = '1px solid var(--card-border)';
+  copyBtn.style.color = 'var(--text-primary)';
+  copyBtn.innerHTML = '📋 Copiar Resumen';
+  copyBtn.addEventListener('click', async () => {
+    const textSummary = `[Informe Ping] Destino: ${r.host} (${r.resolvedIp})\n` +
+      `Estado: ${r.qualityLabel}\n` +
+      `Paquetes: ${r.received}/${r.sent} recibidos (${r.lossPercent}% pérdida)\n` +
+      `Latencia: Mín ${r.minMs} ms | Media ${r.avgMs} ms | Máx ${r.maxMs} ms | Jitter ${r.jitter} ms\n` +
+      `Evaluación: ${r.summaryText}`;
+    await window.api.copyToClipboard(textSummary);
+    statusText.textContent = '✔ Resumen de ping copiado al portapapeles';
+  });
+  actionBar.appendChild(copyBtn);
+
+  report.appendChild(actionBar);
+
+  containerEl.appendChild(report);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Utilidad — Información del Equipo (Nombre, Dominio/Grupo y Contraseña)
+// ═══════════════════════════════════════════════════════════════════════════════
+document.getElementById('btn-info-equipo')?.addEventListener('click', async () => {
+  clearResults('Información del Equipo');
+  setBusy(true, 'Obteniendo datos e identificación del sistema...');
+  try {
+    const info = await window.api.getSystemInfoDetails();
+    setBusy(false);
+
+    clearResults('Información del Equipo');
+
+    const container = document.createElement('div');
+    container.className = 'info-equipo-container panel-fade-in';
+
+    // 1. Cabecera con resumen
+    const header = document.createElement('div');
+    header.className = 'info-equipo-header';
+    header.innerHTML = `
+      <div class="info-hero-badge">💻 Equipo Principal</div>
+      <h2 class="info-hero-title">${info.computerName}</h2>
+      <div class="info-hero-sub">
+        <span class="info-pill">${info.isPartOfDomain ? '🛡️ Dominio: ' + info.domain : '🏠 Grupo: ' + info.domain}</span>
+        <span class="info-pill">👤 Usuario: ${info.currentUser}</span>
+        <span class="info-pill">🖥️ ${info.operatingSystem}</span>
+        <span class="info-pill">🧠 ${info.totalRamGb} RAM | ${info.architecture}</span>
+      </div>
+    `;
+    container.appendChild(header);
+
+    // 2. Sección: Cambiar Nombre del Equipo
+    const cardName = document.createElement('div');
+    cardName.className = 'info-section-card';
+    cardName.innerHTML = `
+      <div class="info-section-title">
+        <span class="info-section-icon">🏷️</span>
+        <div>
+          <h3>Nombre del Equipo</h3>
+          <p>Visualiza o modifica el nombre NetBIOS/DNS con el que este PC se identifica en la red local.</p>
+        </div>
+      </div>
+      <div class="info-form-group">
+        <label>Nombre actual del equipo</label>
+        <div class="info-input-row">
+          <input type="text" id="input-computer-name" class="info-text-input" value="${info.computerName}" placeholder="Nombre del PC (máx. 15 caracteres)" />
+          <button id="btn-save-computer-name" class="info-action-btn primary">💾 Cambiar Nombre</button>
+        </div>
+        <small class="info-field-help">⚠️ Cambiar el nombre requiere reiniciar el sistema para tener efecto. Sin usar PowerShell.</small>
+      </div>
+      <div id="status-computer-name" class="info-feedback-box" style="display:none;"></div>
+    `;
+    container.appendChild(cardName);
+
+    // 3. Sección: Cambiar Dominio o Grupo de Trabajo
+    const cardDomain = document.createElement('div');
+    cardDomain.className = 'info-section-card';
+    cardDomain.innerHTML = `
+      <div class="info-section-title">
+        <span class="info-section-icon">🌐</span>
+        <div>
+          <h3>Dominio o Grupo de Trabajo</h3>
+          <p>Configura la pertenencia del equipo a un Grupo de Trabajo de red local o a un Dominio Active Directory.</p>
+        </div>
+      </div>
+      <div class="info-form-group">
+        <label>Tipo de red</label>
+        <div class="info-radio-group">
+          <label class="info-radio-label">
+            <input type="radio" name="target-type" value="workgroup" ${!info.isPartOfDomain ? 'checked' : ''}>
+            <span>Grupo de Trabajo (Workgroup)</span>
+          </label>
+          <label class="info-radio-label">
+            <input type="radio" name="target-type" value="domain" ${info.isPartOfDomain ? 'checked' : ''}>
+            <span>Dominio Corporativo (Active Directory)</span>
+          </label>
+        </div>
+      </div>
+      <div class="info-form-group">
+        <label>Nombre del Dominio o Grupo de Trabajo</label>
+        <input type="text" id="input-domain-name" class="info-text-input" value="${info.domain}" placeholder="Ej: WORKGROUP o mi-empresa.local" />
+      </div>
+      <div id="domain-creds-box" class="info-form-group" style="${info.isPartOfDomain ? 'display:block;' : 'display:none;'}">
+        <label>Credenciales del Dominio (Opcional si requiere autenticación)</label>
+        <div class="info-input-grid">
+          <input type="text" id="input-domain-user" class="info-text-input" placeholder="Usuario del Dominio (ej: Administrador)" />
+          <input type="password" id="input-domain-pass" class="info-text-input" placeholder="Contraseña del Dominio" />
+        </div>
+      </div>
+      <button id="btn-save-domain" class="info-action-btn primary" style="margin-top:8px;">🌐 Aplicar Cambio de Red</button>
+      <div id="status-domain" class="info-feedback-box" style="display:none; margin-top:12px;"></div>
+    `;
+    container.appendChild(cardDomain);
+
+    // 4. Sección: Cambiar Contraseña de Usuario
+    const cardPassword = document.createElement('div');
+    cardPassword.className = 'info-section-card';
+    cardPassword.innerHTML = `
+      <div class="info-section-title">
+        <span class="info-section-icon">🔑</span>
+        <div>
+          <h3>Cambiar Contraseña de Usuario</h3>
+          <p>Actualiza la contraseña de la cuenta de usuario de Windows de forma directa y segura.</p>
+        </div>
+      </div>
+      <div class="info-form-group">
+        <label>Nombre de usuario objetivo</label>
+        <input type="text" id="input-target-user" class="info-text-input" value="${info.currentUser}" placeholder="Usuario de Windows" />
+      </div>
+      <div class="info-form-group">
+        <div class="info-input-grid">
+          <div>
+            <label>Nueva Contraseña</label>
+            <input type="password" id="input-new-password" class="info-text-input" placeholder="Mínimo 1 carácter" />
+          </div>
+          <div>
+            <label>Confirmar Nueva Contraseña</label>
+            <input type="password" id="input-confirm-password" class="info-text-input" placeholder="Repite la contraseña" />
+          </div>
+        </div>
+      </div>
+      <button id="btn-save-password" class="info-action-btn primary" style="margin-top:8px;">🔑 Actualizar Contraseña</button>
+      <div id="status-password" class="info-feedback-box" style="display:none; margin-top:12px;"></div>
+    `;
+    container.appendChild(cardPassword);
+
+    resultsEl.appendChild(container);
+    statusText.textContent = '✔ Información del equipo cargada correctamente';
+
+    // Wire events
+    const radioWorkgroup = cardDomain.querySelector('input[value="workgroup"]');
+    const radioDomain = cardDomain.querySelector('input[value="domain"]');
+    const domainCredsBox = cardDomain.querySelector('#domain-creds-box');
+
+    radioWorkgroup?.addEventListener('change', () => {
+      if (radioWorkgroup.checked) domainCredsBox.style.display = 'none';
+    });
+    radioDomain?.addEventListener('change', () => {
+      if (radioDomain.checked) domainCredsBox.style.display = 'block';
+    });
+
+    // Save computer name
+    cardName.querySelector('#btn-save-computer-name')?.addEventListener('click', async () => {
+      const newName = cardName.querySelector('#input-computer-name').value;
+      const statusBox = cardName.querySelector('#status-computer-name');
+      statusBox.style.display = 'block';
+      statusBox.className = 'info-feedback-box info';
+      statusBox.innerHTML = '⏳ Aplicando cambio de nombre del equipo...';
+
+      try {
+        const res = await window.api.changeComputerName({ newName });
+        statusBox.className = `info-feedback-box ${res.success ? 'success' : 'error'}`;
+        statusBox.innerHTML = res.message;
+        if (res.success) {
+          statusText.textContent = `✔ Nombre de equipo actualizado a "${newName}".`;
+        }
+      } catch (err) {
+        statusBox.className = 'info-feedback-box error';
+        statusBox.innerHTML = `❌ Error: ${err.message}`;
+      }
+    });
+
+    // Save domain/workgroup
+    cardDomain.querySelector('#btn-save-domain')?.addEventListener('click', async () => {
+      const targetType = radioDomain.checked ? 'domain' : 'workgroup';
+      const targetName = cardDomain.querySelector('#input-domain-name').value;
+      const domainUser = cardDomain.querySelector('#input-domain-user').value;
+      const domainPassword = cardDomain.querySelector('#input-domain-pass').value;
+
+      const statusBox = cardDomain.querySelector('#status-domain');
+      statusBox.style.display = 'block';
+      statusBox.className = 'info-feedback-box info';
+      statusBox.innerHTML = `⏳ Cambiando pertenencia de red a ${targetType === 'domain' ? 'Dominio' : 'Grupo de Trabajo'}...`;
+
+      try {
+        const res = await window.api.changeDomainWorkgroup({ targetType, targetName, domainUser, domainPassword });
+        statusBox.className = `info-feedback-box ${res.success ? 'success' : 'error'}`;
+        statusBox.innerHTML = res.message;
+        if (res.success) {
+          statusText.textContent = `✔ Configuración de red cambiada a "${targetName}".`;
+        }
+      } catch (err) {
+        statusBox.className = 'info-feedback-box error';
+        statusBox.innerHTML = `❌ Error: ${err.message}`;
+      }
+    });
+
+    // Save password
+    cardPassword.querySelector('#btn-save-password')?.addEventListener('click', async () => {
+      const username = cardPassword.querySelector('#input-target-user').value;
+      const newPassword = cardPassword.querySelector('#input-new-password').value;
+      const confirmPassword = cardPassword.querySelector('#input-confirm-password').value;
+
+      const statusBox = cardPassword.querySelector('#status-password');
+      statusBox.style.display = 'block';
+
+      if (!newPassword) {
+        statusBox.className = 'info-feedback-box error';
+        statusBox.innerHTML = '❌ La nueva contraseña no puede estar vacía.';
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        statusBox.className = 'info-feedback-box error';
+        statusBox.innerHTML = '❌ Las contraseñas ingresadas no coinciden.';
+        return;
+      }
+
+      statusBox.className = 'info-feedback-box info';
+      statusBox.innerHTML = `⏳ Actualizando contraseña del usuario "${username}"...`;
+
+      try {
+        const res = await window.api.changeUserPassword({ username, newPassword });
+        statusBox.className = `info-feedback-box ${res.success ? 'success' : 'error'}`;
+        statusBox.innerHTML = res.message;
+        if (res.success) {
+          cardPassword.querySelector('#input-new-password').value = '';
+          cardPassword.querySelector('#input-confirm-password').value = '';
+          statusText.textContent = `✔ Contraseña de "${username}" cambiada exitosamente.`;
+        }
+      } catch (err) {
+        statusBox.className = 'info-feedback-box error';
+        statusBox.innerHTML = `❌ Error: ${err.message}`;
+      }
+    });
+
+  } catch (e) {
+    statusText.textContent = `❌ Error al consultar la información del equipo: ${e.message}`;
+  } finally {
+    setBusy(false);
+  }
+});
 
 document.getElementById('btn-diagnostico').addEventListener('click', async () => {
   clearResults('Diagnóstico del PC');
@@ -1478,6 +2015,24 @@ function createGpuDriverCard(g) {
     : isWarn ? '⚠ Revisar actualización'
       : '✔ Reciente';
 
+  let tempDisplay = 'N/D';
+  let tempClass = '';
+  if (g.temperature != null) {
+    const t = g.temperature;
+    if (t < 65) {
+      tempDisplay = `🟢 ${t} °C (Óptima)`;
+      tempClass = 'temp-optima';
+    } else if (t <= 80) {
+      tempDisplay = `🟡 ${t} °C (Moderada)`;
+      tempClass = 'temp-moderada';
+    } else {
+      tempDisplay = `🔴 ${t} °C (Elevada)`;
+      tempClass = 'temp-elevada';
+    }
+  } else {
+    tempDisplay = '⚠️ Sensor no expuesto';
+  }
+
   card.className = `gpu-driver-card ${g.driverStatus}`;
   card.innerHTML = `
     <div class="gpu-card-top">
@@ -1506,26 +2061,69 @@ function createGpuDriverCard(g) {
         </div>
       </div>
       <div class="gpu-card-stat">
-        <span class="gpu-stat-icon">🌡️</span>
+        <span class="gpu-stat-icon">💾</span>
         <div class="gpu-stat-text">
-          <span class="gpu-stat-label">Temperatura GPU</span>
-          <span class="gpu-stat-value">${g.temperature != null ? g.temperature + ' °C' : 'N/D'}</span>
+          <span class="gpu-stat-label">Memoria VRAM</span>
+          <span class="gpu-stat-value">${g.vram || 'Memoria compartida'}</span>
         </div>
       </div>
       <div class="gpu-card-stat">
+        <span class="gpu-stat-icon">🖥️</span>
+        <div class="gpu-stat-text">
+          <span class="gpu-stat-label">Resolución y Refresco</span>
+          <span class="gpu-stat-value">${g.resolution || 'Pantalla Principal'}</span>
+        </div>
+      </div>
+      <div class="gpu-card-stat">
+        <span class="gpu-stat-icon">⚙️</span>
+        <div class="gpu-stat-text">
+          <span class="gpu-stat-label">Procesador de Video</span>
+          <span class="gpu-stat-value">${g.videoProcessor || g.model}</span>
+        </div>
+      </div>
+      <div class="gpu-card-stat">
+        <span class="gpu-stat-icon">🌡️</span>
+        <div class="gpu-stat-text">
+          <span class="gpu-stat-label">Temperatura GPU</span>
+          <span class="gpu-stat-value ${tempClass}">${tempDisplay}</span>
+        </div>
+      </div>
+      ${g.gpuUsage ? `
+      <div class="gpu-card-stat">
+        <span class="gpu-stat-icon">📊</span>
+        <div class="gpu-stat-text">
+          <span class="gpu-stat-label">Uso del Núcleo GPU</span>
+          <span class="gpu-stat-value">${g.gpuUsage}</span>
+        </div>
+      </div>` : ''}
+      ${g.vramUsage ? `
+      <div class="gpu-card-stat">
+        <span class="gpu-stat-icon">⚡</span>
+        <div class="gpu-stat-text">
+          <span class="gpu-stat-label">Uso de Memoria VRAM</span>
+          <span class="gpu-stat-value">${g.vramUsage}</span>
+        </div>
+      </div>` : ''}
+      <div class="gpu-card-stat">
         <span class="gpu-stat-icon">🛡️</span>
         <div class="gpu-stat-text">
-          <span class="gpu-stat-label">Estado de Seguridad</span>
+          <span class="gpu-stat-label">Estado del Controlador</span>
           <span class="gpu-stat-value">${g.driverStatus === 'ok' ? 'Controlador Estable' : 'Revisar Actualización'}</span>
         </div>
       </div>
     </div>
 
+    ${g.temperatureError ? `
+    <div class="gpu-temp-note">
+      <span style="font-size:16px;">ℹ️</span>
+      <span>${g.temperatureError}</span>
+    </div>` : ''}
+
     <div class="gpu-card-notice">
       <span style="font-size:18px;">💡</span>
       <div>
         Los fabricantes de GPU lanzan actualizaciones constantemente para optimizar juegos y rendimiento.
-        Comprueba si hay un nuevo controlador listo para descargar desde la <strong>NVIDIA App</strong> o la web oficial.
+        Comprueba si hay un nuevo controlador listo para descargar desde la web oficial de <strong>${g.manufacturer}</strong>.
       </div>
     </div>
 

@@ -89,6 +89,7 @@
 
     getNetworkOptions: () => getJson('/api/network-options'),
     runNetworkAction: (data) => postJson('/api/network-action', data),
+    runPingTest: (data) => postJson('/api/ping-test', data),
 
     runDiagnostico: () => postJson('/api/diagnostico'),
 
@@ -108,6 +109,11 @@
     onCleanTempProgress: (cb) => { eventCallbacks['clean-temp-progress'].push(cb); },
 
     getGpuDrivers: () => getJson('/api/gpu-drivers'),
+
+    getSystemInfoDetails: () => getJson('/api/system-info-details'),
+    changeComputerName: (data) => postJson('/api/change-computer-name', data),
+    changeDomainWorkgroup: (data) => postJson('/api/change-domain-workgroup', data),
+    changeUserPassword: (data) => postJson('/api/change-user-password', data),
 
     getSystemUpdates: () => getJson('/api/system-updates'),
     runSystemUpdatesAction: (data) => postJson('/api/system-updates-action', data),
