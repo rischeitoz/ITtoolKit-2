@@ -34,35 +34,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-// ── Panel de Log ─────────────────────────────────────────────────────────────
-const logPanel = document.getElementById('log-panel');
-const logBody = document.getElementById('log-body');
-
-document.getElementById('btn-log-toggle').addEventListener('click', () => {
-  logPanel.classList.toggle('visible');
-});
-document.getElementById('btn-log-close').addEventListener('click', () => {
-  logPanel.classList.remove('visible');
-});
-document.getElementById('btn-clear-log-view').addEventListener('click', () => {
-  logBody.innerHTML = '';
-});
-document.getElementById('btn-open-log-folder').addEventListener('click', () => {
-  window.api.openLogFolder();
-});
-
-window.api.getLogPath().then(p => {
-  if (p) document.getElementById('log-file-path').textContent = p;
-});
-
-window.api.onAppLog((entry) => {
-  const line = document.createElement('p');
-  line.className = `log-line ${entry.level || 'INFO'}`;
-  line.textContent = `[${entry.ts}] [${entry.level}] ${entry.message}`;
-  logBody.appendChild(line);
-  logBody.scrollTop = logBody.scrollHeight;
-});
-
 // ── Helpers de UI ────────────────────────────────────────────────────────────
 function setBusy(busy, text = '') {
   progressBar.classList.toggle('active', busy);
@@ -73,6 +44,9 @@ function setBusy(busy, text = '') {
 function clearResults(title) {
   resultTitle.textContent = title;
   resultsEl.innerHTML = '';
+  resultsEl.classList.remove('panel-fade-in');
+  void resultsEl.offsetWidth; // Trigger reflow for animation
+  resultsEl.classList.add('panel-fade-in');
   statusText.textContent = '';
 }
 
@@ -2393,15 +2367,71 @@ function renderNetworkOptionsPanel(adapters) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad — Comprobar Actualizaciones del Sistema (Windows Update & HP Support)
 // ═══════════════════════════════════════════════════════════════════════════════
+function createUpdatesLoadingWidget() {
+  const container = document.createElement('div');
+  container.className = 'updates-loading-container';
+  container.id = 'updates-loading-widget';
+  container.innerHTML = `
+    <div class="updates-loading-scanner">
+      <div class="updates-ring ring-1"></div>
+      <div class="updates-ring ring-2"></div>
+      <div class="updates-icon">🔄</div>
+      <div class="updates-beam"></div>
+    </div>
+    <div class="updates-loading-title">Comprobando Actualizaciones del Sistema...</div>
+    <div class="updates-loading-subtitle" id="updates-loading-step">Conectando con servidores de Windows Update y HP Support...</div>
+    <div class="updates-loading-steps-strip">
+      <span class="step-chip active" id="chip-wu">🪟 Windows Update</span>
+      <span class="step-chip" id="chip-hp">💻 HP Support</span>
+      <span class="step-chip" id="chip-kb">📋 Parches KB</span>
+      <span class="step-chip" id="chip-svc">⚙️ Servicios WUAUSERV</span>
+    </div>
+  `;
+  return container;
+}
+
+function startUpdatesLoadingSequence() {
+  const container = createUpdatesLoadingWidget();
+  resultsEl.appendChild(container);
+
+  const steps = [
+    { id: 'chip-wu', text: 'Analizando canal oficial de Windows Update...' },
+    { id: 'chip-hp', text: 'Consultando controladores y firmware HP Support Assistant...' },
+    { id: 'chip-kb', text: 'Revisando historial de parches instalados...' },
+    { id: 'chip-svc', text: 'Verificando estado de los servicios de actualización...' },
+  ];
+
+  let currentStep = 0;
+  const stepSubEl = document.getElementById('updates-loading-step');
+
+  const timer = setInterval(() => {
+    currentStep++;
+    if (currentStep >= steps.length) {
+      clearInterval(timer);
+      return;
+    }
+    const prevChip = document.getElementById(steps[currentStep - 1].id);
+    const currChip = document.getElementById(steps[currentStep].id);
+    if (prevChip) prevChip.className = 'step-chip done';
+    if (currChip) currChip.className = 'step-chip active';
+    if (stepSubEl) stepSubEl.textContent = steps[currentStep].text;
+  }, 450);
+
+  return () => clearInterval(timer);
+}
+
 document.getElementById('btn-sysupdates').addEventListener('click', async () => {
   clearResults('Comprobar Actualizaciones del Sistema');
+  const stopLoading = startUpdatesLoadingSequence();
   setBusy(true, 'Analizando actualizaciones de Windows, HP Support, historial y servicios...');
 
   try {
     const data = await window.api.getSystemUpdates();
+    stopLoading();
     renderSystemUpdatesPanel(data);
     statusText.textContent = '✔ Datos de actualizaciones y servicios cargados correctamente';
   } catch (e) {
+    stopLoading();
     statusText.textContent = `❌ Error al consultar actualizaciones: ${e.message}`;
   } finally {
     setBusy(false);
@@ -2630,3 +2660,289 @@ function renderSystemUpdatesPanel(data) {
     });
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Panel Principal / Dashboard Inicial
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderHomeDashboard() {
+  clearResults('Panel Principal HCPToolKit');
+  const container = document.createElement('div');
+  container.className = 'dashboard-welcome';
+  container.innerHTML = `
+    <div class="welcome-banner">
+      <div class="welcome-text">
+        <h2>⚡ Centro de Mantenimiento y Diagnóstico HCPToolKit</h2>
+        <p>Selecciona una utilidad del menú lateral o busca la función que necesites.</p>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <span class="topbar-status-pill"><span class="status-dot"></span> Auditando en Tiempo Real</span>
+      </div>
+    </div>
+
+    <!-- Buscador en Grande en Panel Principal -->
+    <div class="home-search-section">
+      <div class="home-search-box">
+        <span class="home-search-icon">🔍</span>
+        <input type="text" id="home-hero-search" class="home-search-input" placeholder="Buscar utilidad o función (ej: RAM, GPU, Speedtest, DNS, SFC, Updates)..." />
+        <button id="btn-home-clear-search" class="btn-home-clear" style="display:none;">✕</button>
+      </div>
+      <div class="home-search-tags">
+        <span class="search-tag" data-query="Diagnóstico">🖥️ Diagnóstico</span>
+        <span class="search-tag" data-query="GPU">🎮 Drivers GPU</span>
+        <span class="search-tag" data-query="Updates">🔄 Actualizaciones</span>
+        <span class="search-tag" data-query="Speedtest">🌐 Test Velocidad</span>
+        <span class="search-tag" data-query="Red">⚙️ Opciones Red</span>
+        <span class="search-tag" data-query="SFC">🛡️ Reparar SFC</span>
+        <span class="search-tag" data-query="Alto Rendimiento">⚡ Rendimiento</span>
+      </div>
+    </div>
+
+    <div id="home-search-results-box" style="display:none; margin-bottom: 20px;"></div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card" id="kpi-diagnostico" style="cursor:pointer;">
+        <div class="kpi-icon-wrap">🖥️</div>
+        <div class="kpi-info">
+          <span class="kpi-label">Diagnóstico PC</span>
+          <span class="kpi-value">Auditar Hardware</span>
+          <span class="kpi-sub">CPU, RAM, GPU y Discos</span>
+        </div>
+      </div>
+      <div class="kpi-card" id="kpi-speedtest" style="cursor:pointer;">
+        <div class="kpi-icon-wrap">🌐</div>
+        <div class="kpi-info">
+          <span class="kpi-label">Test Velocidad</span>
+          <span class="kpi-value">Medir Red</span>
+          <span class="kpi-sub">Ping, Descarga y Subida</span>
+        </div>
+      </div>
+      <div class="kpi-card" id="kpi-sysupdates" style="cursor:pointer;">
+        <div class="kpi-icon-wrap">🔄</div>
+        <div class="kpi-info">
+          <span class="kpi-label">Actualizaciones</span>
+          <span class="kpi-value">Comprobar Updates</span>
+          <span class="kpi-sub">Windows & HP Support</span>
+        </div>
+      </div>
+      <div class="kpi-card" id="kpi-healthcheck" style="cursor:pointer;">
+        <div class="kpi-icon-wrap">⭐</div>
+        <div class="kpi-info">
+          <span class="kpi-label">Salud General</span>
+          <span class="kpi-value">Evaluación 1-10</span>
+          <span class="kpi-sub">Estado y Consejos</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-section-title">🚀 Accesos Rápidos de Optimización</div>
+    <div class="shortcut-grid">
+      <div class="shortcut-card" id="sc-highperf">
+        <span class="shortcut-icon">⚡</span>
+        <div class="shortcut-text">
+          <span class="shortcut-title">Alto Rendimiento</span>
+          <span class="shortcut-sub">Máxima potencia de procesador y energía</span>
+        </div>
+      </div>
+      <div class="shortcut-card" id="sc-cleantemp">
+        <span class="shortcut-icon">🧹</span>
+        <div class="shortcut-text">
+          <span class="shortcut-title">Limpiar Temporales</span>
+          <span class="shortcut-sub">Liberar espacio en disco inmediatamente</span>
+        </div>
+      </div>
+      <div class="shortcut-card" id="sc-gpudrivers">
+        <span class="shortcut-icon">🎮</span>
+        <div class="shortcut-text">
+          <span class="shortcut-title">Drivers de GPU</span>
+          <span class="shortcut-sub">Comprobar controlador de la gráfica</span>
+        </div>
+      </div>
+      <div class="shortcut-card" id="sc-sfc">
+        <span class="shortcut-icon">🛡️</span>
+        <div class="shortcut-text">
+          <span class="shortcut-title">Reparar Archivos SFC</span>
+          <span class="shortcut-sub">Escanear archivos del sistema en CMD</span>
+        </div>
+      </div>
+    </div>
+  `;
+  resultsEl.appendChild(container);
+
+  // Vincular eventos KPI y Accesos Rápidos
+  document.getElementById('kpi-diagnostico')?.addEventListener('click', () => document.getElementById('btn-diagnostico')?.click());
+  document.getElementById('kpi-speedtest')?.addEventListener('click', () => document.getElementById('btn-speedtest')?.click());
+  document.getElementById('kpi-sysupdates')?.addEventListener('click', () => document.getElementById('btn-sysupdates')?.click());
+  document.getElementById('kpi-healthcheck')?.addEventListener('click', () => document.getElementById('btn-healthcheck')?.click());
+
+  document.getElementById('sc-highperf')?.addEventListener('click', () => document.getElementById('btn-highperf')?.click());
+  document.getElementById('sc-cleantemp')?.addEventListener('click', () => document.getElementById('btn-cleantemp')?.click());
+  document.getElementById('sc-gpudrivers')?.addEventListener('click', () => document.getElementById('btn-gpudrivers')?.click());
+  document.getElementById('sc-sfc')?.addEventListener('click', () => document.getElementById('btn-sfc')?.click());
+
+  // Vincular Buscador Hero
+  const heroInput = document.getElementById('home-hero-search');
+  const heroClear = document.getElementById('btn-home-clear-search');
+
+  if (heroInput) {
+    heroInput.addEventListener('input', () => performSearch(heroInput.value));
+  }
+  if (heroClear) {
+    heroClear.addEventListener('click', () => performSearch(''));
+  }
+
+  // Vincular etiquetas de búsqueda rápida
+  container.querySelectorAll('.search-tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      const q = tag.dataset.query || tag.textContent;
+      performSearch(q);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Selector de Tema y Buscador Global Sincronizado
+// ═══════════════════════════════════════════════════════════════════════════════
+const themeBtn = document.getElementById('btn-theme-toggle');
+if (themeBtn) {
+  const savedTheme = localStorage.getItem('hcptoolkit-theme') || 'light';
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-theme');
+    themeBtn.textContent = '☀️ Tema Claro';
+  } else {
+    document.body.classList.remove('dark-theme');
+    themeBtn.textContent = '🌙 Tema Oscuro';
+  }
+
+  themeBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark-theme');
+    const isDark = document.body.classList.contains('dark-theme');
+    localStorage.setItem('hcptoolkit-theme', isDark ? 'dark' : 'light');
+    themeBtn.textContent = isDark ? '☀️ Tema Claro' : '🌙 Tema Oscuro';
+  });
+}
+
+// Búsqueda Unificada
+function performSearch(query) {
+  const q = query.toLowerCase().trim();
+
+  const topInput = document.getElementById('tool-search');
+  const heroInput = document.getElementById('home-hero-search');
+  const clearTopBtn = document.getElementById('btn-clear-search');
+  const clearHeroBtn = document.getElementById('btn-home-clear-search');
+
+  if (topInput && topInput.value !== query) topInput.value = query;
+  if (heroInput && heroInput.value !== query) heroInput.value = query;
+
+  if (clearTopBtn) clearTopBtn.style.display = q ? 'block' : 'none';
+  if (clearHeroBtn) clearHeroBtn.style.display = q ? 'block' : 'none';
+
+  // Filtrar tarjetas en sidebar
+  document.querySelectorAll('.tab-content:not(#tab-inicio) .card').forEach(card => {
+    const text = card.textContent.toLowerCase();
+    if (!q || text.includes(q)) {
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+
+  // Si estamos en el Panel Principal, renderizar resultados inmediatos
+  const resultsBox = document.getElementById('home-search-results-box');
+  if (resultsBox) {
+    if (q) {
+      resultsBox.style.display = 'block';
+      resultsBox.innerHTML = '';
+
+      const heading = document.createElement('div');
+      heading.className = 'dashboard-section-title';
+      heading.textContent = `🔍 Resultados de búsqueda ("${query}")`;
+      resultsBox.appendChild(heading);
+
+      const grid = document.createElement('div');
+      grid.className = 'shortcut-grid';
+
+      let count = 0;
+      document.querySelectorAll('.tab-content:not(#tab-inicio) .card').forEach(card => {
+        if (card.style.display !== 'none') {
+          count++;
+          const item = document.createElement('div');
+          item.className = 'shortcut-card';
+          item.style.cursor = 'pointer';
+          item.innerHTML = card.innerHTML;
+          item.addEventListener('click', () => card.click());
+          grid.appendChild(item);
+        }
+      });
+
+      if (count === 0) {
+        grid.innerHTML = `<div style="padding: 16px; color: var(--text-secondary); text-align: center; grid-column: 1 / -1; font-size: 13px;">No se encontraron utilidades para "${query}". Prueba buscar RAM, GPU, Speedtest, SFC, DISM...</div>`;
+      }
+      resultsBox.appendChild(grid);
+    } else {
+      resultsBox.style.display = 'none';
+      resultsBox.innerHTML = '';
+    }
+  }
+}
+
+const topSearchInput = document.getElementById('tool-search');
+const topClearBtn = document.getElementById('btn-clear-search');
+
+if (topSearchInput) {
+  topSearchInput.addEventListener('input', () => performSearch(topSearchInput.value));
+}
+if (topClearBtn) {
+  topClearBtn.addEventListener('click', () => performSearch(''));
+}
+
+// Botón "Panel Principal" (Topbar)
+function goHome() {
+  renderHomeDashboard();
+}
+
+document.getElementById('btn-topbar-home')?.addEventListener('click', goHome);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ventana de Bienvenida & Secuencia de Inicio
+// ═══════════════════════════════════════════════════════════════════════════════
+const welcomeOverlay = document.getElementById('welcome-overlay');
+const startBtn = document.getElementById('btn-welcome-start');
+const actionBox = document.getElementById('welcome-action-box');
+const loaderBox = document.getElementById('welcome-loader-box');
+const stepLabel = document.getElementById('welcome-step-label');
+const progressFill = document.getElementById('welcome-progress-fill');
+
+if (startBtn && welcomeOverlay) {
+  startBtn.addEventListener('click', () => {
+    actionBox.style.display = 'none';
+    loaderBox.style.display = 'flex';
+
+    const steps = [
+      { text: 'Iniciando sensores de hardware y procesador...', pct: 25 },
+      { text: 'Detectando módulos de memoria RAM y discos...', pct: 60 },
+      { text: 'Cargando utilidades de red y reparación...', pct: 85 },
+      { text: '¡Sistema listo!', pct: 100 }
+    ];
+
+    let current = 0;
+    const interval = setInterval(() => {
+      if (current < steps.length) {
+        if (stepLabel) stepLabel.textContent = steps[current].text;
+        if (progressFill) progressFill.style.width = `${steps[current].pct}%`;
+        current++;
+      } else {
+        clearInterval(interval);
+        setTimeout(() => {
+          welcomeOverlay.classList.add('fade-out');
+          setTimeout(() => {
+            welcomeOverlay.style.display = 'none';
+          }, 400);
+        }, 300);
+      }
+    }, 400);
+  });
+}
+
+// Carga inicial del Dashboard
+renderHomeDashboard();
+

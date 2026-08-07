@@ -10,10 +10,27 @@
 
 <body>
   <div class="topbar">
-    <span class="topbar-icon">🛠️</span>
-    <span class="topbar-title">HCPToolKit - Diagnóstico y Mantenimiento</span>
+    <div class="topbar-left">
+      <span class="topbar-icon">⚡</span>
+      <span class="topbar-title">HCPToolKit</span>
+      <span class="topbar-version-badge">v1.0.0</span>
+      <span class="topbar-status-pill"><span class="status-dot"></span> Sistema Listo</span>
+      <button class="btn-topbar-home" id="btn-topbar-home" title="Ir al Panel Principal">
+        <span class="topbar-home-icon">⚡</span>
+        <span>Panel Principal</span>
+      </button>
+    </div>
+
+    <div class="topbar-center">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="tool-search" class="tool-search-input" placeholder="Buscar utilidad (ej: RAM, GPU, DNS, Updates, SFC)..." />
+        <button id="btn-clear-search" class="btn-clear-search" style="display:none;">✕</button>
+      </div>
+    </div>
+
     <div class="topbar-right">
-      <button class="log-toggle" id="btn-log-toggle" title="Ver log de actividad">📄 Log</button>
+      <button class="theme-toggle" id="btn-theme-toggle" title="Cambiar tema visual (Claro / Oscuro)">🌙 Tema</button>
     </div>
   </div>
 
@@ -157,18 +174,66 @@
     </div>
   </div>
 
-  <!-- Panel de Log (oculto por defecto) -->
-  <div class="log-panel" id="log-panel">
-    <div class="log-header">
-      <span>📄 Log de actividad</span>
-      <div class="log-header-actions">
-        <span id="log-file-path" class="log-path"></span>
-        <button id="btn-open-log-folder">📁 Abrir carpeta</button>
-        <button id="btn-clear-log-view">🗑 Limpiar vista</button>
-        <button id="btn-log-close">✕</button>
+  <!-- Modal de Bienvenida (Welcome Overlay) -->
+  <div class="welcome-overlay" id="welcome-overlay">
+    <div class="welcome-card">
+      <div class="welcome-header">
+        <div class="welcome-badge">
+          <span class="welcome-badge-dot"></span> HCPToolKit System Suite
+        </div>
+        <div class="welcome-icon-wrap">⚡</div>
+        <h1 class="welcome-title">HCPToolKit</h1>
+        <p class="welcome-subtitle">
+          Solución integral y profesional para el diagnóstico técnico de hardware, optimización del sistema, auditoría de rendimiento de red y mantenimiento preventivo.
+        </p>
+      </div>
+
+      <div class="welcome-features">
+        <div class="welcome-feature-card">
+          <span class="wf-icon">🖥️</span>
+          <div class="wf-text">
+            <strong>Diagnóstico de Hardware</strong>
+            <span>CPU, RAM, GPU, Placa Base, Discos y Temperaturas</span>
+          </div>
+        </div>
+        <div class="welcome-feature-card">
+          <span class="wf-icon">⚡</span>
+          <div class="wf-text">
+            <strong>Optimización & Energía</strong>
+            <span>Modo Alto Rendimiento y actualización de drivers de GPU</span>
+          </div>
+        </div>
+        <div class="welcome-feature-card">
+          <span class="wf-icon">📡</span>
+          <div class="wf-text">
+            <strong>Test & Control de Red</strong>
+            <span>Speedtest, prueba de latencia, liberación de IP y limpieza DNS</span>
+          </div>
+        </div>
+        <div class="welcome-feature-card">
+          <span class="wf-icon">🛡️</span>
+          <div class="wf-text">
+            <strong>Reparación de Windows</strong>
+            <span>Integridad SFC / DISM, visor de eventos e historial de parches</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="welcome-action" id="welcome-action-box">
+        <button class="btn-welcome-start" id="btn-welcome-start">
+          <span class="btn-start-icon">▶</span>
+          <span>Comenzar</span>
+        </button>
+      </div>
+
+      <div class="welcome-loader-box" id="welcome-loader-box" style="display:none;">
+        <div class="welcome-spinner"></div>
+        <div class="welcome-step-label" id="welcome-step-label">Iniciando módulos de diagnóstico...</div>
+        <div class="welcome-progress-bar">
+          <div class="welcome-progress-fill" id="welcome-progress-fill"></div>
+        </div>
       </div>
     </div>
-    <div class="log-body" id="log-body"></div>
   </div>
 
   <div class="statusbar" id="statusbar"></div>
