@@ -48,15 +48,11 @@ function createWindow() {
     width: 1150, height: 750, minWidth: 950, minHeight: 620,
     title: 'HCPToolKit - Diagnóstico y Mantenimiento',
     frame: false,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: false,
-    autoHideMenuBar: true,
     backgroundColor: '#0F172A',
     ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   mainWindow.setMenuBarVisibility(false);
-  mainWindow.removeMenu();
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
   mainWindow.on('maximize', () => {
