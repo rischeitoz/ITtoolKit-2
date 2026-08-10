@@ -3528,6 +3528,7 @@ document.getElementById('btn-topbar-home')?.addEventListener('click', goHome);
 const btnWinMin = document.getElementById('btn-win-minimize');
 const btnWinMax = document.getElementById('btn-win-maximize');
 const btnWinClose = document.getElementById('btn-win-close');
+const topbarEl = document.querySelector('.topbar');
 
 if (btnWinMin) {
   btnWinMin.addEventListener('click', () => {
@@ -3547,7 +3548,20 @@ if (btnWinClose) {
   });
 }
 
+if (topbarEl) {
+  topbarEl.addEventListener('dblclick', (e) => {
+    if (e.target.closest('button, input, a, .window-controls, .search-box')) return;
+    window.api?.maximizeWindow?.();
+  });
+}
+
 function updateMaximizeState(isMax) {
+  if (isMax) {
+    document.body.classList.add('is-maximized');
+  } else {
+    document.body.classList.remove('is-maximized');
+  }
+
   if (!btnWinMax) return;
   const iconMax = btnWinMax.querySelector('.icon-max');
   const iconRestore = btnWinMax.querySelector('.icon-restore');
