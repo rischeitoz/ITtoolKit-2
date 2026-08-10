@@ -3633,7 +3633,7 @@ if (startBtn && welcomeOverlay) {
 renderHomeDashboard();
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MÓDULO DE TUTORIALES EN PDF (Ruta: \\cielo\INFORMATICA\TUTORIALES)
+// MÓDULO DE TUTORIALES EN PDF Y DOCX (Ruta: \\cielo\INFORMATICA\TUTORIALES)
 // ═══════════════════════════════════════════════════════════════════════════════
 let currentTutorialsPath = '\\\\cielo\\INFORMATICA\\TUTORIALES';
 let currentTutorialsList = [];
@@ -3662,7 +3662,7 @@ async function loadAndRenderTutorials(customPath) {
   const targetPath = customPath || currentTutorialsPath;
   currentTutorialsPath = targetPath;
 
-  setBusy(true, `Buscando tutoriales en PDF en ${targetPath}...`);
+  setBusy(true, `Buscando tutoriales (PDF y DOCX) en ${targetPath}...`);
   try {
     const res = await window.api.getTutorials(targetPath);
     setBusy(false);
@@ -3672,27 +3672,54 @@ async function loadAndRenderTutorials(customPath) {
     // Actualizar badge del botón en la barra lateral
     const countBadge = document.getElementById('tut-count-badge');
     if (countBadge) {
-      countBadge.textContent = `${currentTutorialsList.length} PDF`;
+      countBadge.textContent = `${currentTutorialsList.length} DOCS`;
     }
 
     renderTutorialsGallery(res);
   } catch (err) {
     setBusy(false);
-    clearResults('📚 Centro de Tutoriales en PDF');
+    clearResults('📚 Centro de Tutoriales (PDF y Word)');
     resultsEl.innerHTML = `
       <div class="result-box error-box">
         <h3>🔴 Error al consultar tutoriales</h3>
         <p>No se pudo explorar la ruta <code>${targetPath}</code>.</p>
         <p class="text-sm">${err.message}</p>
-        <button class="btn-tut-action" id="btn-retry-tut" style="margin-top:10px;">🔄 Reintentar</button>
+        <div style="display:flex; gap:10px; margin-top:12px;">
+          <button class="btn-tut-action" id="btn-retry-tut">🔄 Reintentar</button>
+          <button class="btn-tut-action" id="btn-err-change-path">📂 Cambiar Ruta</button>
+        </div>
       </div>
     `;
     document.getElementById('btn-retry-tut')?.addEventListener('click', () => loadAndRenderTutorials());
+    document.getElementById('btn-err-change-path')?.addEventListener('click', () => handleChangeTutorialsPath());
+  }
+}
+
+async function handleChangeTutorialsPath() {
+  let newPath = null;
+  try {
+    const dialogRes = await window.api?.selectTutorialsFolder?.();
+    if (dialogRes && dialogRes.success && dialogRes.folderPath) {
+      newPath = dialogRes.folderPath;
+    }
+  } catch (e) {
+    console.warn('Native folder picker not available, falling back to prompt:', e);
+  }
+
+  if (!newPath) {
+    const userTyped = prompt('Introduce la nueva ruta de la carpeta de tutoriales (red o local):', currentTutorialsPath);
+    if (userTyped && userTyped.trim()) {
+      newPath = userTyped.trim();
+    }
+  }
+
+  if (newPath) {
+    loadAndRenderTutorials(newPath);
   }
 }
 
 function renderTutorialsGallery(resData) {
-  clearResults('📚 Centro de Tutoriales en PDF');
+  clearResults('📚 Centro de Tutoriales (PDF y Word)');
 
   const container = document.createElement('div');
   container.className = 'tutorials-container';
@@ -3708,8 +3735,8 @@ function renderTutorialsGallery(resData) {
   header.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:4px;">
       <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:18px;">📁</span>
-        <strong style="font-size:15px; color:var(--text-primary);">Manuales y Guías Técnicas en PDF</strong>
+        <span style="font-size:18px;">📚</span>
+        <strong style="font-size:15px; color:var(--text-primary);">Manuales y Guías Técnicas (PDF y Word)</strong>
       </div>
       <div class="tutorials-path-info">
         <span>${pathStatusIcon}</span>
@@ -3718,27 +3745,28 @@ function renderTutorialsGallery(resData) {
       </div>
     </div>
     <div class="tutorials-actions">
-      <button class="btn-tut-action" id="btn-tut-reload" title="Recargar carpeta">
+      <button class="btn-tut-action" id="btn-tut-reload" title="Recargar lista de archivos">
         <span>🔄</span> Recargar
       </button>
-      <button class="btn-tut-action" id="btn-tut-change-path" title="Cambiar ruta de red o directorio">
+      <button class="btn-tut-action" id="btn-tut-change-path" title="Cambiar la carpeta de origen">
         <span>📂</span> Cambiar Ruta
       </button>
     </div>
   `;
   container.appendChild(header);
 
-  // 2. Barra de Filtros (Buscador y Categorías por Carpeta)
+  // 2. Barra de Filtros (Buscador y Categorías por Carpeta y Formato)
   const filterBar = document.createElement('div');
   filterBar.className = 'tutorials-filter-bar';
 
-  // Extraer carpetas únicas
-  const categories = ['Todos', ...new Set(currentTutorialsList.map(item => item.folder || 'General'))];
+  // Extraer carpetas únicas y tipos
+  const folders = [...new Set(currentTutorialsList.map(item => item.folder || 'General'))];
+  const categories = ['Todos', 'PDF', 'DOCX', ...folders];
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
   searchInput.className = 'tutorials-search-input';
-  searchInput.placeholder = '🔍 Buscar por nombre de tutorial o palabra clave...';
+  searchInput.placeholder = '🔍 Buscar tutorial por título, formato o palabra clave...';
   searchInput.value = tutorialSearchQuery;
 
   const pillsWrap = document.createElement('div');
@@ -3747,7 +3775,13 @@ function renderTutorialsGallery(resData) {
   categories.forEach(cat => {
     const pill = document.createElement('button');
     pill.className = `cat-pill ${cat === activeTutorialCategory ? 'active' : ''}`;
-    pill.textContent = cat === 'Todos' ? `📂 Todos (${currentTutorialsList.length})` : `📁 ${cat}`;
+    let label = cat;
+    if (cat === 'Todos') label = `📂 Todos (${currentTutorialsList.length})`;
+    else if (cat === 'PDF') label = `📄 Solo PDF`;
+    else if (cat === 'DOCX') label = `📝 Solo Word`;
+    else label = `📁 ${cat}`;
+
+    pill.textContent = label;
     pill.addEventListener('click', () => {
       activeTutorialCategory = cat;
       renderTutorialsListGrid(gridContainer);
@@ -3779,13 +3813,10 @@ function renderTutorialsGallery(resData) {
   });
 
   document.getElementById('btn-tut-change-path')?.addEventListener('click', () => {
-    const newPath = prompt('Introduce la ruta de red o directorio de tutoriales en PDF:', currentTutorialsPath);
-    if (newPath && newPath.trim() !== '') {
-      loadAndRenderTutorials(newPath.trim());
-    }
+    handleChangeTutorialsPath();
   });
 
-  // Renderizar tarjetas por primera vez
+  // Renderizar tarjetas
   renderTutorialsListGrid(gridContainer);
 }
 
@@ -3793,7 +3824,15 @@ function renderTutorialsListGrid(gridEl) {
   gridEl.innerHTML = '';
 
   let filtered = currentTutorialsList.filter(item => {
-    const matchCat = activeTutorialCategory === 'Todos' || item.folder === activeTutorialCategory;
+    let matchCat = true;
+    if (activeTutorialCategory === 'PDF') {
+      matchCat = item.type === 'pdf';
+    } else if (activeTutorialCategory === 'DOCX') {
+      matchCat = item.type === 'docx';
+    } else if (activeTutorialCategory !== 'Todos') {
+      matchCat = item.folder === activeTutorialCategory;
+    }
+
     const matchSearch = !tutorialSearchQuery || 
       item.title.toLowerCase().includes(tutorialSearchQuery) || 
       item.folder.toLowerCase().includes(tutorialSearchQuery) ||
@@ -3806,7 +3845,7 @@ function renderTutorialsListGrid(gridEl) {
       <div style="grid-column: 1 / -1; padding: 40px; text-align: center; background: var(--card); border: 1px dashed var(--card-border); border-radius: 12px;">
         <div style="font-size: 32px; margin-bottom: 8px;">📭</div>
         <h4 style="margin: 0 0 6px 0; color: var(--text-primary);">No se encontraron tutoriales</h4>
-        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Prueba ajustando el texto de búsqueda o selecciona otra categoría.</p>
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Prueba ajustando el texto de búsqueda o cambiando el filtro seleccionado.</p>
       </div>
     `;
     return;
@@ -3816,23 +3855,28 @@ function renderTutorialsListGrid(gridEl) {
     const card = document.createElement('div');
     card.className = 'tut-card';
 
+    const isPdf = item.type === 'pdf';
+    const icon = isPdf ? '📄' : '📝';
+    const typeLabel = isPdf ? 'PDF' : 'DOCX';
+    const typeBadgeClass = isPdf ? 'tut-folder-tag' : 'tut-folder-tag tut-docx-tag';
+
     card.innerHTML = `
       <div class="tut-card-head">
-        <span class="tut-folder-tag">📁 ${item.folder}</span>
+        <span class="${typeBadgeClass}">${typeLabel} • ${item.folder}</span>
         <span class="tut-size-tag">💾 ${item.size}</span>
       </div>
       <div class="tut-card-body">
-        <div class="tut-pdf-icon">📄</div>
+        <div class="tut-pdf-icon">${icon}</div>
         <div class="tut-card-info">
           <div class="tut-card-title">${item.title}</div>
           <div class="tut-card-date">🕒 ${item.dateStr || 'Reciente'}</div>
         </div>
       </div>
       <div class="tut-card-actions">
-        <button class="btn-view-pdf" title="Visualizar este PDF dentro de HCPToolKit">
+        <button class="btn-view-pdf" title="Visualizar este documento dentro de HCPToolKit">
           <span>📖</span> Visualizar en la App
         </button>
-        <button class="btn-open-ext-pdf" title="Abrir en visor PDF externo del sistema">
+        <button class="btn-open-ext-pdf" title="Abrir con la aplicación predeterminada del sistema">
           ↗️
         </button>
       </div>
@@ -3840,7 +3884,7 @@ function renderTutorialsListGrid(gridEl) {
 
     // Eventos de los botones de la tarjeta
     card.querySelector('.btn-view-pdf').addEventListener('click', () => {
-      openPdfViewerInApp(item);
+      openDocumentViewerInApp(item);
     });
 
     card.querySelector('.btn-open-ext-pdf').addEventListener('click', () => {
@@ -3851,8 +3895,9 @@ function renderTutorialsListGrid(gridEl) {
   });
 }
 
-async function openPdfViewerInApp(pdfItem) {
-  clearResults(`📖 Visualizando: ${pdfItem.title}`);
+async function openDocumentViewerInApp(docItem) {
+  const isPdf = docItem.type === 'pdf';
+  clearResults(`📖 Visualizando: ${docItem.title}`);
 
   const wrapper = document.createElement('div');
   wrapper.className = 'pdf-viewer-wrapper';
@@ -3866,13 +3911,13 @@ async function openPdfViewerInApp(pdfItem) {
     </button>
 
     <div class="pdf-title-display">
-      <span>📄</span>
-      <span>${pdfItem.title}</span>
-      <span style="font-size: 11px; font-weight: normal; opacity: 0.7;">(${pdfItem.folder} • ${pdfItem.size})</span>
+      <span>${isPdf ? '📄' : '📝'}</span>
+      <span>${docItem.title}</span>
+      <span style="font-size: 11px; font-weight: normal; opacity: 0.7;">(${isPdf ? 'PDF' : 'DOCX'} • ${docItem.folder} • ${docItem.size})</span>
     </div>
 
     <div style="display: flex; gap: 8px;">
-      <button class="btn-tut-action" id="btn-ext-pdf-viewer">
+      <button class="btn-tut-action" id="btn-ext-doc-viewer">
         <span>↗️</span> Abrir Visor Sistema
       </button>
     </div>
@@ -3880,14 +3925,14 @@ async function openPdfViewerInApp(pdfItem) {
 
   wrapper.appendChild(topBar);
 
-  // Contenedor marco del visor PDF
+  // Contenedor marco del visor
   const frameBox = document.createElement('div');
   frameBox.className = 'pdf-frame-container';
   frameBox.innerHTML = `
     <div style="padding: 40px; text-align: center; color: #94A3B8;">
       <div class="spinner" style="margin: 0 auto 16px auto;"></div>
-      <p style="margin: 0; font-size: 14px; font-weight: 600;">Cargando documento PDF...</p>
-      <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.7;">${pdfItem.fullPath}</p>
+      <p style="margin: 0; font-size: 14px; font-weight: 600;">Cargando y procesando documento (${isPdf ? 'PDF' : 'Word DOCX'})...</p>
+      <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.7;">${docItem.fullPath}</p>
     </div>
   `;
 
@@ -3905,40 +3950,76 @@ async function openPdfViewerInApp(pdfItem) {
   });
 
   // Evento abrir visor externo
-  document.getElementById('btn-ext-pdf-viewer')?.addEventListener('click', () => {
-    window.api?.openExternalFile?.(pdfItem.fullPath);
+  document.getElementById('btn-ext-doc-viewer')?.addEventListener('click', () => {
+    window.api?.openExternalFile?.(docItem.fullPath);
   });
 
-  // Cargar contenido PDF base64
-  try {
-    const res = await window.api.readPdfBase64(pdfItem.fullPath);
-    if (res && res.success && res.dataUrl) {
-      frameBox.innerHTML = `
-        <iframe class="pdf-embed-frame" src="${res.dataUrl}" title="${pdfItem.title}"></iframe>
-      `;
-    } else {
+  // Cargar según tipo
+  if (isPdf) {
+    try {
+      const res = await window.api.readPdfBase64(docItem.fullPath);
+      if (res && res.success && res.dataUrl) {
+        frameBox.innerHTML = `
+          <iframe class="pdf-embed-frame" src="${res.dataUrl}" title="${docItem.title}"></iframe>
+        `;
+      } else {
+        frameBox.innerHTML = `
+          <div style="padding: 40px; text-align: center; color: #F87171;">
+            <div style="font-size: 36px; margin-bottom: 12px;">⚠️</div>
+            <h4 style="margin: 0 0 8px 0; font-size: 16px;">No se pudo previsualizar el archivo PDF en vivo</h4>
+            <p style="margin: 0 0 16px 0; font-size: 13px; color: #CBD5E1;">${res.error || 'Acceso restringido o formato no soportado en vista previa.'}</p>
+            <button class="btn-tut-action" id="btn-error-open-ext" style="margin: 0 auto; background: #2563EB; color: white;">
+              ↗️ Abrir en Visor Externo del Sistema
+            </button>
+          </div>
+        `;
+        document.getElementById('btn-error-open-ext')?.addEventListener('click', () => {
+          window.api?.openExternalFile?.(docItem.fullPath);
+        });
+      }
+    } catch (err) {
       frameBox.innerHTML = `
         <div style="padding: 40px; text-align: center; color: #F87171;">
-          <div style="font-size: 36px; margin-bottom: 12px;">⚠️</div>
-          <h4 style="margin: 0 0 8px 0; font-size: 16px;">No se pudo previsualizar el archivo PDF directamente</h4>
-          <p style="margin: 0 0 16px 0; font-size: 13px; color: #CBD5E1;">${res.error || 'Acceso restringido o formato no soportado en vista previa en vivo.'}</p>
-          <button class="btn-tut-action" id="btn-error-open-ext" style="margin: 0 auto; background: #2563EB; color: white;">
-            ↗️ Abrir en Visor Externo de Windows
-          </button>
+          <div style="font-size: 36px; margin-bottom: 12px;">🔴</div>
+          <h4 style="margin: 0 0 8px 0;">Error de lectura del PDF</h4>
+          <p style="font-size: 13px;">${err.message}</p>
         </div>
       `;
-      document.getElementById('btn-error-open-ext')?.addEventListener('click', () => {
-        window.api?.openExternalFile?.(pdfItem.fullPath);
-      });
     }
-  } catch (err) {
-    frameBox.innerHTML = `
-      <div style="padding: 40px; text-align: center; color: #F87171;">
-        <div style="font-size: 36px; margin-bottom: 12px;">🔴</div>
-        <h4 style="margin: 0 0 8px 0;">Error de lectura del PDF</h4>
-        <p style="font-size: 13px;">${err.message}</p>
-      </div>
-    `;
+  } else {
+    // Es un archivo Word (.docx / .doc)
+    try {
+      const res = await window.api.readDocHtml(docItem.fullPath);
+      if (res && res.success && res.html) {
+        frameBox.innerHTML = `
+          <div class="docx-rendered-paper">
+            ${res.html}
+          </div>
+        `;
+      } else {
+        frameBox.innerHTML = `
+          <div style="padding: 40px; text-align: center; color: #F87171;">
+            <div style="font-size: 36px; margin-bottom: 12px;">⚠️</div>
+            <h4 style="margin: 0 0 8px 0; font-size: 16px;">No se pudo convertir la vista previa del documento Word</h4>
+            <p style="margin: 0 0 16px 0; font-size: 13px; color: #CBD5E1;">${res.error || 'El archivo puede estar protegido o en uso.'}</p>
+            <button class="btn-tut-action" id="btn-error-open-ext-doc" style="margin: 0 auto; background: #2563EB; color: white;">
+              📝 Abrir con Microsoft Word
+            </button>
+          </div>
+        `;
+        document.getElementById('btn-error-open-ext-doc')?.addEventListener('click', () => {
+          window.api?.openExternalFile?.(docItem.fullPath);
+        });
+      }
+    } catch (err) {
+      frameBox.innerHTML = `
+        <div style="padding: 40px; text-align: center; color: #F87171;">
+          <div style="font-size: 36px; margin-bottom: 12px;">🔴</div>
+          <h4 style="margin: 0 0 8px 0;">Error al procesar el archivo Word</h4>
+          <p style="font-size: 13px;">${err.message}</p>
+        </div>
+      `;
+    }
   }
 }
 

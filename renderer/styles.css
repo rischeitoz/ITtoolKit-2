@@ -54,40 +54,42 @@ body.dark-theme * {
 
 /* ─── Barras de Desplazamiento (Scrollbars) Personalizadas, Fluidas y Modernas ─── */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.03);
-  border-radius: 12px;
-  margin: 3px;
+  background: var(--sidebar-bg);
+  border-radius: 10px;
+  margin: 4px;
 }
 
 body.dark-theme ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(15, 23, 42, 0.4);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.35);
-  border-radius: 12px;
-  border: 1px solid transparent;
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 10px;
+  border: 2px solid transparent;
   background-clip: padding-box;
-  transition: background 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 body.dark-theme ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.35);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #2563EB;
-  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+  border-width: 1px;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
 }
 
 body.dark-theme ::-webkit-scrollbar-thumb:hover {
   background: #3B82F6;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+  border-width: 1px;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.7);
 }
 
 ::-webkit-scrollbar-thumb:active {
@@ -981,40 +983,57 @@ body.dark-theme .tut-folder-tag {
 
 .tab-bar {
   display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: var(--sidebar-bg);
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
 }
 
 .tab-btn {
   flex: 1;
-  padding: 8px 10px;
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  background: var(--card);
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
   font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
 .tab-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+  background: var(--card);
+  border-color: var(--card-border);
+  color: var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+body.dark-theme .tab-btn.active {
+  background: var(--card);
+  color: #60A5FA;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 .tab-btn:not(.active):hover {
-  border-color: var(--accent);
+  background: rgba(37, 99, 235, 0.08);
   color: var(--accent);
+  transform: translateY(-1px);
 }
 
 .tab-content {
   display: none;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -1022,22 +1041,90 @@ body.dark-theme .tut-folder-tag {
   padding-right: 6px;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
+  will-change: transform, opacity;
 }
 
 .tab-content.active {
   display: flex;
-  animation: tabFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: tabFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes tabFadeIn {
   0% {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px) scale(0.985);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
+}
+
+/* Tag específico para archivos Word/DOCX */
+.tut-docx-tag {
+  background: rgba(99, 102, 241, 0.15) !important;
+  color: #6366F1 !important;
+}
+
+body.dark-theme .tut-docx-tag {
+  background: rgba(129, 140, 248, 0.22) !important;
+  color: #818CF8 !important;
+}
+
+/* Visor y Hoja de Papel Renderizada para Documentos Word DOCX */
+.docx-rendered-paper {
+  flex: 1;
+  width: 100%;
+  max-width: 860px;
+  margin: 20px auto;
+  padding: 36px 42px;
+  background: #FFFFFF;
+  color: #1E293B;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.docx-rendered-paper h1, 
+.docx-rendered-paper h2, 
+.docx-rendered-paper h3 {
+  color: #1E3A8A;
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.docx-rendered-paper h1 { font-size: 22px; border-bottom: 2px solid #E2E8F0; padding-bottom: 6px; }
+.docx-rendered-paper h2 { font-size: 18px; }
+.docx-rendered-paper h3 { font-size: 15px; }
+
+.docx-rendered-paper p {
+  margin-bottom: 12px;
+}
+
+.docx-rendered-paper ul, 
+.docx-rendered-paper ol {
+  margin: 10px 0 14px 24px;
+}
+
+.docx-rendered-paper table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.docx-rendered-paper table td, 
+.docx-rendered-paper table th {
+  border: 1px solid #CBD5E1;
+  padding: 8px 12px;
+}
+
+.docx-rendered-paper table th {
+  background: #F1F5F9;
+  font-weight: 700;
 }
 
 /* ─── Tarjetas ─── */

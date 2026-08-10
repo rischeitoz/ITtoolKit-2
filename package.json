@@ -37,7 +37,8 @@
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "fast-speedtest-api": "^0.3.2"
+    "fast-speedtest-api": "^0.3.2",
+    "mammoth": "^1.12.1"
   },
   "devDependencies": {
     "electron": "^33.2.1",

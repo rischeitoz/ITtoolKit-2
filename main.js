@@ -2582,9 +2582,15 @@ ipcMain.handle('run-ping-test', async (_event, { host, count }) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TUTORIALES EN PDF (Ruta por defecto: \\cielo\INFORMATICA\TUTORIALES)
+// TUTORIALES EN PDF / DOCX (Ruta por defecto: \\cielo\INFORMATICA\TUTORIALES)
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_TUTORIALS_PATH = '\\\\cielo\\INFORMATICA\\TUTORIALES';
+let mammoth;
+try {
+  mammoth = require('mammoth');
+} catch (e) {
+  mammoth = null;
+}
 
 function scanTutorialsDirectory(dirPath) {
   let results = [];
@@ -2606,32 +2612,41 @@ function scanTutorialsDirectory(dirPath) {
         if (entry.isDirectory()) {
           const subRel = relativeFolder ? path.join(relativeFolder, entry.name) : entry.name;
           walkDir(fullPath, subRel);
-        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.pdf')) {
-          let stats;
-          try {
-            stats = fs.statSync(fullPath);
-          } catch (e) {
-            stats = { size: 0, mtime: new Date() };
+        } else if (entry.isFile()) {
+          const lowerName = entry.name.toLowerCase();
+          const isPdf = lowerName.endsWith('.pdf');
+          const isDocx = lowerName.endsWith('.docx') || lowerName.endsWith('.doc');
+
+          if (isPdf || isDocx) {
+            let stats;
+            try {
+              stats = fs.statSync(fullPath);
+            } catch (e) {
+              stats = { size: 0, mtime: new Date() };
+            }
+            const sizeKb = (stats.size / 1024).toFixed(1);
+            const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
+            const formattedSize = stats.size >= 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+            const formattedDate = stats.mtime.toLocaleDateString('es-ES', {
+              year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+            });
+
+            const folderName = relativeFolder || 'General';
+            const fileType = isPdf ? 'pdf' : 'docx';
+            const cleanTitle = entry.name.replace(/\.(pdf|docx|doc)$/i, '');
+
+            results.push({
+              name: entry.name,
+              title: cleanTitle,
+              type: fileType,
+              folder: folderName,
+              fullPath: fullPath,
+              size: formattedSize,
+              sizeBytes: stats.size,
+              mtime: stats.mtime,
+              dateStr: formattedDate
+            });
           }
-          const sizeKb = (stats.size / 1024).toFixed(1);
-          const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
-          const formattedSize = stats.size >= 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
-          const formattedDate = stats.mtime.toLocaleDateString('es-ES', {
-            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-          });
-
-          const folderName = relativeFolder || 'General';
-
-          results.push({
-            name: entry.name,
-            title: entry.name.replace(/\.pdf$/i, ''),
-            folder: folderName,
-            fullPath: fullPath,
-            size: formattedSize,
-            sizeBytes: stats.size,
-            mtime: stats.mtime,
-            dateStr: formattedDate
-          });
         }
       }
     } catch (err) {
@@ -2654,6 +2669,21 @@ ipcMain.handle('get-tutorials', async (_event, customPath) => {
   return scanTutorialsDirectory(targetPath);
 });
 
+ipcMain.handle('select-tutorials-folder', async () => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow || null, {
+      title: 'Seleccionar carpeta de tutoriales (PDF / DOCX)',
+      properties: ['openDirectory']
+    });
+    if (!canceled && filePaths && filePaths.length > 0) {
+      return { success: true, folderPath: filePaths[0] };
+    }
+    return { success: false, canceled: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('read-pdf-base64', async (_event, filePath) => {
   try {
     if (!fs.existsSync(filePath)) {
@@ -2665,6 +2695,27 @@ ipcMain.handle('read-pdf-base64', async (_event, filePath) => {
     return { success: true, dataUrl, filePath };
   } catch (err) {
     appLog('ERROR', `[Tutoriales] Error al leer PDF ${filePath}: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('read-doc-html', async (_event, filePath) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'El archivo DOCX no existe o no es accesible.' };
+    }
+    if (!mammoth) {
+      return { success: false, error: 'Módulo de conversión de documentos no disponible.' };
+    }
+    const result = await mammoth.convertToHtml({ path: filePath });
+    return {
+      success: true,
+      html: result.value,
+      messages: result.messages,
+      filePath
+    };
+  } catch (err) {
+    appLog('ERROR', `[Tutoriales] Error al convertir DOCX ${filePath}: ${err.message}`);
     return { success: false, error: err.message };
   }
 });

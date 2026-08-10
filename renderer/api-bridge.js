@@ -175,7 +175,7 @@
 
     onAppLog: (cb) => { eventCallbacks['app-log'].push(cb); },
 
-    // Tutoriales en PDF (\\cielo\INFORMATICA\TUTORIALES)
+    // Tutoriales en PDF y DOCX (\\cielo\INFORMATICA\TUTORIALES)
     getTutorials: async (customPath) => {
       const targetPath = customPath || '\\\\cielo\\INFORMATICA\\TUTORIALES';
       return {
@@ -186,6 +186,7 @@
           {
             name: 'Manual_Sistemas_Windows11.pdf',
             title: 'Manual de Sistemas - Windows 11',
+            type: 'pdf',
             folder: 'Sistemas',
             fullPath: `${targetPath}\\Sistemas\\Manual_Sistemas_Windows11.pdf`,
             size: '2.4 MB',
@@ -194,10 +195,11 @@
             dateStr: '10/08/2026 10:15'
           },
           {
-            name: 'Guia_Configuracion_Redes_IP.pdf',
+            name: 'Guia_Configuracion_Redes_IP.docx',
             title: 'Guía de Configuración de Redes e Direcciones IP',
+            type: 'docx',
             folder: 'Redes',
-            fullPath: `${targetPath}\\Redes\\Guia_Configuracion_Redes_IP.pdf`,
+            fullPath: `${targetPath}\\Redes\\Guia_Configuracion_Redes_IP.docx`,
             size: '1.8 MB',
             sizeBytes: 1887436,
             mtime: new Date(),
@@ -206,6 +208,7 @@
           {
             name: 'Instalacion_Impresoras_Multifuncion.pdf',
             title: 'Instalación de Impresoras Multifunción en Dominio',
+            type: 'pdf',
             folder: 'Impresoras',
             fullPath: `${targetPath}\\Impresoras\\Instalacion_Impresoras_Multifuncion.pdf`,
             size: '3.1 MB',
@@ -214,10 +217,11 @@
             dateStr: '05/08/2026 09:00'
           },
           {
-            name: 'Protocolo_Reparacion_DISM_SFC.pdf',
+            name: 'Protocolo_Reparacion_DISM_SFC.docx',
             title: 'Protocolo de Reparación DISM y SFC',
+            type: 'docx',
             folder: 'Soporte',
-            fullPath: `${targetPath}\\Soporte\\Protocolo_Reparacion_DISM_SFC.pdf`,
+            fullPath: `${targetPath}\\Soporte\\Protocolo_Reparacion_DISM_SFC.docx`,
             size: '1.2 MB',
             sizeBytes: 1258291,
             mtime: new Date(),
@@ -226,6 +230,7 @@
           {
             name: 'Manual_Seguridad_Politicas_Contrasenas.pdf',
             title: 'Manual de Seguridad y Políticas de Contraseñas',
+            type: 'pdf',
             folder: 'Seguridad',
             fullPath: `${targetPath}\\Seguridad\\Manual_Seguridad_Politicas_Contrasenas.pdf`,
             size: '950 KB',
@@ -235,6 +240,14 @@
           }
         ]
       };
+    },
+
+    selectTutorialsFolder: async () => {
+      const selected = prompt('Seleccionar o escribir carpeta de tutoriales:', '\\\\cielo\\INFORMATICA\\TUTORIALES');
+      if (selected && selected.trim()) {
+        return { success: true, folderPath: selected.trim() };
+      }
+      return { success: false, canceled: true };
     },
 
     readPdfBase64: async (filePath) => {
@@ -247,9 +260,33 @@
       };
     },
 
+    readDocHtml: async (filePath) => {
+      return {
+        success: true,
+        html: `
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; line-height: 1.6; color: #1E293B;">
+            <h1 style="color: #2563EB; font-size: 22px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px;">DOCUMENTO DE TUTORIAL (.DOCX)</h1>
+            <p><strong>Ruta del archivo:</strong> <code>${filePath}</code></p>
+            <p>Este documento Word ha sido convertido dinámicamente para previsualización dentro de la aplicación <strong>HCPToolKit</strong>.</p>
+            <h2 style="color: #1E3A8A; font-size: 16px; margin-top: 16px;">1. Resumen de Procedimiento</h2>
+            <p>A continuación se detallan los pasos para ejecutar las tareas de mantenimiento y diagnóstico correspondientes a este manual:</p>
+            <ul>
+              <li>Verificar la conectividad física de red y asignación IP.</li>
+              <li>Ejecutar la herramienta de diagnóstico integrada de Windows.</li>
+              <li>Aplicar las correcciones sugeridas en este tutorial.</li>
+            </ul>
+            <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 12px; margin: 16px 0; border-radius: 6px;">
+              <strong>Nota de Soporte:</strong> Para editar este archivo directamente con Microsoft Word, utilice el botón <em>"Abrir Visor Sistema"</em>.
+            </div>
+          </div>
+        `,
+        filePath: filePath
+      };
+    },
+
     openExternalFile: async (filePath) => {
       console.log('[WebBridge] Open external file:', filePath);
-      alert(`Abriendo archivo en el visor externo del sistema:\n${filePath}`);
+      alert(`Abriendo archivo en la aplicación predeterminada del sistema:\n${filePath}`);
       return { success: true };
     },
 
