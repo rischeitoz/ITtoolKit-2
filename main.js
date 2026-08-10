@@ -37,7 +37,7 @@ function appLog(level, message) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// VENTANA PRINCIPAL
+// VENTANA PRINCIPAL Y CONTROLES DE BARRA DE TÍTULO PERSONALIZADA
 // ─────────────────────────────────────────────────────────────────────────────
 function createWindow() {
   const icoPath = path.join(__dirname, 'build', 'icon.ico');
@@ -47,12 +47,28 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1150, height: 750, minWidth: 950, minHeight: 620,
     title: 'HCPToolKit - Diagnóstico y Mantenimiento',
-    backgroundColor: '#F5F6F8',
+    frame: false,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: false,
+    autoHideMenuBar: true,
+    backgroundColor: '#0F172A',
     ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   mainWindow.setMenuBarVisibility(false);
+  mainWindow.removeMenu();
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  mainWindow.on('maximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-maximize-change', true);
+    }
+  });
+  mainWindow.on('unmaximize', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-maximize-change', false);
+    }
+  });
 }
 
 app.whenReady().then(() => { logFilePath = initLog(); createWindow(); });
@@ -65,6 +81,26 @@ app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creat
 
 ipcMain.handle('get-log-path',    () => logFilePath);
 ipcMain.handle('open-log-folder', () => shell.openPath(LOG_DIR));
+
+// Controles IPC para ventana sin marco (Custom TitleBar)
+ipcMain.on('window-minimize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+});
+ipcMain.on('window-maximize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+ipcMain.on('window-close', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+});
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow.isMaximized() : false;
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UTILIDAD INTERNA: ejecutar cualquier comando sin PowerShell

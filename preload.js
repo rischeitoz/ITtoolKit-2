@@ -50,4 +50,11 @@ contextBridge.exposeInMainWorld('api', {
   getLogPath: () => ipcRenderer.invoke('get-log-path'),
   openLogFolder: () => ipcRenderer.invoke('open-log-folder'),
   onAppLog: (cb) => ipcRenderer.on('app-log', (_e, entry) => cb(entry)),
+
+  // Controles de ventana (Custom TitleBar)
+  minimizeWindow: () => ipcRenderer.send('window-minimize'),
+  maximizeWindow: () => ipcRenderer.send('window-maximize'),
+  closeWindow: () => ipcRenderer.send('window-close'),
+  isWindowMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onWindowMaximizeChange: (cb) => ipcRenderer.on('window-maximize-change', (_e, isMax) => cb(isMax)),
 });

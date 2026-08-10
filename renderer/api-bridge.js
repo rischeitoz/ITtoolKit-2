@@ -173,6 +173,13 @@
       return true;
     },
 
-    onAppLog: (cb) => { eventCallbacks['app-log'].push(cb); }
+    onAppLog: (cb) => { eventCallbacks['app-log'].push(cb); },
+
+    // Window controls fallbacks for web mode
+    minimizeWindow: () => console.log('[WebBridge] Minimize window'),
+    maximizeWindow: () => console.log('[WebBridge] Maximize window'),
+    closeWindow: () => console.log('[WebBridge] Close window'),
+    isWindowMaximized: async () => false,
+    onWindowMaximizeChange: (cb) => {}
   };
 })();

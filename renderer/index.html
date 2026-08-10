@@ -31,6 +31,20 @@
 
     <div class="topbar-right">
       <button class="theme-toggle" id="btn-theme-toggle" title="Cambiar tema visual (Claro / Oscuro)">🌙 Tema</button>
+
+      <!-- Controles de Ventana Personalizados (Custom TitleBar) -->
+      <div class="window-controls">
+        <button class="window-btn win-minimize" id="btn-win-minimize" title="Minimizar">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1.5 6h9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+        <button class="window-btn win-maximize" id="btn-win-maximize" title="Maximizar / Restaurar">
+          <svg class="icon-max" width="12" height="12" viewBox="0 0 12 12"><rect x="1.75" y="1.75" width="8.5" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+          <svg class="icon-restore" width="12" height="12" viewBox="0 0 12 12" style="display:none;"><path d="M3.5 3.5V1.75H10.25V8.5H8.5M1.75 3.5H8.5V10.25H1.75Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="window-btn win-close" id="btn-win-close" title="Cerrar">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 

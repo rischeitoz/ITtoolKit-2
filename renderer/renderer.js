@@ -3523,6 +3523,72 @@ function goHome() {
 document.getElementById('btn-topbar-home')?.addEventListener('click', goHome);
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Controles de Ventana (Custom TitleBar)
+// ═══════════════════════════════════════════════════════════════════════════════
+const btnWinMin = document.getElementById('btn-win-minimize');
+const btnWinMax = document.getElementById('btn-win-maximize');
+const btnWinClose = document.getElementById('btn-win-close');
+const topbarEl = document.querySelector('.topbar');
+
+if (btnWinMin) {
+  btnWinMin.addEventListener('click', () => {
+    window.api?.minimizeWindow?.();
+  });
+}
+
+if (btnWinMax) {
+  btnWinMax.addEventListener('click', () => {
+    window.api?.maximizeWindow?.();
+  });
+}
+
+if (btnWinClose) {
+  btnWinClose.addEventListener('click', () => {
+    window.api?.closeWindow?.();
+  });
+}
+
+if (topbarEl) {
+  topbarEl.addEventListener('dblclick', (e) => {
+    if (e.target.closest('button, input, a, .window-controls, .search-box')) return;
+    window.api?.maximizeWindow?.();
+  });
+}
+
+function updateMaximizeState(isMax) {
+  if (isMax) {
+    document.body.classList.add('is-maximized');
+  } else {
+    document.body.classList.remove('is-maximized');
+  }
+
+  if (!btnWinMax) return;
+  const iconMax = btnWinMax.querySelector('.icon-max');
+  const iconRestore = btnWinMax.querySelector('.icon-restore');
+  if (isMax) {
+    if (iconMax) iconMax.style.display = 'none';
+    if (iconRestore) iconRestore.style.display = 'block';
+    btnWinMax.title = 'Restaurar ventana';
+  } else {
+    if (iconMax) iconMax.style.display = 'block';
+    if (iconRestore) iconRestore.style.display = 'none';
+    btnWinMax.title = 'Maximizar ventana';
+  }
+}
+
+if (window.api?.onWindowMaximizeChange) {
+  window.api.onWindowMaximizeChange((isMax) => {
+    updateMaximizeState(isMax);
+  });
+}
+
+if (window.api?.isWindowMaximized) {
+  window.api.isWindowMaximized().then((isMax) => {
+    updateMaximizeState(isMax);
+  }).catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Ventana de Bienvenida & Secuencia de Inicio
 // ═══════════════════════════════════════════════════════════════════════════════
 const welcomeOverlay = document.getElementById('welcome-overlay');
