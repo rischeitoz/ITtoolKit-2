@@ -58,6 +58,12 @@ contextBridge.exposeInMainWorld('api', {
   readDocHtml: (filePath) => ipcRenderer.invoke('read-doc-html', filePath),
   openExternalFile: (filePath) => ipcRenderer.invoke('open-external-file', filePath),
 
+  // Sistema de Ticketing (Módulo en Pruebas)
+  getTickets: () => ipcRenderer.invoke('get-tickets'),
+  createTicket: (data) => ipcRenderer.invoke('create-ticket', data),
+  updateTicket: (data) => ipcRenderer.invoke('update-ticket', data),
+  deleteTicket: (data) => ipcRenderer.invoke('delete-ticket', data),
+
   // Controles de ventana (Custom TitleBar)
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),

@@ -130,6 +130,37 @@ function runExec(cmdStr, timeoutMs = 25000) {
 // ─────────────────────────────────────────────────────────────────────────────
 // BARRA DE ESTADO INFERIOR — sólo Node.js nativo, cero PowerShell
 // ─────────────────────────────────────────────────────────────────────────────
+// Helper centralizado para detección de Windows 10 vs Windows 11 por Build Number (>= 22000)
+async function getWindowsOSCaption() {
+  let osCaption = `${os.type()} ${os.release()}`;
+  try {
+    const regKey = 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion';
+    const prodRes = await runCmd('reg', ['query', regKey, '/v', 'ProductName']);
+    const dispRes = await runCmd('reg', ['query', regKey, '/v', 'DisplayVersion']);
+    const buildRes = await runCmd('reg', ['query', regKey, '/v', 'CurrentBuildNumber']);
+
+    const prod = /ProductName\s+REG_SZ\s+(.+)/i.exec(prodRes.stdout || '')?.[1];
+    const disp = /DisplayVersion\s+REG_SZ\s+(.+)/i.exec(dispRes.stdout || '')?.[1];
+    const bld = /CurrentBuildNumber\s+REG_SZ\s+(.+)/i.exec(buildRes.stdout || '')?.[1];
+
+    if (prod) {
+      let name = prod.trim();
+      let buildVal = bld ? parseInt(bld.trim(), 10) : 0;
+      if (!buildVal) {
+        const parts = os.release().split('.');
+        buildVal = parseInt(parts[parts.length - 1] || '0', 10);
+      }
+      if (buildVal >= 22000 && name.includes('Windows 10')) {
+        name = name.replace('Windows 10', 'Windows 11');
+      } else if (buildVal >= 22000 && !name.includes('Windows 11')) {
+        name = name.replace(/Windows\s*(?:Pro|Enterprise|Home|Education|Workstation)?/i, 'Windows 11');
+      }
+      osCaption = disp ? `${name} (${disp.trim()})` : name;
+    }
+  } catch {}
+  return osCaption;
+}
+
 ipcMain.handle('get-equipment-summary', async () => {
   const uptimeSec = os.uptime();
   const days  = Math.floor(uptimeSec / 86400);
@@ -137,18 +168,7 @@ ipcMain.handle('get-equipment-summary', async () => {
   const mins  = Math.floor((uptimeSec % 3600) / 60);
   const uptimeText = days > 0 ? `${days}d ${hours}h ${mins}m` : `${hours}h ${mins}m`;
 
-  // Versión del SO desde el Registro de Windows (sin PowerShell / sin WMIC)
-  let osCaption = `${os.type()} ${os.release()}`;
-  try {
-    const regKey = 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion';
-    const prodRes = await runCmd('reg', ['query', regKey, '/v', 'ProductName']);
-    const dispRes = await runCmd('reg', ['query', regKey, '/v', 'DisplayVersion']);
-    const prod = /ProductName\s+REG_SZ\s+(.+)/i.exec(prodRes.stdout || '')?.[1];
-    const disp = /DisplayVersion\s+REG_SZ\s+(.+)/i.exec(dispRes.stdout || '')?.[1];
-    if (prod) {
-      osCaption = disp ? `${prod.trim()} (${disp.trim()})` : prod.trim();
-    }
-  } catch {}
+  const osCaption = await getWindowsOSCaption();
 
   return { computerName: os.hostname(), userName: os.userInfo().username,
            operatingSystem: osCaption, uptimeText };
@@ -2253,15 +2273,7 @@ ipcMain.handle('get-system-info-details', async () => {
     }
   }
 
-  let osCaption = `${os.type()} ${os.release()}`;
-  try {
-    const regKey = 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion';
-    const prodRes = await runCmd('reg', ['query', regKey, '/v', 'ProductName']);
-    const dispRes = await runCmd('reg', ['query', regKey, '/v', 'DisplayVersion']);
-    const prod = /ProductName\s+REG_SZ\s+(.+)/i.exec(prodRes.stdout || '')?.[1];
-    const disp = /DisplayVersion\s+REG_SZ\s+(.+)/i.exec(dispRes.stdout || '')?.[1];
-    if (prod) osCaption = disp ? `${prod.trim()} (${disp.trim()})` : prod.trim();
-  } catch {}
+  const osCaption = await getWindowsOSCaption();
 
   return {
     computerName: hostname,
@@ -2733,6 +2745,160 @@ ipcMain.handle('open-external-file', async (_event, filePath) => {
     } else {
       return { success: false, error: 'El archivo especificado no existe en el sistema.' };
     }
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SISTEMA DE TICKETING (LOCAL EN RUTA /TICKETS)
+// ─────────────────────────────────────────────────────────────────────────────
+function getTicketsDir() {
+  const ticketsDir = path.join(process.cwd(), 'tickets');
+  if (!fs.existsSync(ticketsDir)) {
+    try {
+      fs.mkdirSync(ticketsDir, { recursive: true });
+      appLog('INFO', `[Tickets] Carpeta /tickets creada en: ${ticketsDir}`);
+    } catch (err) {
+      appLog('ERROR', `[Tickets] Error al crear la carpeta tickets: ${err.message}`);
+    }
+  }
+  return ticketsDir;
+}
+
+function saveTicketFile(ticket) {
+  const dir = getTicketsDir();
+  const filePath = path.join(dir, `ticket_${ticket.id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(ticket, null, 2), 'utf8');
+}
+
+function deleteTicketFile(id) {
+  const dir = getTicketsDir();
+  const filePath = path.join(dir, `ticket_${id}.json`);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    return true;
+  }
+  return false;
+}
+
+function getAllTickets() {
+  const dir = getTicketsDir();
+  const tickets = [];
+  try {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        try {
+          const content = fs.readFileSync(path.join(dir, file), 'utf8');
+          const data = JSON.parse(content);
+          if (data && data.id) {
+            tickets.push(data);
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    appLog('ERROR', `[Tickets] Error al leer la carpeta de tickets: ${err.message}`);
+  }
+
+  // Si la lista está vacía, crear un ticket de demostración inicial
+  if (tickets.length === 0) {
+    const demoTicket = {
+      id: 'TK-1001',
+      title: 'Incidencia de prueba - Configuración de Impresora Red',
+      description: 'La impresora de administración no responde al intentar imprimir desde la estación de trabajo principal.',
+      category: 'Impresoras',
+      priority: 'Media',
+      status: 'En Proceso',
+      requester: os.userInfo().username || 'Usuario Demostración',
+      pcName: os.hostname(),
+      assignedTo: 'Soporte TI',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: [
+        {
+          author: 'Sistema de Tickets (Módulo en Pruebas)',
+          date: new Date().toISOString(),
+          text: 'Ticket de bienvenida generado automáticamente. Todos los tickets se guardan localmente en la carpeta /tickets de la aplicación.'
+        }
+      ]
+    };
+    saveTicketFile(demoTicket);
+    tickets.push(demoTicket);
+  }
+
+  return tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+ipcMain.handle('get-tickets', async () => {
+  return { success: true, tickets: getAllTickets(), ticketsDir: getTicketsDir() };
+});
+
+ipcMain.handle('create-ticket', async (_event, data) => {
+  try {
+    const all = getAllTickets();
+    const nextNum = 1000 + all.length + Math.floor(Math.random() * 90);
+    const newTicket = {
+      id: `TK-${nextNum}`,
+      title: data.title || 'Sin título',
+      description: data.description || '',
+      category: data.category || 'General',
+      priority: data.priority || 'Media',
+      status: 'Abierto',
+      requester: data.requester || os.userInfo().username || 'Usuario',
+      pcName: data.pcName || os.hostname(),
+      assignedTo: data.assignedTo || 'Soporte TI',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: [
+        {
+          author: data.requester || os.userInfo().username || 'Usuario',
+          date: new Date().toISOString(),
+          text: 'Ticket registrado e ingresado en el sistema.'
+        }
+      ]
+    };
+    saveTicketFile(newTicket);
+    return { success: true, ticket: newTicket };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('update-ticket', async (_event, data) => {
+  try {
+    const tickets = getAllTickets();
+    const ticket = tickets.find(t => t.id === data.id);
+    if (!ticket) {
+      return { success: false, error: 'Ticket no encontrado.' };
+    }
+
+    if (data.status) ticket.status = data.status;
+    if (data.priority) ticket.priority = data.priority;
+    if (data.assignedTo) ticket.assignedTo = data.assignedTo;
+    ticket.updatedAt = new Date().toISOString();
+
+    if (data.noteText) {
+      if (!ticket.notes) ticket.notes = [];
+      ticket.notes.push({
+        author: data.noteAuthor || 'Soporte TI',
+        date: new Date().toISOString(),
+        text: data.noteText
+      });
+    }
+
+    saveTicketFile(ticket);
+    return { success: true, ticket };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('delete-ticket', async (_event, data) => {
+  try {
+    const deleted = deleteTicketFile(data.id);
+    return { success: deleted };
   } catch (err) {
     return { success: false, error: err.message };
   }

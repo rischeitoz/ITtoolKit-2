@@ -145,8 +145,15 @@ async function getOsDetails() {
       if (prod) name = prod.trim();
       if (disp) displayVer = disp.trim();
       if (bld) build = bld.trim();
-      if (build && parseInt(build, 10) >= 22000 && name.includes('Windows 10')) {
+      let buildVal = build ? parseInt(build, 10) : 0;
+      if (!buildVal) {
+        const parts = os.release().split('.');
+        buildVal = parseInt(parts[parts.length - 1] || '0', 10);
+      }
+      if (buildVal >= 22000 && name.includes('Windows 10')) {
         name = name.replace('Windows 10', 'Windows 11');
+      } else if (buildVal >= 22000 && !name.includes('Windows 11')) {
+        name = name.replace(/Windows\s*(?:Pro|Enterprise|Home|Education|Workstation)?/i, 'Windows 11');
       }
     } catch {}
   } else {
@@ -1152,9 +1159,26 @@ app.get('/api/system-info-details', async (req, res) => {
       const regKey = 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion';
       const prodRes = await runCmd('reg', ['query', regKey, '/v', 'ProductName']);
       const dispRes = await runCmd('reg', ['query', regKey, '/v', 'DisplayVersion']);
+      const buildRes = await runCmd('reg', ['query', regKey, '/v', 'CurrentBuildNumber']);
+
       const prod = /ProductName\s+REG_SZ\s+(.+)/i.exec(prodRes.stdout || '')?.[1];
       const disp = /DisplayVersion\s+REG_SZ\s+(.+)/i.exec(dispRes.stdout || '')?.[1];
-      if (prod) osCaption = disp ? `${prod.trim()} (${disp.trim()})` : prod.trim();
+      const bld = /CurrentBuildNumber\s+REG_SZ\s+(.+)/i.exec(buildRes.stdout || '')?.[1];
+
+      if (prod) {
+        let name = prod.trim();
+        let buildVal = bld ? parseInt(bld.trim(), 10) : 0;
+        if (!buildVal) {
+          const parts = os.release().split('.');
+          buildVal = parseInt(parts[parts.length - 1] || '0', 10);
+        }
+        if (buildVal >= 22000 && name.includes('Windows 10')) {
+          name = name.replace('Windows 10', 'Windows 11');
+        } else if (buildVal >= 22000 && !name.includes('Windows 11')) {
+          name = name.replace(/Windows\s*(?:Pro|Enterprise|Home|Education|Workstation)?/i, 'Windows 11');
+        }
+        osCaption = disp ? `${name} (${disp.trim()})` : name;
+      }
     } catch {}
 
     res.json({
@@ -2159,6 +2183,163 @@ app.post('/api/tutorials/read-pdf', async (req, res) => {
       dataUrl: `data:application/pdf;base64,${base64Data}`,
       filePath
     });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SISTEMA DE TICKETING (REST API - RUTA LOCAL /TICKETS)
+// ─────────────────────────────────────────────────────────────────────────────
+function getTicketsDir() {
+  const ticketsDir = path.join(process.cwd(), 'tickets');
+  if (!fs.existsSync(ticketsDir)) {
+    try {
+      fs.mkdirSync(ticketsDir, { recursive: true });
+      appLog('INFO', `[Server/Tickets] Carpeta /tickets creada en: ${ticketsDir}`);
+    } catch (err) {
+      appLog('ERROR', `[Server/Tickets] Error creando la carpeta tickets: ${err.message}`);
+    }
+  }
+  return ticketsDir;
+}
+
+function saveTicketFile(ticket) {
+  const dir = getTicketsDir();
+  const filePath = path.join(dir, `ticket_${ticket.id}.json`);
+  fs.writeFileSync(filePath, JSON.stringify(ticket, null, 2), 'utf8');
+}
+
+function deleteTicketFile(id) {
+  const dir = getTicketsDir();
+  const filePath = path.join(dir, `ticket_${id}.json`);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+    return true;
+  }
+  return false;
+}
+
+function getAllTickets() {
+  const dir = getTicketsDir();
+  const tickets = [];
+  try {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        try {
+          const content = fs.readFileSync(path.join(dir, file), 'utf8');
+          const data = JSON.parse(content);
+          if (data && data.id) {
+            tickets.push(data);
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    appLog('ERROR', `[Server/Tickets] Error leyendo carpeta de tickets: ${err.message}`);
+  }
+
+  // Si la lista está vacía, crear un ticket de demostración inicial
+  if (tickets.length === 0) {
+    const demoTicket = {
+      id: 'TK-1001',
+      title: 'Incidencia de prueba - Configuración de Impresora Red',
+      description: 'La impresora de administración no responde al intentar imprimir desde la estación de trabajo principal.',
+      category: 'Impresoras',
+      priority: 'Media',
+      status: 'En Proceso',
+      requester: os.userInfo().username || 'Usuario Demostración',
+      pcName: os.hostname(),
+      assignedTo: 'Soporte TI',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: [
+        {
+          author: 'Sistema de Tickets (Módulo en Pruebas)',
+          date: new Date().toISOString(),
+          text: 'Ticket de bienvenida generado automáticamente. Todos los tickets se guardan localmente en la carpeta /tickets de la aplicación.'
+        }
+      ]
+    };
+    saveTicketFile(demoTicket);
+    tickets.push(demoTicket);
+  }
+
+  return tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+app.get('/api/tickets', (req, res) => {
+  res.json({ success: true, tickets: getAllTickets(), ticketsDir: getTicketsDir() });
+});
+
+app.post('/api/tickets/create', (req, res) => {
+  try {
+    const { title, description, category, priority, requester, pcName, assignedTo } = req.body;
+    const all = getAllTickets();
+    const nextNum = 1000 + all.length + Math.floor(Math.random() * 90);
+    const newTicket = {
+      id: `TK-${nextNum}`,
+      title: title || 'Sin título',
+      description: description || '',
+      category: category || 'General',
+      priority: priority || 'Media',
+      status: 'Abierto',
+      requester: requester || os.userInfo().username || 'Usuario',
+      pcName: pcName || os.hostname(),
+      assignedTo: assignedTo || 'Soporte TI',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      notes: [
+        {
+          author: requester || os.userInfo().username || 'Usuario',
+          date: new Date().toISOString(),
+          text: 'Ticket registrado e ingresado en el sistema.'
+        }
+      ]
+    };
+    saveTicketFile(newTicket);
+    res.json({ success: true, ticket: newTicket });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/tickets/update', (req, res) => {
+  try {
+    const { id, status, priority, noteText, noteAuthor, assignedTo } = req.body;
+    const tickets = getAllTickets();
+    const ticket = tickets.find(t => t.id === id);
+    if (!ticket) {
+      return res.json({ success: false, error: 'Ticket no encontrado.' });
+    }
+
+    if (status) ticket.status = status;
+    if (priority) ticket.priority = priority;
+    if (assignedTo) ticket.assignedTo = assignedTo;
+    ticket.updatedAt = new Date().toISOString();
+
+    if (noteText) {
+      if (!ticket.notes) ticket.notes = [];
+      ticket.notes.push({
+        author: noteAuthor || 'Soporte TI',
+        date: new Date().toISOString(),
+        text: noteText
+      });
+    }
+
+    saveTicketFile(ticket);
+    res.json({ success: true, ticket });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/tickets/delete', (req, res) => {
+  try {
+    const { id } = req.body;
+    const deleted = deleteTicketFile(id);
+    res.json({ success: deleted });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }

@@ -175,6 +175,12 @@
 
     onAppLog: (cb) => { eventCallbacks['app-log'].push(cb); },
 
+    // Sistema de Ticketing (Módulo en Pruebas)
+    getTickets: () => getJson('/api/tickets'),
+    createTicket: (data) => postJson('/api/tickets/create', data),
+    updateTicket: (data) => postJson('/api/tickets/update', data),
+    deleteTicket: (data) => postJson('/api/tickets/delete', data),
+
     // Tutoriales en PDF y DOCX (\\cielo\INFORMATICA\TUTORIALES)
     getTutorials: async (customPath) => {
       const targetPath = customPath || '\\\\cielo\\INFORMATICA\\TUTORIALES';
