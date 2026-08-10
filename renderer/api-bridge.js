@@ -175,6 +175,84 @@
 
     onAppLog: (cb) => { eventCallbacks['app-log'].push(cb); },
 
+    // Tutoriales en PDF (\\cielo\INFORMATICA\TUTORIALES)
+    getTutorials: async (customPath) => {
+      const targetPath = customPath || '\\\\cielo\\INFORMATICA\\TUTORIALES';
+      return {
+        success: true,
+        pathExists: true,
+        targetPath: targetPath,
+        items: [
+          {
+            name: 'Manual_Sistemas_Windows11.pdf',
+            title: 'Manual de Sistemas - Windows 11',
+            folder: 'Sistemas',
+            fullPath: `${targetPath}\\Sistemas\\Manual_Sistemas_Windows11.pdf`,
+            size: '2.4 MB',
+            sizeBytes: 2516582,
+            mtime: new Date(),
+            dateStr: '10/08/2026 10:15'
+          },
+          {
+            name: 'Guia_Configuracion_Redes_IP.pdf',
+            title: 'Guía de Configuración de Redes e Direcciones IP',
+            folder: 'Redes',
+            fullPath: `${targetPath}\\Redes\\Guia_Configuracion_Redes_IP.pdf`,
+            size: '1.8 MB',
+            sizeBytes: 1887436,
+            mtime: new Date(),
+            dateStr: '08/08/2026 14:30'
+          },
+          {
+            name: 'Instalacion_Impresoras_Multifuncion.pdf',
+            title: 'Instalación de Impresoras Multifunción en Dominio',
+            folder: 'Impresoras',
+            fullPath: `${targetPath}\\Impresoras\\Instalacion_Impresoras_Multifuncion.pdf`,
+            size: '3.1 MB',
+            sizeBytes: 3250585,
+            mtime: new Date(),
+            dateStr: '05/08/2026 09:00'
+          },
+          {
+            name: 'Protocolo_Reparacion_DISM_SFC.pdf',
+            title: 'Protocolo de Reparación DISM y SFC',
+            folder: 'Soporte',
+            fullPath: `${targetPath}\\Soporte\\Protocolo_Reparacion_DISM_SFC.pdf`,
+            size: '1.2 MB',
+            sizeBytes: 1258291,
+            mtime: new Date(),
+            dateStr: '01/08/2026 11:20'
+          },
+          {
+            name: 'Manual_Seguridad_Politicas_Contrasenas.pdf',
+            title: 'Manual de Seguridad y Políticas de Contraseñas',
+            folder: 'Seguridad',
+            fullPath: `${targetPath}\\Seguridad\\Manual_Seguridad_Politicas_Contrasenas.pdf`,
+            size: '950 KB',
+            sizeBytes: 972800,
+            mtime: new Date(),
+            dateStr: '28/07/2026 16:45'
+          }
+        ]
+      };
+    },
+
+    readPdfBase64: async (filePath) => {
+      // Minimal valid single-page PDF encoded in base64
+      const samplePdfBase64 = 'JVBERi0xLjQKJSDi483NCjEgMCBvYmoKPDwvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFI+PgplbmRvYmoKMiAwIG9iaiA8PC9UeXBlIC9QYWdlcyAvQ291bnQgMSAvS2lkcyBbMyAwIFJdPj4gZW5kb2JqCjMgMCBvYmoKPDwvVHlwZSAvUGFnZSAvUGFyZW50IDIgMCBSIC9NZWRpYUJveCBbMCAwIDYxMiA3OTJdIC9Db250ZW50cyA0IDAgUiAvUmVzb3VyY2VzIDw8L1Byb2NTZXQgWy9QREYgL1RleHRdIC9Gb250IDw8L0YxIDUgMCBSPj4+Pj4gZW5kb2JqCjQgMCBvYmoKPDwvTGVuZ3RoIDY4Pj5zdHJlYW0KQlQKL0YxIDI0IFRmCjEwMCA3MDAgVGQKKE1hbnVhbCBkZSBUdXRvcmlhbGVzIEhDUFRvb2xLaXQpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iaiA8PC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYT4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwDY2NjY2IG4gCjAwMDAwMDAwMTggMDAwMDAgbiAKMDAwMDAwMDA2OCAwMDAwMCBuIAowMDAwMDAwMTI1IDAwMDAwIG4gCjAwMDAwMDAyOTMgMDAwMDAgbiAKMDAwMDAwMDM3OCAwMDAwMCBuIAp0cmFpbGVyCjw8L1NpemUgNiAvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgo0NjEKJCVFT0YK';
+      return {
+        success: true,
+        dataUrl: `data:application/pdf;base64,${samplePdfBase64}`,
+        filePath: filePath
+      };
+    },
+
+    openExternalFile: async (filePath) => {
+      console.log('[WebBridge] Open external file:', filePath);
+      alert(`Abriendo archivo en el visor externo del sistema:\n${filePath}`);
+      return { success: true };
+    },
+
     // Window controls fallbacks for web mode
     minimizeWindow: () => console.log('[WebBridge] Minimize window'),
     maximizeWindow: () => console.log('[WebBridge] Maximize window'),

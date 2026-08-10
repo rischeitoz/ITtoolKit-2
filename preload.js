@@ -51,6 +51,11 @@ contextBridge.exposeInMainWorld('api', {
   openLogFolder: () => ipcRenderer.invoke('open-log-folder'),
   onAppLog: (cb) => ipcRenderer.on('app-log', (_e, entry) => cb(entry)),
 
+  // Tutoriales en PDF (\\cielo\INFORMATICA\TUTORIALES)
+  getTutorials: (customPath) => ipcRenderer.invoke('get-tutorials', customPath),
+  readPdfBase64: (filePath) => ipcRenderer.invoke('read-pdf-base64', filePath),
+  openExternalFile: (filePath) => ipcRenderer.invoke('open-external-file', filePath),
+
   // Controles de ventana (Custom TitleBar)
   minimizeWindow: () => ipcRenderer.send('window-minimize'),
   maximizeWindow: () => ipcRenderer.send('window-maximize'),

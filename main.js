@@ -2581,5 +2581,107 @@ ipcMain.handle('run-ping-test', async (_event, { host, count }) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TUTORIALES EN PDF (Ruta por defecto: \\cielo\INFORMATICA\TUTORIALES)
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_TUTORIALS_PATH = '\\\\cielo\\INFORMATICA\\TUTORIALES';
+
+function scanTutorialsDirectory(dirPath) {
+  let results = [];
+  if (!fs.existsSync(dirPath)) {
+    return {
+      success: false,
+      pathExists: false,
+      targetPath: dirPath,
+      message: `La ruta de red "${dirPath}" no existe o no es accesible actualmente.`,
+      items: []
+    };
+  }
+
+  function walkDir(currentDir, relativeFolder = '') {
+    try {
+      const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          const subRel = relativeFolder ? path.join(relativeFolder, entry.name) : entry.name;
+          walkDir(fullPath, subRel);
+        } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.pdf')) {
+          let stats;
+          try {
+            stats = fs.statSync(fullPath);
+          } catch (e) {
+            stats = { size: 0, mtime: new Date() };
+          }
+          const sizeKb = (stats.size / 1024).toFixed(1);
+          const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
+          const formattedSize = stats.size >= 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+          const formattedDate = stats.mtime.toLocaleDateString('es-ES', {
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+          });
+
+          const folderName = relativeFolder || 'General';
+
+          results.push({
+            name: entry.name,
+            title: entry.name.replace(/\.pdf$/i, ''),
+            folder: folderName,
+            fullPath: fullPath,
+            size: formattedSize,
+            sizeBytes: stats.size,
+            mtime: stats.mtime,
+            dateStr: formattedDate
+          });
+        }
+      }
+    } catch (err) {
+      appLog('ERROR', `[Tutoriales] Error explorando carpeta ${currentDir}: ${err.message}`);
+    }
+  }
+
+  walkDir(dirPath);
+  return {
+    success: true,
+    pathExists: true,
+    targetPath: dirPath,
+    items: results
+  };
+}
+
+ipcMain.handle('get-tutorials', async (_event, customPath) => {
+  const targetPath = customPath || DEFAULT_TUTORIALS_PATH;
+  appLog('INFO', `[Tutoriales] Explorando tutoriales en: ${targetPath}`);
+  return scanTutorialsDirectory(targetPath);
+});
+
+ipcMain.handle('read-pdf-base64', async (_event, filePath) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'El archivo PDF no existe o no es accesible.' };
+    }
+    const pdfBuffer = fs.readFileSync(filePath);
+    const base64Data = pdfBuffer.toString('base64');
+    const dataUrl = `data:application/pdf;base64,${base64Data}`;
+    return { success: true, dataUrl, filePath };
+  } catch (err) {
+    appLog('ERROR', `[Tutoriales] Error al leer PDF ${filePath}: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('open-external-file', async (_event, filePath) => {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      await shell.openPath(filePath);
+      return { success: true };
+    } else {
+      return { success: false, error: 'El archivo especificado no existe en el sistema.' };
+    }
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+
 
 

@@ -3632,3 +3632,314 @@ if (startBtn && welcomeOverlay) {
 // Carga inicial del Dashboard
 renderHomeDashboard();
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÓDULO DE TUTORIALES EN PDF (Ruta: \\cielo\INFORMATICA\TUTORIALES)
+// ═══════════════════════════════════════════════════════════════════════════════
+let currentTutorialsPath = '\\\\cielo\\INFORMATICA\\TUTORIALES';
+let currentTutorialsList = [];
+let activeTutorialCategory = 'Todos';
+let tutorialSearchQuery = '';
+
+const btnOpenTutorials = document.getElementById('btn-open-tutorials');
+
+if (btnOpenTutorials) {
+  btnOpenTutorials.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btnOpenTutorials.classList.add('active');
+    loadAndRenderTutorials();
+  });
+}
+
+// Desmarcar botón Tutoriales cuando el usuario hace clic en alguna de las pestañas normales
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btnOpenTutorials) btnOpenTutorials.classList.remove('active');
+  });
+});
+
+async function loadAndRenderTutorials(customPath) {
+  const targetPath = customPath || currentTutorialsPath;
+  currentTutorialsPath = targetPath;
+
+  setBusy(true, `Buscando tutoriales en PDF en ${targetPath}...`);
+  try {
+    const res = await window.api.getTutorials(targetPath);
+    setBusy(false);
+
+    currentTutorialsList = res.items || [];
+    
+    // Actualizar badge del botón en la barra lateral
+    const countBadge = document.getElementById('tut-count-badge');
+    if (countBadge) {
+      countBadge.textContent = `${currentTutorialsList.length} PDF`;
+    }
+
+    renderTutorialsGallery(res);
+  } catch (err) {
+    setBusy(false);
+    clearResults('📚 Centro de Tutoriales en PDF');
+    resultsEl.innerHTML = `
+      <div class="result-box error-box">
+        <h3>🔴 Error al consultar tutoriales</h3>
+        <p>No se pudo explorar la ruta <code>${targetPath}</code>.</p>
+        <p class="text-sm">${err.message}</p>
+        <button class="btn-tut-action" id="btn-retry-tut" style="margin-top:10px;">🔄 Reintentar</button>
+      </div>
+    `;
+    document.getElementById('btn-retry-tut')?.addEventListener('click', () => loadAndRenderTutorials());
+  }
+}
+
+function renderTutorialsGallery(resData) {
+  clearResults('📚 Centro de Tutoriales en PDF');
+
+  const container = document.createElement('div');
+  container.className = 'tutorials-container';
+
+  // 1. Cabecera con Ruta e Información de Red
+  const header = document.createElement('div');
+  header.className = 'tutorials-header';
+
+  const pathExists = resData?.pathExists !== false;
+  const pathStatusIcon = pathExists ? '🟢' : '🟡';
+  const pathStatusText = pathExists ? 'Ruta conectada' : 'Ruta no detectada (Modo Demostración)';
+
+  header.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:18px;">📁</span>
+        <strong style="font-size:15px; color:var(--text-primary);">Manuales y Guías Técnicas en PDF</strong>
+      </div>
+      <div class="tutorials-path-info">
+        <span>${pathStatusIcon}</span>
+        <code>${currentTutorialsPath}</code>
+        <span style="font-size:11px; opacity:0.8;">(${pathStatusText})</span>
+      </div>
+    </div>
+    <div class="tutorials-actions">
+      <button class="btn-tut-action" id="btn-tut-reload" title="Recargar carpeta">
+        <span>🔄</span> Recargar
+      </button>
+      <button class="btn-tut-action" id="btn-tut-change-path" title="Cambiar ruta de red o directorio">
+        <span>📂</span> Cambiar Ruta
+      </button>
+    </div>
+  `;
+  container.appendChild(header);
+
+  // 2. Barra de Filtros (Buscador y Categorías por Carpeta)
+  const filterBar = document.createElement('div');
+  filterBar.className = 'tutorials-filter-bar';
+
+  // Extraer carpetas únicas
+  const categories = ['Todos', ...new Set(currentTutorialsList.map(item => item.folder || 'General'))];
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.className = 'tutorials-search-input';
+  searchInput.placeholder = '🔍 Buscar por nombre de tutorial o palabra clave...';
+  searchInput.value = tutorialSearchQuery;
+
+  const pillsWrap = document.createElement('div');
+  pillsWrap.className = 'category-pills';
+
+  categories.forEach(cat => {
+    const pill = document.createElement('button');
+    pill.className = `cat-pill ${cat === activeTutorialCategory ? 'active' : ''}`;
+    pill.textContent = cat === 'Todos' ? `📂 Todos (${currentTutorialsList.length})` : `📁 ${cat}`;
+    pill.addEventListener('click', () => {
+      activeTutorialCategory = cat;
+      renderTutorialsListGrid(gridContainer);
+      document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    });
+    pillsWrap.appendChild(pill);
+  });
+
+  searchInput.addEventListener('input', (e) => {
+    tutorialSearchQuery = e.target.value.toLowerCase().trim();
+    renderTutorialsListGrid(gridContainer);
+  });
+
+  filterBar.appendChild(searchInput);
+  filterBar.appendChild(pillsWrap);
+  container.appendChild(filterBar);
+
+  // 3. Grid contenedor de Tutoriales
+  const gridContainer = document.createElement('div');
+  gridContainer.className = 'tutorials-grid';
+  container.appendChild(gridContainer);
+
+  resultsEl.appendChild(container);
+
+  // Eventos de botones de cabecera
+  document.getElementById('btn-tut-reload')?.addEventListener('click', () => {
+    loadAndRenderTutorials(currentTutorialsPath);
+  });
+
+  document.getElementById('btn-tut-change-path')?.addEventListener('click', () => {
+    const newPath = prompt('Introduce la ruta de red o directorio de tutoriales en PDF:', currentTutorialsPath);
+    if (newPath && newPath.trim() !== '') {
+      loadAndRenderTutorials(newPath.trim());
+    }
+  });
+
+  // Renderizar tarjetas por primera vez
+  renderTutorialsListGrid(gridContainer);
+}
+
+function renderTutorialsListGrid(gridEl) {
+  gridEl.innerHTML = '';
+
+  let filtered = currentTutorialsList.filter(item => {
+    const matchCat = activeTutorialCategory === 'Todos' || item.folder === activeTutorialCategory;
+    const matchSearch = !tutorialSearchQuery || 
+      item.title.toLowerCase().includes(tutorialSearchQuery) || 
+      item.folder.toLowerCase().includes(tutorialSearchQuery) ||
+      item.name.toLowerCase().includes(tutorialSearchQuery);
+    return matchCat && matchSearch;
+  });
+
+  if (filtered.length === 0) {
+    gridEl.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 40px; text-align: center; background: var(--card); border: 1px dashed var(--card-border); border-radius: 12px;">
+        <div style="font-size: 32px; margin-bottom: 8px;">📭</div>
+        <h4 style="margin: 0 0 6px 0; color: var(--text-primary);">No se encontraron tutoriales</h4>
+        <p style="margin: 0; font-size: 13px; color: var(--text-secondary);">Prueba ajustando el texto de búsqueda o selecciona otra categoría.</p>
+      </div>
+    `;
+    return;
+  }
+
+  filtered.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'tut-card';
+
+    card.innerHTML = `
+      <div class="tut-card-head">
+        <span class="tut-folder-tag">📁 ${item.folder}</span>
+        <span class="tut-size-tag">💾 ${item.size}</span>
+      </div>
+      <div class="tut-card-body">
+        <div class="tut-pdf-icon">📄</div>
+        <div class="tut-card-info">
+          <div class="tut-card-title">${item.title}</div>
+          <div class="tut-card-date">🕒 ${item.dateStr || 'Reciente'}</div>
+        </div>
+      </div>
+      <div class="tut-card-actions">
+        <button class="btn-view-pdf" title="Visualizar este PDF dentro de HCPToolKit">
+          <span>📖</span> Visualizar en la App
+        </button>
+        <button class="btn-open-ext-pdf" title="Abrir en visor PDF externo del sistema">
+          ↗️
+        </button>
+      </div>
+    `;
+
+    // Eventos de los botones de la tarjeta
+    card.querySelector('.btn-view-pdf').addEventListener('click', () => {
+      openPdfViewerInApp(item);
+    });
+
+    card.querySelector('.btn-open-ext-pdf').addEventListener('click', () => {
+      window.api?.openExternalFile?.(item.fullPath);
+    });
+
+    gridEl.appendChild(card);
+  });
+}
+
+async function openPdfViewerInApp(pdfItem) {
+  clearResults(`📖 Visualizando: ${pdfItem.title}`);
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'pdf-viewer-wrapper';
+
+  // Barra de control superior del visor
+  const topBar = document.createElement('div');
+  topBar.className = 'pdf-viewer-bar';
+  topBar.innerHTML = `
+    <button class="btn-tut-action" id="btn-back-to-tutorials">
+      <span>◀️</span> Volver a Lista
+    </button>
+
+    <div class="pdf-title-display">
+      <span>📄</span>
+      <span>${pdfItem.title}</span>
+      <span style="font-size: 11px; font-weight: normal; opacity: 0.7;">(${pdfItem.folder} • ${pdfItem.size})</span>
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <button class="btn-tut-action" id="btn-ext-pdf-viewer">
+        <span>↗️</span> Abrir Visor Sistema
+      </button>
+    </div>
+  `;
+
+  wrapper.appendChild(topBar);
+
+  // Contenedor marco del visor PDF
+  const frameBox = document.createElement('div');
+  frameBox.className = 'pdf-frame-container';
+  frameBox.innerHTML = `
+    <div style="padding: 40px; text-align: center; color: #94A3B8;">
+      <div class="spinner" style="margin: 0 auto 16px auto;"></div>
+      <p style="margin: 0; font-size: 14px; font-weight: 600;">Cargando documento PDF...</p>
+      <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.7;">${pdfItem.fullPath}</p>
+    </div>
+  `;
+
+  wrapper.appendChild(frameBox);
+  resultsEl.appendChild(wrapper);
+
+  // Evento botón volver
+  document.getElementById('btn-back-to-tutorials')?.addEventListener('click', () => {
+    renderTutorialsGallery({
+      success: true,
+      pathExists: true,
+      targetPath: currentTutorialsPath,
+      items: currentTutorialsList
+    });
+  });
+
+  // Evento abrir visor externo
+  document.getElementById('btn-ext-pdf-viewer')?.addEventListener('click', () => {
+    window.api?.openExternalFile?.(pdfItem.fullPath);
+  });
+
+  // Cargar contenido PDF base64
+  try {
+    const res = await window.api.readPdfBase64(pdfItem.fullPath);
+    if (res && res.success && res.dataUrl) {
+      frameBox.innerHTML = `
+        <iframe class="pdf-embed-frame" src="${res.dataUrl}" title="${pdfItem.title}"></iframe>
+      `;
+    } else {
+      frameBox.innerHTML = `
+        <div style="padding: 40px; text-align: center; color: #F87171;">
+          <div style="font-size: 36px; margin-bottom: 12px;">⚠️</div>
+          <h4 style="margin: 0 0 8px 0; font-size: 16px;">No se pudo previsualizar el archivo PDF directamente</h4>
+          <p style="margin: 0 0 16px 0; font-size: 13px; color: #CBD5E1;">${res.error || 'Acceso restringido o formato no soportado en vista previa en vivo.'}</p>
+          <button class="btn-tut-action" id="btn-error-open-ext" style="margin: 0 auto; background: #2563EB; color: white;">
+            ↗️ Abrir en Visor Externo de Windows
+          </button>
+        </div>
+      `;
+      document.getElementById('btn-error-open-ext')?.addEventListener('click', () => {
+        window.api?.openExternalFile?.(pdfItem.fullPath);
+      });
+    }
+  } catch (err) {
+    frameBox.innerHTML = `
+      <div style="padding: 40px; text-align: center; color: #F87171;">
+        <div style="font-size: 36px; margin-bottom: 12px;">🔴</div>
+        <h4 style="margin: 0 0 8px 0;">Error de lectura del PDF</h4>
+        <p style="font-size: 13px;">${err.message}</p>
+      </div>
+    `;
+  }
+}
+
+
