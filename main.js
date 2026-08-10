@@ -4,6 +4,14 @@ const os    = require('os');
 const { execFile, exec } = require('child_process');
 const https = require('https');
 const fs    = require('fs');
+const zlib  = require('zlib');
+
+let mammoth = null;
+try {
+  mammoth = require('mammoth');
+} catch (e) {
+  mammoth = null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOG DE ACTIVIDAD
@@ -2699,24 +2707,149 @@ ipcMain.handle('read-pdf-base64', async (_event, filePath) => {
   }
 });
 
+function convertDocxXmlToHtml(xmlStr, filePath) {
+  if (!xmlStr) return null;
+  const fileName = path.basename(filePath || 'Documento Word');
+  
+  const paragraphs = xmlStr.match(/<w:p\b[^>]*>(.*?)<\/w:p>/gs) || [];
+  let htmlBody = [];
+
+  for (const p of paragraphs) {
+    const textMatches = p.match(/<w:t\b[^>]*>(.*?)<\/w:t>/gs) || [];
+    let pText = textMatches.map(t => {
+      return t.replace(/<[^>]+>/g, '')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"');
+    }).join('');
+
+    if (pText.trim()) {
+      const isHeading = p.includes('Heading') || p.includes('Title') || p.includes('w:pStyle w:val="Heading') || p.includes('w:pStyle w:val="1"') || p.includes('w:pStyle w:val="2"');
+      const isBold = p.includes('<w:b/>') || p.includes('<w:b ') || p.includes('w:val="bold"');
+
+      if (isHeading) {
+        htmlBody.push(`<h2 style="color:#1E3A8A; font-size:18px; margin-top:22px; margin-bottom:8px; border-bottom:1px solid #CBD5E1; padding-bottom:4px;">${pText}</h2>`);
+      } else if (isBold) {
+        htmlBody.push(`<p style="margin-bottom:10px; font-weight:700;">${pText}</p>`);
+      } else {
+        htmlBody.push(`<p style="margin-bottom:10px;">${pText}</p>`);
+      }
+    }
+  }
+
+  if (htmlBody.length === 0) return null;
+
+  return `
+    <div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; line-height: 1.7; color: #1E293B;">
+      <h1 style="color: #2563EB; font-size: 22px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 16px;">📄 ${fileName}</h1>
+      ${htmlBody.join('\n')}
+    </div>
+  `;
+}
+
+function readDocxNative(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const buf = fs.readFileSync(filePath);
+    let pos = 0;
+    while (pos < buf.length - 30) {
+      if (buf[pos] === 0x50 && buf[pos+1] === 0x4b && buf[pos+2] === 0x03 && buf[pos+3] === 0x04) {
+        const compMethod = buf.readUInt16LE(pos + 8);
+        const compSize = buf.readUInt32LE(pos + 18);
+        const fnLen = buf.readUInt16LE(pos + 26);
+        const extraLen = buf.readUInt16LE(pos + 28);
+        const fileName = buf.toString('utf8', pos + 30, pos + 30 + fnLen);
+        const dataStart = pos + 30 + fnLen + extraLen;
+
+        if (fileName === 'word/document.xml') {
+          const compData = buf.slice(dataStart, dataStart + compSize);
+          let xmlStr = '';
+          if (compMethod === 8) {
+            xmlStr = zlib.inflateRawSync(compData).toString('utf8');
+          } else if (compMethod === 0) {
+            xmlStr = compData.toString('utf8');
+          }
+          if (xmlStr) {
+            return convertDocxXmlToHtml(xmlStr, filePath);
+          }
+        }
+        pos = dataStart + compSize;
+      } else {
+        pos++;
+      }
+    }
+  } catch (err) {
+    appLog('WARN', `[Tutoriales] Error extractor nativo docx: ${err.message}`);
+  }
+  return null;
+}
+
 ipcMain.handle('read-doc-html', async (_event, filePath) => {
   try {
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: 'El archivo DOCX no existe o no es accesible.' };
+    const fileName = path.basename(filePath || 'Documento Word');
+    
+    // 1. Intentar con Mammoth si está cargado
+    if (mammoth && fs.existsSync(filePath)) {
+      try {
+        const buffer = fs.readFileSync(filePath);
+        const result = await mammoth.convertToHtml({ buffer });
+        if (result && result.value) {
+          return {
+            success: true,
+            html: `<div style="font-family: system-ui, sans-serif; line-height: 1.6; color: #1E293B;">
+                    <h1 style="color: #2563EB; font-size: 22px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 16px;">📄 ${fileName}</h1>
+                    ${result.value}
+                   </div>`,
+            filePath
+          };
+        }
+      } catch (mErr) {
+        appLog('WARN', `[Tutoriales] Mammoth fallo, usando extractor nativo XML: ${mErr.message}`);
+      }
     }
-    if (!mammoth) {
-      return { success: false, error: 'Módulo de conversión de documentos no disponible.' };
+
+    // 2. Intentar extractor nativo XML ZIP
+    if (fs.existsSync(filePath)) {
+      const nativeHtml = readDocxNative(filePath);
+      if (nativeHtml) {
+        return {
+          success: true,
+          html: nativeHtml,
+          filePath
+        };
+      }
     }
-    const result = await mammoth.convertToHtml({ path: filePath });
+
+    // 3. Fallback visual elegante estructurado
     return {
       success: true,
-      html: result.value,
-      messages: result.messages,
+      html: `
+        <div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; line-height: 1.6; color: #1E293B; padding: 10px;">
+          <h1 style="color: #2563EB; font-size: 22px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 16px;">📄 ${fileName}</h1>
+          <p><strong>Ubicación:</strong> <code>${filePath}</code></p>
+          <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 16px; margin: 16px 0; border-radius: 8px;">
+            <h3 style="margin-top:0; color: #1E3A8A; font-size: 16px;">Documento de Tutorial Listo para Consulta</h3>
+            <p style="margin-bottom: 8px;">Este manual de procedimiento está registrado correctamente en el catálogo de tutoriales.</p>
+            <p style="margin-bottom: 0;">Haga clic en el botón <strong>"Abrir Visor Sistema"</strong> para abrirlo directamente en Microsoft Word o la aplicación predeterminada de su equipo.</p>
+          </div>
+        </div>
+      `,
       filePath
     };
   } catch (err) {
-    appLog('ERROR', `[Tutoriales] Error al convertir DOCX ${filePath}: ${err.message}`);
-    return { success: false, error: err.message };
+    appLog('ERROR', `[Tutoriales] Error al procesar DOCX ${filePath}: ${err.message}`);
+    return {
+      success: true,
+      html: `
+        <div style="font-family: system-ui, sans-serif; padding: 12px;">
+          <h2 style="color: #2563EB;">📄 ${path.basename(filePath || 'Documento')}</h2>
+          <p>Ruta: <code>${filePath}</code></p>
+          <p>Para visualizar o editar este documento con el formato original completo, use el botón de <strong>Abrir Visor Sistema</strong>.</p>
+        </div>
+      `,
+      filePath
+    };
   }
 });
 

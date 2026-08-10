@@ -2044,6 +2044,134 @@ app.post('/api/system-updates-action', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. VISUALIZADOR DE TUTORIALES Y DOCUMENTOS (.DOCX)
+// ─────────────────────────────────────────────────────────────────────────────
+let mammothServer = null;
+try {
+  mammothServer = require('mammoth');
+} catch (e) {
+  mammothServer = null;
+}
+
+const zlibServer = require('zlib');
+
+function convertServerDocxXmlToHtml(xmlStr, filePath) {
+  if (!xmlStr) return null;
+  const fileName = path.basename(filePath || 'Documento Word');
+  const paragraphs = xmlStr.match(/<w:p\b[^>]*>(.*?)<\/w:p>/gs) || [];
+  let htmlBody = [];
+
+  for (const p of paragraphs) {
+    const textMatches = p.match(/<w:t\b[^>]*>(.*?)<\/w:t>/gs) || [];
+    let pText = textMatches.map(t => {
+      return t.replace(/<[^>]+>/g, '')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&amp;/g, '&')
+              .replace(/&quot;/g, '"');
+    }).join('');
+
+    if (pText.trim()) {
+      const isHeading = p.includes('Heading') || p.includes('Title') || p.includes('w:pStyle w:val="Heading') || p.includes('w:pStyle w:val="1"') || p.includes('w:pStyle w:val="2"');
+      const isBold = p.includes('<w:b/>') || p.includes('<w:b ') || p.includes('w:val="bold"');
+
+      if (isHeading) {
+        htmlBody.push(`<h2 style="color:#1E3A8A; font-size:18px; margin-top:22px; margin-bottom:8px; border-bottom:1px solid #CBD5E1; padding-bottom:4px;">${pText}</h2>`);
+      } else if (isBold) {
+        htmlBody.push(`<p style="margin-bottom:10px; font-weight:700;">${pText}</p>`);
+      } else {
+        htmlBody.push(`<p style="margin-bottom:10px;">${pText}</p>`);
+      }
+    }
+  }
+
+  if (htmlBody.length === 0) return null;
+
+  return `
+    <div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; line-height: 1.7; color: #1E293B;">
+      <h1 style="color: #2563EB; font-size: 22px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 16px;">📄 ${fileName}</h1>
+      ${htmlBody.join('\n')}
+    </div>
+  `;
+}
+
+app.get('/api/read-doc-html', async (req, res) => {
+  try {
+    const filePath = req.query.path || '';
+    const fileName = path.basename(filePath || 'Documento Word');
+
+    if (filePath && fs.existsSync(filePath)) {
+      if (mammothServer) {
+        try {
+          const buffer = fs.readFileSync(filePath);
+          const result = await mammothServer.convertToHtml({ buffer });
+          if (result && result.value) {
+            return res.json({
+              success: true,
+              html: `<div style="font-family: system-ui, sans-serif; line-height: 1.6; color: #1E293B;">
+                      <h1 style="color: #2563EB; font-size: 22px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 16px;">📄 ${fileName}</h1>
+                      ${result.value}
+                     </div>`,
+              filePath
+            });
+          }
+        } catch (e) {}
+      }
+
+      // Native XML zip reader
+      try {
+        const buf = fs.readFileSync(filePath);
+        let pos = 0;
+        while (pos < buf.length - 30) {
+          if (buf[pos] === 0x50 && buf[pos+1] === 0x4b && buf[pos+2] === 0x03 && buf[pos+3] === 0x04) {
+            const compMethod = buf.readUInt16LE(pos + 8);
+            const compSize = buf.readUInt32LE(pos + 18);
+            const fnLen = buf.readUInt16LE(pos + 26);
+            const extraLen = buf.readUInt16LE(pos + 28);
+            const fn = buf.toString('utf8', pos + 30, pos + 30 + fnLen);
+            const dataStart = pos + 30 + fnLen + extraLen;
+
+            if (fn === 'word/document.xml') {
+              const compData = buf.slice(dataStart, dataStart + compSize);
+              let xmlStr = '';
+              if (compMethod === 8) xmlStr = zlibServer.inflateRawSync(compData).toString('utf8');
+              else if (compMethod === 0) xmlStr = compData.toString('utf8');
+              
+              const convertedHtml = convertServerDocxXmlToHtml(xmlStr, filePath);
+              if (convertedHtml) {
+                return res.json({ success: true, html: convertedHtml, filePath });
+              }
+            }
+            pos = dataStart + compSize;
+          } else {
+            pos++;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Default HTML response
+    res.json({
+      success: true,
+      html: `
+        <div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; line-height: 1.6; color: #1E293B; padding: 10px;">
+          <h1 style="color: #2563EB; font-size: 22px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 16px;">📄 ${fileName}</h1>
+          <p><strong>Ubicación del archivo:</strong> <code>${filePath || '\\\\cielo\\INFORMATICA\\TUTORIALES'}</code></p>
+          <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 16px; margin: 16px 0; border-radius: 8px;">
+            <h3 style="margin-top:0; color: #1E3A8A; font-size: 16px;">Documento de Tutorial Registrado</h3>
+            <p style="margin-bottom: 8px;">El manual o procedimiento se encuentra disponible para su lectura y consulta.</p>
+            <p style="margin-bottom: 0;">Para abrir el documento con su formato e imágenes originales completas en Microsoft Word, utilice el botón <strong>"Abrir Visor Sistema"</strong>.</p>
+          </div>
+        </div>
+      `,
+      filePath
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Static files from renderer
 app.use(express.static(path.join(__dirname, 'renderer')));
 

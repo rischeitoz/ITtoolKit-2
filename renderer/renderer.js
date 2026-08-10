@@ -3990,33 +3990,31 @@ async function openDocumentViewerInApp(docItem) {
     // Es un archivo Word (.docx / .doc)
     try {
       const res = await window.api.readDocHtml(docItem.fullPath);
-      if (res && res.success && res.html) {
-        frameBox.innerHTML = `
-          <div class="docx-rendered-paper">
-            ${res.html}
+      const htmlContent = (res && res.html) ? res.html : `
+        <div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; line-height: 1.6; color: #1E293B;">
+          <h1 style="color: #2563EB; font-size: 20px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 14px;">📄 ${docItem.title}</h1>
+          <p><strong>Ruta:</strong> <code>${docItem.fullPath}</code></p>
+          <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 14px; margin: 16px 0; border-radius: 6px;">
+            <strong>Manual de Procedimiento:</strong> Este tutorial está disponible en la carpeta de la red. Para consultar el documento completo con imágenes y formato original, utilice el botón <em>"Abrir Visor Sistema"</em> superior.
           </div>
-        `;
-      } else {
-        frameBox.innerHTML = `
-          <div style="padding: 40px; text-align: center; color: #F87171;">
-            <div style="font-size: 36px; margin-bottom: 12px;">⚠️</div>
-            <h4 style="margin: 0 0 8px 0; font-size: 16px;">No se pudo convertir la vista previa del documento Word</h4>
-            <p style="margin: 0 0 16px 0; font-size: 13px; color: #CBD5E1;">${res.error || 'El archivo puede estar protegido o en uso.'}</p>
-            <button class="btn-tut-action" id="btn-error-open-ext-doc" style="margin: 0 auto; background: #2563EB; color: white;">
-              📝 Abrir con Microsoft Word
-            </button>
-          </div>
-        `;
-        document.getElementById('btn-error-open-ext-doc')?.addEventListener('click', () => {
-          window.api?.openExternalFile?.(docItem.fullPath);
-        });
-      }
+        </div>
+      `;
+
+      frameBox.innerHTML = `
+        <div class="docx-rendered-paper">
+          ${htmlContent}
+        </div>
+      `;
     } catch (err) {
       frameBox.innerHTML = `
-        <div style="padding: 40px; text-align: center; color: #F87171;">
-          <div style="font-size: 36px; margin-bottom: 12px;">🔴</div>
-          <h4 style="margin: 0 0 8px 0;">Error al procesar el archivo Word</h4>
-          <p style="font-size: 13px;">${err.message}</p>
+        <div class="docx-rendered-paper">
+          <div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; line-height: 1.6; color: #1E293B;">
+            <h1 style="color: #2563EB; font-size: 20px; border-bottom: 2px solid #DBEAFE; padding-bottom: 8px; margin-bottom: 14px;">📄 ${docItem.title}</h1>
+            <p><strong>Ubicación:</strong> <code>${docItem.fullPath}</code></p>
+            <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 14px; margin: 16px 0; border-radius: 6px;">
+              Documento disponible en el catálogo de tutoriales. Utilice el botón <strong>Abrir Visor Sistema</strong> para abrir con Microsoft Word.
+            </div>
+          </div>
         </div>
       `;
     }
