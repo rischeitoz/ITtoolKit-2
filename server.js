@@ -2044,6 +2044,126 @@ app.post('/api/system-updates-action', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TUTORIALES (PDF y DOCX)
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_SERVER_TUTORIALS_PATH = '\\\\cielo\\\\INFORMATICA\\\\TUTORIALES';
+
+app.get('/api/tutorials', async (req, res) => {
+  try {
+    const targetPath = req.query.path || DEFAULT_SERVER_TUTORIALS_PATH;
+    appLog('INFO', `[Server/Tutoriales] Consultando tutoriales en: ${targetPath}`);
+
+    if (!fs.existsSync(targetPath)) {
+      return res.json({
+        success: false,
+        pathExists: false,
+        targetPath,
+        message: `La ruta "${targetPath}" no existe o no es accesible actualmente.`,
+        items: []
+      });
+    }
+
+    const items = [];
+    function walkDir(currentDir, relativeFolder = '') {
+      try {
+        const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(currentDir, entry.name);
+          if (entry.isDirectory()) {
+            const subRel = relativeFolder ? path.join(relativeFolder, entry.name) : entry.name;
+            walkDir(fullPath, subRel);
+          } else if (entry.isFile()) {
+            const lowerName = entry.name.toLowerCase();
+            const isPdf = lowerName.endsWith('.pdf');
+            const isDocx = lowerName.endsWith('.docx') || lowerName.endsWith('.doc');
+
+            if (isPdf || isDocx) {
+              let stats;
+              try { stats = fs.statSync(fullPath); } catch (e) { stats = { size: 0, mtime: new Date() }; }
+              const sizeKb = (stats.size / 1024).toFixed(1);
+              const sizeMb = (stats.size / (1024 * 1024)).toFixed(2);
+              const formattedSize = stats.size >= 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+              const formattedDate = stats.mtime.toLocaleDateString('es-ES', {
+                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+              });
+
+              items.push({
+                name: entry.name,
+                title: entry.name.replace(/\.(pdf|docx|doc)$/i, ''),
+                type: isPdf ? 'pdf' : 'docx',
+                folder: relativeFolder || 'General',
+                fullPath,
+                size: formattedSize,
+                sizeBytes: stats.size,
+                mtime: stats.mtime,
+                dateStr: formattedDate
+              });
+            }
+          }
+        }
+      } catch (err) {
+        appLog('WARN', `[Server/Tutoriales] Error escaneando ${currentDir}: ${err.message}`);
+      }
+    }
+
+    walkDir(targetPath);
+    res.json({
+      success: true,
+      pathExists: true,
+      targetPath,
+      items
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/tutorials/read-doc', async (req, res) => {
+  try {
+    const { filePath } = req.body;
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.json({ success: false, error: 'El archivo DOCX especificado no existe o no es accesible.' });
+    }
+
+    let mammoth;
+    try { mammoth = require('mammoth'); } catch (e) { mammoth = null; }
+
+    if (mammoth) {
+      const buffer = fs.readFileSync(filePath);
+      const converted = await mammoth.convertToHtml({ buffer });
+      return res.json({
+        success: true,
+        html: converted.value || '<p><em>(El documento no contiene texto legible directamente)</em></p>',
+        messages: converted.messages,
+        filePath
+      });
+    }
+
+    return res.json({ success: false, error: 'Módulo mammoth no instalado.' });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/tutorials/read-pdf', async (req, res) => {
+  try {
+    const { filePath } = req.body;
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.json({ success: false, error: 'El archivo PDF especificado no existe o no es accesible.' });
+    }
+    const pdfBuffer = fs.readFileSync(filePath);
+    const base64Data = pdfBuffer.toString('base64');
+    res.json({
+      success: true,
+      dataUrl: `data:application/pdf;base64,${base64Data}`,
+      filePath
+    });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // Static files from renderer
 app.use(express.static(path.join(__dirname, 'renderer')));
 

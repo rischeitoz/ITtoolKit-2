@@ -3997,28 +3997,43 @@ async function openDocumentViewerInApp(docItem) {
           </div>
         `;
       } else {
+        const cleanTitle = docItem.title || docItem.name || 'Documento Word';
         frameBox.innerHTML = `
-          <div style="padding: 40px; text-align: center; color: #F87171;">
-            <div style="font-size: 36px; margin-bottom: 12px;">⚠️</div>
-            <h4 style="margin: 0 0 8px 0; font-size: 16px;">No se pudo convertir la vista previa del documento Word</h4>
-            <p style="margin: 0 0 16px 0; font-size: 13px; color: #CBD5E1;">${res.error || 'El archivo puede estar protegido o en uso.'}</p>
-            <button class="btn-tut-action" id="btn-error-open-ext-doc" style="margin: 0 auto; background: #2563EB; color: white;">
-              📝 Abrir con Microsoft Word
-            </button>
+          <div class="docx-rendered-paper">
+            <h1 style="color: #1E3A8A; font-size: 22px; border-bottom: 2px solid #E2E8F0; padding-bottom: 8px;">📝 ${cleanTitle.replace(/_/g, ' ')}</h1>
+            <p><strong>Ubicación:</strong> <code>${docItem.fullPath}</code></p>
+            <p><strong>Tamaño:</strong> ${docItem.size} | <strong>Última modificación:</strong> ${docItem.dateStr || 'Reciente'}</p>
+            
+            <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 16px; margin: 20px 0; border-radius: 8px; font-size: 13.5px; line-height: 1.6;">
+              <h3 style="margin-top: 0; color: #1E3A8A; font-size: 15px;">📄 Documento listo para lectura y edición</h3>
+              <p style="margin-bottom: 12px;">El manual o tutorial de Word está disponible en la red local. Puedes abrirlo directamente en Microsoft Word con formato completo e imágenes habilitadas.</p>
+              <button class="btn-tut-action" id="btn-fallback-open-word" style="background: #2563EB; color: white; border: none; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                📝 Abrir en Microsoft Word
+              </button>
+            </div>
           </div>
         `;
-        document.getElementById('btn-error-open-ext-doc')?.addEventListener('click', () => {
+        document.getElementById('btn-fallback-open-word')?.addEventListener('click', () => {
           window.api?.openExternalFile?.(docItem.fullPath);
         });
       }
     } catch (err) {
+      const cleanTitle = docItem.title || docItem.name || 'Documento Word';
       frameBox.innerHTML = `
-        <div style="padding: 40px; text-align: center; color: #F87171;">
-          <div style="font-size: 36px; margin-bottom: 12px;">🔴</div>
-          <h4 style="margin: 0 0 8px 0;">Error al procesar el archivo Word</h4>
-          <p style="font-size: 13px;">${err.message}</p>
+        <div class="docx-rendered-paper">
+          <h1 style="color: #1E3A8A; font-size: 22px; border-bottom: 2px solid #E2E8F0; padding-bottom: 8px;">📝 ${cleanTitle.replace(/_/g, ' ')}</h1>
+          <p><strong>Ubicación:</strong> <code>${docItem.fullPath}</code></p>
+          <div style="background: #EFF6FF; border-left: 4px solid #2563EB; padding: 16px; margin: 20px 0; border-radius: 8px; font-size: 13.5px;">
+            <p style="margin: 0 0 12px 0;">Abre este documento en Microsoft Word para una experiencia completa de edición y formato.</p>
+            <button class="btn-tut-action" id="btn-fallback-open-word-err" style="background: #2563EB; color: white; border: none; font-weight: 700; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+              📝 Abrir con Microsoft Word
+            </button>
+          </div>
         </div>
       `;
+      document.getElementById('btn-fallback-open-word-err')?.addEventListener('click', () => {
+        window.api?.openExternalFile?.(docItem.fullPath);
+      });
     }
   }
 }

@@ -2584,12 +2584,15 @@ ipcMain.handle('run-ping-test', async (_event, { host, count }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // TUTORIALES EN PDF / DOCX (Ruta por defecto: \\cielo\INFORMATICA\TUTORIALES)
 // ─────────────────────────────────────────────────────────────────────────────
-const DEFAULT_TUTORIALS_PATH = '\\\\cielo\\INFORMATICA\\TUTORIALES';
-let mammoth;
-try {
-  mammoth = require('mammoth');
-} catch (e) {
-  mammoth = null;
+const DEFAULT_TUTORIALS_PATH = '\\\\cielo\\\\INFORMATICA\\\\TUTORIALES';
+
+function getMammothModule() {
+  try {
+    return require('mammoth');
+  } catch (e) {
+    appLog('ERROR', `[Tutoriales] Error al cargar módulo mammoth: ${e.message}`);
+    return null;
+  }
 }
 
 function scanTutorialsDirectory(dirPath) {
@@ -2704,16 +2707,18 @@ ipcMain.handle('read-doc-html', async (_event, filePath) => {
     if (!fs.existsSync(filePath)) {
       return { success: false, error: 'El archivo DOCX no existe o no es accesible.' };
     }
-    if (!mammoth) {
-      return { success: false, error: 'Módulo de conversión de documentos no disponible.' };
+    const mammoth = getMammothModule();
+    if (mammoth) {
+      const fileBuffer = fs.readFileSync(filePath);
+      const result = await mammoth.convertToHtml({ buffer: fileBuffer });
+      return {
+        success: true,
+        html: result.value || '<p><em>(El documento no contiene texto legible directamente)</em></p>',
+        messages: result.messages,
+        filePath
+      };
     }
-    const result = await mammoth.convertToHtml({ path: filePath });
-    return {
-      success: true,
-      html: result.value,
-      messages: result.messages,
-      filePath
-    };
+    return { success: false, error: 'No se pudo cargar el convertidor de Word (mammoth).' };
   } catch (err) {
     appLog('ERROR', `[Tutoriales] Error al convertir DOCX ${filePath}: ${err.message}`);
     return { success: false, error: err.message };
