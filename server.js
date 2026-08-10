@@ -2288,6 +2288,7 @@ app.post('/api/tickets/create', (req, res) => {
       requester: requester || os.userInfo().username || 'Usuario',
       pcName: pcName || os.hostname(),
       assignedTo: assignedTo || 'Soporte TI',
+      attachments: Array.isArray(req.body.attachments) ? req.body.attachments : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       notes: [
@@ -2320,6 +2321,12 @@ app.post('/api/tickets/update', (req, res) => {
     if (assignedTo) ticket.assignedTo = assignedTo;
     if (requester) ticket.requester = requester;
     if (description) ticket.description = description;
+    if (req.body.attachments) {
+      ticket.attachments = req.body.attachments;
+    } else if (req.body.newAttachments && Array.isArray(req.body.newAttachments)) {
+      if (!ticket.attachments) ticket.attachments = [];
+      ticket.attachments.push(...req.body.newAttachments);
+    }
     ticket.updatedAt = new Date().toISOString();
 
     if (noteText) {

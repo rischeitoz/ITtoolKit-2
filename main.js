@@ -2849,6 +2849,7 @@ ipcMain.handle('create-ticket', async (_event, data) => {
       requester: data.requester || os.userInfo().username || 'Usuario',
       pcName: data.pcName || os.hostname(),
       assignedTo: data.assignedTo || 'Soporte TI',
+      attachments: Array.isArray(data.attachments) ? data.attachments : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       notes: [
@@ -2880,6 +2881,12 @@ ipcMain.handle('update-ticket', async (_event, data) => {
     if (data.assignedTo) ticket.assignedTo = data.assignedTo;
     if (data.requester) ticket.requester = data.requester;
     if (data.description) ticket.description = data.description;
+    if (data.attachments) {
+      ticket.attachments = data.attachments;
+    } else if (data.newAttachments && Array.isArray(data.newAttachments)) {
+      if (!ticket.attachments) ticket.attachments = [];
+      ticket.attachments.push(...data.newAttachments);
+    }
     ticket.updatedAt = new Date().toISOString();
 
     if (data.noteText) {

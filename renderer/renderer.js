@@ -4085,6 +4085,62 @@ let ticketSearchQuery = '';
 
 const btnOpenTickets = document.getElementById('btn-open-tickets');
 
+// Helper functions for ticket attachments
+function handleFileInputSelection(files, attachedArray, updateContainerFn) {
+  const maxFileSize = 10 * 1024 * 1024; // 10MB
+  Array.from(files).forEach(file => {
+    if (file.size > maxFileSize) {
+      alert(`El archivo "${file.name}" supera el límite de 10MB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      attachedArray.push({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        data: e.target.result
+      });
+      updateContainerFn();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderAttachmentChips(attachedArray, containerEl) {
+  if (!attachedArray || attachedArray.length === 0) {
+    containerEl.innerHTML = '';
+    return;
+  }
+  containerEl.innerHTML = attachedArray.map((att, idx) => {
+    const isImg = (att.type && att.type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.name);
+    const isPdf = att.type === 'application/pdf' || (att.name && att.name.toLowerCase().endsWith('.pdf'));
+    const icon = isImg ? '🖼️' : (isPdf ? '📄' : '📝');
+    const previewHtml = isImg && att.data ? `<img src="${att.data}" class="attachment-chip-preview" />` : `<div class="attachment-chip-preview">${icon}</div>`;
+    const sizeKb = (att.size ? Math.round(att.size / 1024) : 0) + ' KB';
+
+    return `
+      <div class="attachment-chip">
+        ${previewHtml}
+        <div style="display: flex; flex-direction: column; overflow: hidden;">
+          <span class="attachment-chip-name" title="${escapeHtml(att.name)}">${escapeHtml(att.name)}</span>
+          <span class="attachment-chip-size">${sizeKb}</span>
+        </div>
+        <button type="button" class="attachment-chip-remove" data-idx="${idx}" title="Quitar archivo">✕</button>
+      </div>
+    `;
+  }).join('');
+
+  containerEl.querySelectorAll('.attachment-chip-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.getAttribute('data-idx'), 10);
+      attachedArray.splice(idx, 1);
+      renderAttachmentChips(attachedArray, containerEl);
+    });
+  });
+}
+
 function deactivateFeaturedButtons() {
   if (typeof btnOpenTutorials !== 'undefined' && btnOpenTutorials) {
     btnOpenTutorials.classList.remove('active');
@@ -4321,6 +4377,8 @@ function renderTicketGridOnly(gridEl, ticketsData) {
     card.className = 'ticket-item-card';
 
     const statusCss = ticket.status ? ticket.status.replace(/\s+/g, '_') : 'Abierto';
+    const isClosedOrResolved = ticket.status === 'Resuelto' || ticket.status === 'Cerrado';
+    const attachCount = (ticket.attachments && ticket.attachments.length) || 0;
 
     card.innerHTML = `
       <div class="ticket-item-header">
@@ -4337,27 +4395,72 @@ function renderTicketGridOnly(gridEl, ticketsData) {
         <div><strong>👤 Solicitante:</strong> ${escapeHtml(ticket.requester || 'Usuario')} <span style="opacity: 0.75;">(${escapeHtml(ticket.pcName || 'PC')})</span></div>
         <div><strong>👨‍💻 Gestionado por:</strong> <span style="color: #2563EB; font-weight: 700;">${escapeHtml(ticket.assignedTo || 'Sin Asignar')}</span></div>
         <div><strong>📂 Categoría:</strong> ${escapeHtml(ticket.category || 'General')}</div>
+        ${attachCount > 0 ? `<div style="color: #2563EB; font-weight: 600; font-size: 11.5px; display: flex; align-items: center; gap: 4px;">📎 <strong>${attachCount}</strong> archivo(s) adjunto(s)</div>` : ''}
       </div>
 
       <div class="ticket-item-footer" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color, #E2E8F0);">
         <span style="font-size: 11px; color: #64748B;">📅 ${new Date(ticket.createdAt).toLocaleDateString('es-ES')}</span>
         <div class="ticket-actions-row">
-          <button class="btn-ticket-action btn-view-ticket" data-id="${ticket.id}">👁️ Abrir Ticket</button>
+          <button class="btn-ticket-action btn-view-ticket" data-id="${ticket.id}">👁️ Abrir</button>
+          ${isClosedOrResolved ? `<button class="btn-ticket-action btn-ticket-reopen btn-reopen-card" data-id="${ticket.id}" title="Reabrir ticket">🔓 Reabrir</button>` : ''}
+          <button class="btn-ticket-action btn-ticket-danger btn-delete-card" data-id="${ticket.id}" title="Eliminar ticket">🗑️ Eliminar</button>
         </div>
       </div>
     `;
 
     card.querySelector('.btn-view-ticket')?.addEventListener('click', () => openTicketDetailModal(ticket, ticketsData));
 
+    card.querySelector('.btn-reopen-card')?.addEventListener('click', async () => {
+      if (confirm(`¿Deseas reabrir el ticket ${ticket.id}?`)) {
+        setBusy(true, 'Reabriendo ticket...');
+        try {
+          const res = await window.api.updateTicket({
+            id: ticket.id,
+            status: 'Abierto',
+            noteText: '🔓 Incidencia reabierta desde la vista de lista de tickets.',
+            noteAuthor: ticket.assignedTo || 'Técnico TI'
+          });
+          setBusy(false);
+          if (res.success) {
+            await loadAndRenderTickets();
+          } else {
+            alert('Error al reabrir ticket: ' + (res.error || 'Desconocido'));
+          }
+        } catch (err) {
+          setBusy(false);
+          alert('Error: ' + err.message);
+        }
+      }
+    });
+
+    card.querySelector('.btn-delete-card')?.addEventListener('click', async () => {
+      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el ticket ${ticket.id}?`)) {
+        setBusy(true, 'Eliminando ticket...');
+        try {
+          const res = await window.api.deleteTicket({ id: ticket.id });
+          setBusy(false);
+          if (res.success) {
+            await loadAndRenderTickets();
+          } else {
+            alert('No se pudo eliminar el ticket.');
+          }
+        } catch (err) {
+          setBusy(false);
+          alert('Error: ' + err.message);
+        }
+      }
+    });
+
     gridEl.appendChild(card);
   });
 }
 
 function openNewTicketModal(ticketsData) {
+  const newTicketAttachments = [];
   const modalOverlay = document.createElement('div');
   modalOverlay.className = 'event-modal-overlay';
   modalOverlay.innerHTML = `
-    <div class="event-modal-content" style="width: 560px; max-width: 95vw;">
+    <div class="event-modal-content" style="width: 580px; max-width: 95vw;">
       <div class="event-modal-header">
         <div style="display: flex; align-items: center; gap: 10px;">
           <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); color: #059669; display: flex; align-items: center; justify-content: center; font-size: 16px;">➕</div>
@@ -4421,7 +4524,18 @@ function openNewTicketModal(ticketsData) {
 
         <div>
           <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Descripción del Problema</label>
-          <textarea id="input-ticket-desc" class="info-text-input" rows="4" placeholder="Describe los detalles de la incidencia o requerimiento reportado..." style="width: 100%; resize: vertical; font-family: inherit; font-size: 13px; padding: 10px; line-height: 1.4;"></textarea>
+          <textarea id="input-ticket-desc" class="info-text-input" rows="3" placeholder="Describe los detalles de la incidencia o requerimiento reportado..." style="width: 100%; resize: vertical; font-family: inherit; font-size: 13px; padding: 10px; line-height: 1.4;"></textarea>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">📎 Adjuntar Archivos (Capturas, Imágenes, PDF, Logs, Texto)</label>
+          <div class="ticket-dropzone" id="new-ticket-dropzone">
+            <div style="font-size: 22px; margin-bottom: 2px;">📂</div>
+            <div style="font-size: 12.5px; font-weight: 700;">Haz clic o arrastra capturas o archivos aquí</div>
+            <div style="font-size: 11px; opacity: 0.75; margin-top: 2px;">Imágenes (PNG, JPG), PDF, Logs, Archivos de texto (Máx 10MB)</div>
+            <input type="file" id="input-new-ticket-files" accept="image/*,.pdf,.txt,.log,.doc,.docx" multiple style="display: none;" />
+          </div>
+          <div id="new-ticket-attached-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
         </div>
       </div>
 
@@ -4438,6 +4552,36 @@ function openNewTicketModal(ticketsData) {
   modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
   modalOverlay.querySelector('#btn-close-new-ticket').addEventListener('click', closeModal);
   modalOverlay.querySelector('#btn-cancel-new-ticket').addEventListener('click', closeModal);
+
+  // Dropzone logic
+  const dropzone = modalOverlay.querySelector('#new-ticket-dropzone');
+  const fileInput = modalOverlay.querySelector('#input-new-ticket-files');
+  const chipsContainer = modalOverlay.querySelector('#new-ticket-attached-chips');
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+      handleFileInputSelection(e.target.files, newTicketAttachments, () => {
+        renderAttachmentChips(newTicketAttachments, chipsContainer);
+      });
+      fileInput.value = '';
+    }
+  });
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('dragover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+      handleFileInputSelection(e.dataTransfer.files, newTicketAttachments, () => {
+        renderAttachmentChips(newTicketAttachments, chipsContainer);
+      });
+    }
+  });
 
   // Intentar rellenar datos del equipo actual
   window.api.getEquipmentSummary?.().then(s => {
@@ -4468,7 +4612,8 @@ function openNewTicketModal(ticketsData) {
 
     try {
       const res = await window.api.createTicket({
-        title, category, priority, requester, pcName, assignedTo, description
+        title, category, priority, requester, pcName, assignedTo, description,
+        attachments: newTicketAttachments
       });
       setBusy(false);
       if (res.success) {
@@ -4484,6 +4629,7 @@ function openNewTicketModal(ticketsData) {
 }
 
 function openTicketDetailModal(ticket, ticketsData) {
+  const detailNewAttachments = [];
   const modalOverlay = document.createElement('div');
   modalOverlay.className = 'event-modal-overlay';
 
@@ -4498,9 +4644,36 @@ function openTicketDetailModal(ticket, ticketsData) {
   `).join('');
 
   const statusCss = ticket.status ? ticket.status.replace(/\s+/g, '_') : 'Abierto';
+  const isClosedOrResolved = ticket.status === 'Resuelto' || ticket.status === 'Cerrado';
+  const existingAttachments = ticket.attachments || [];
+
+  const attachmentsHtml = existingAttachments.length > 0 ? `
+    <div>
+      <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">📎 Archivos y Capturas Adjuntas (${existingAttachments.length})</label>
+      <div class="ticket-attachments-list">
+        ${existingAttachments.map((att, idx) => {
+          const isImg = (att.type && att.type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.name);
+          const isPdf = att.type === 'application/pdf' || (att.name && att.name.toLowerCase().endsWith('.pdf'));
+          const icon = isImg ? '🖼️' : (isPdf ? '📄' : '📝');
+          const thumbHtml = isImg && att.data ? `<img src="${att.data}" class="ticket-attachment-thumb" />` : `<div class="ticket-attachment-thumb">${icon}</div>`;
+          const sizeKb = (att.size ? Math.round(att.size / 1024) : 0) + ' KB';
+
+          return `
+            <a class="ticket-attachment-item" href="${att.data || '#'}" target="_blank" download="${escapeHtml(att.name)}" title="Haz clic para descargar o abrir">
+              ${thumbHtml}
+              <div style="overflow: hidden; flex: 1;">
+                <div style="font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(att.name)}</div>
+                <div style="font-size: 11px; color: #64748B;">${sizeKb} • Abrir/Descargar</div>
+              </div>
+            </a>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  ` : '';
 
   modalOverlay.innerHTML = `
-    <div class="event-modal-content" style="width: 640px; max-width: 95vw;">
+    <div class="event-modal-content" style="width: 660px; max-width: 95vw;">
       
       <!-- Cabeza de la ventana flotante -->
       <div class="event-modal-header">
@@ -4513,6 +4686,7 @@ function openTicketDetailModal(ticket, ticketsData) {
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <span class="badge-status ${escapeHtml(statusCss)}">${escapeHtml(ticket.status || 'Abierto')}</span>
+          ${isClosedOrResolved ? `<button class="btn-ticket-action btn-ticket-reopen" id="btn-reopen-header-ticket" style="padding: 4px 10px; font-size: 11.5px; font-weight: 700;">🔓 Reabrir Ticket</button>` : ''}
           <button class="event-modal-close" id="btn-close-detail-ticket" title="Cerrar ventana">✕</button>
         </div>
       </div>
@@ -4545,6 +4719,9 @@ function openTicketDetailModal(ticket, ticketsData) {
           <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">📌 Descripción de la Incidencia</label>
           <div class="ticket-desc-box">${escapeHtml(ticket.description || 'Sin detalles especificados.')}</div>
         </div>
+
+        <!-- Archivos Adjuntos existentes -->
+        ${attachmentsHtml}
 
         <!-- Edición de Parámetros del Ticket -->
         <div style="background: rgba(0,0,0,0.02); padding: 14px; border-radius: 10px; border: 1px solid var(--border-color, #E2E8F0); display: flex; flex-direction: column; gap: 12px;">
@@ -4612,17 +4789,26 @@ function openTicketDetailModal(ticket, ticketsData) {
           </div>
         </div>
 
-        <!-- Nueva Nota -->
+        <!-- Nueva Nota + Adjuntos adicionales -->
         <div>
           <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">✏️ Añadir Nota o Diagnóstico Técnico</label>
           <textarea id="input-new-note-text" class="info-text-input" rows="2" placeholder="Escribe un avance técnico o resolución..." style="width: 100%; font-family: inherit; font-size: 13px; resize: vertical; padding: 8px 10px;"></textarea>
+          
+          <div style="margin-top: 8px;">
+            <label style="display: block; font-size: 11.5px; font-weight: 700; margin-bottom: 4px;">📎 Añadir Archivos o Capturas Nuevas</label>
+            <div class="ticket-dropzone" id="detail-ticket-dropzone" style="padding: 10px;">
+              <div style="font-size: 12px; font-weight: 600;">📎 Haz clic o arrastra capturas/archivos para adjuntar</div>
+              <input type="file" id="input-detail-ticket-files" accept="image/*,.pdf,.txt,.log,.doc,.docx" multiple style="display: none;" />
+            </div>
+            <div id="detail-ticket-attached-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;"></div>
+          </div>
         </div>
 
       </div>
 
       <!-- Pie de la ventana flotante -->
       <div class="event-modal-footer">
-        <button class="btn-ticket-action" id="btn-delete-ticket" style="color: #EF4444; border-color: rgba(239, 68, 68, 0.4); padding: 7px 14px; font-size: 12px;">🗑️ Eliminar Ticket</button>
+        <button class="btn-ticket-action btn-ticket-danger" id="btn-delete-ticket" style="padding: 7px 14px; font-size: 12px;">🗑️ Eliminar Ticket</button>
         <div style="display: flex; gap: 8px;">
           <button class="btn-ticket-action" id="btn-cancel-detail" style="padding: 7px 14px; font-size: 12px;">Cerrar</button>
           <button class="btn-new-ticket" id="btn-save-update-ticket" style="padding: 7px 16px; font-size: 12.5px;">💾 Guardar Cambios</button>
@@ -4638,6 +4824,65 @@ function openTicketDetailModal(ticket, ticketsData) {
   modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
   modalOverlay.querySelector('#btn-close-detail-ticket').addEventListener('click', closeModal);
   modalOverlay.querySelector('#btn-cancel-detail').addEventListener('click', closeModal);
+
+  // Dropzone de adjuntos en detalle
+  const detailDropzone = modalOverlay.querySelector('#detail-ticket-dropzone');
+  const detailFileInput = modalOverlay.querySelector('#input-detail-ticket-files');
+  const detailChipsContainer = modalOverlay.querySelector('#detail-ticket-attached-chips');
+
+  if (detailDropzone && detailFileInput && detailChipsContainer) {
+    detailDropzone.addEventListener('click', () => detailFileInput.click());
+    detailFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFileInputSelection(e.target.files, detailNewAttachments, () => {
+          renderAttachmentChips(detailNewAttachments, detailChipsContainer);
+        });
+        detailFileInput.value = '';
+      }
+    });
+    detailDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      detailDropzone.classList.add('dragover');
+    });
+    detailDropzone.addEventListener('dragleave', () => detailDropzone.classList.remove('dragover'));
+    detailDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      detailDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        handleFileInputSelection(e.dataTransfer.files, detailNewAttachments, () => {
+          renderAttachmentChips(detailNewAttachments, detailChipsContainer);
+        });
+      }
+    });
+  }
+
+  // Evento Reabrir Ticket desde cabecera si estaba resuelto/cerrado
+  const btnReopenHeader = modalOverlay.querySelector('#btn-reopen-header-ticket');
+  if (btnReopenHeader) {
+    btnReopenHeader.addEventListener('click', async () => {
+      if (confirm(`¿Deseas reabrir el ticket ${ticket.id}?`)) {
+        closeModal();
+        setBusy(true, 'Reabriendo ticket...');
+        try {
+          const res = await window.api.updateTicket({
+            id: ticket.id,
+            status: 'Abierto',
+            noteText: '🔓 Incidencia reabierta desde el panel de detalle.',
+            noteAuthor: ticket.assignedTo || 'Técnico TI'
+          });
+          setBusy(false);
+          if (res.success) {
+            await loadAndRenderTickets();
+          } else {
+            alert('Error al reabrir el ticket: ' + (res.error || 'Desconocido'));
+          }
+        } catch (err) {
+          setBusy(false);
+          alert('Error: ' + err.message);
+        }
+      }
+    });
+  }
 
   modalOverlay.querySelector('#btn-save-update-ticket').addEventListener('click', async () => {
     const newStatus = modalOverlay.querySelector('#select-update-status').value;
@@ -4659,7 +4904,8 @@ function openTicketDetailModal(ticket, ticketsData) {
         assignedTo: newAssigned,
         requester: newRequester,
         noteText,
-        noteAuthor: newAssigned || 'Técnico TI'
+        noteAuthor: newAssigned || 'Técnico TI',
+        newAttachments: detailNewAttachments
       });
       setBusy(false);
       if (res.success) {

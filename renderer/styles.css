@@ -5500,4 +5500,158 @@ body.dark-theme .ticket-note-text {
   color: #E2E8F0;
 }
 
+/* Botones especiales de acción de tickets */
+.btn-ticket-danger {
+  border-color: #FCA5A5 !important;
+  color: #DC2626 !important;
+}
+
+.btn-ticket-danger:hover {
+  background: #EF4444 !important;
+  color: #FFFFFF !important;
+  border-color: #EF4444 !important;
+}
+
+.btn-ticket-reopen {
+  border-color: #86EFAC !important;
+  color: #16A34A !important;
+  background: rgba(34, 197, 94, 0.08) !important;
+}
+
+.btn-ticket-reopen:hover {
+  background: #16A34A !important;
+  color: #FFFFFF !important;
+  border-color: #16A34A !important;
+}
+
+/* Dropzone de archivos adjuntos */
+.ticket-dropzone {
+  border: 2px dashed #CBD5E1;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  background: #F8FAFC;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+body.dark-theme .ticket-dropzone {
+  border-color: #475569;
+  background: #0F172A;
+}
+
+.ticket-dropzone:hover, .ticket-dropzone.dragover {
+  border-color: #3B82F6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  max-width: 100%;
+}
+
+body.dark-theme .attachment-chip {
+  background: #1E293B;
+  border-color: #334155;
+  color: #F8FAFC;
+}
+
+.attachment-chip-preview {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: #F1F5F9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.attachment-chip-name {
+  font-weight: 600;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-chip-size {
+  font-size: 11px;
+  color: #64748B;
+}
+
+.attachment-chip-remove {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.attachment-chip-remove:hover {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Lista de Adjuntos en Detalle de Ticket */
+.ticket-attachments-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ticket-attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+body.dark-theme .ticket-attachment-item {
+  background: #0F172A;
+  border-color: #334155;
+}
+
+.ticket-attachment-item:hover {
+  border-color: #3B82F6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.ticket-attachment-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+
 
