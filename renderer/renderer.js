@@ -4080,10 +4080,10 @@ async function openDocumentViewerInApp(docItem) {
 // ═══════════════════════════════════════════════════════════════════════════════
 let currentTicketsList = [];
 let activeTicketStatusFilter = 'Todos';
+let activeTicketAssigneeFilter = 'Todos';
 let ticketSearchQuery = '';
 
 const btnOpenTickets = document.getElementById('btn-open-tickets');
-const btnTicketsCard = document.getElementById('btn-tickets-card');
 
 function deactivateFeaturedButtons() {
   if (typeof btnOpenTutorials !== 'undefined' && btnOpenTutorials) {
@@ -4100,16 +4100,6 @@ if (btnOpenTickets) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     deactivateFeaturedButtons();
     btnOpenTickets.classList.add('active');
-    loadAndRenderTickets();
-  });
-}
-
-if (btnTicketsCard) {
-  btnTicketsCard.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    deactivateFeaturedButtons();
-    if (btnOpenTickets) btnOpenTickets.classList.add('active');
     loadAndRenderTickets();
   });
 }
@@ -4155,7 +4145,7 @@ function renderTicketsView(ticketsData) {
         <span class="tickets-banner-title">🎫 Gestor de Tickets e Incidencias</span>
         <span class="badge-in-tests">🧪 EN PRUEBAS / BETA</span>
       </div>
-      <span class="tickets-banner-sub">Módulo en fase de desarrollo para administración de soporte técnico. Los tickets se persisten automáticamente en tu sistema.</span>
+      <span class="tickets-banner-sub">Módulo de administración y seguimiento de incidencias de soporte técnico. Persistencia automática local.</span>
     </div>
     <div class="tickets-folder-chip" title="Los archivos .json de los tickets se guardan en esta carpeta local de la aplicación">
       📂 Carpeta local: <code>${ticketsData.ticketsDir || 'tickets/'}</code>
@@ -4203,14 +4193,14 @@ function renderTicketsView(ticketsData) {
   `;
   container.appendChild(kpiGrid);
 
-  // 3. Toolbar (Buscador + Filtros + Botón Nuevo)
+  // 3. Toolbar (Buscador + Filtros por Estado y Técnico + Botón Nuevo)
   const toolbar = document.createElement('div');
   toolbar.className = 'tickets-toolbar';
 
   const searchGroup = document.createElement('div');
   searchGroup.className = 'tickets-search-group';
   searchGroup.innerHTML = `
-    <input type="text" id="ticket-search-box" class="ticket-search-input" placeholder="🔍 Buscar por ID, título, solicitante, PC o categoría..." value="${escapeHtml(ticketSearchQuery)}" />
+    <input type="text" id="ticket-search-box" class="ticket-search-input" placeholder="🔍 Buscar por ID, título, solicitante, técnico, PC o categoría..." value="${escapeHtml(ticketSearchQuery)}" />
   `;
 
   const filterGroup = document.createElement('div');
@@ -4228,6 +4218,25 @@ function renderTicketsView(ticketsData) {
     filterGroup.appendChild(chip);
   });
 
+  // Filtro por Técnico Asignado
+  const assigneeSelectGroup = document.createElement('div');
+  assigneeSelectGroup.style.display = 'flex';
+  assigneeSelectGroup.style.alignItems = 'center';
+  assigneeSelectGroup.style.gap = '6px';
+  assigneeSelectGroup.innerHTML = `
+    <span style="font-size: 12px; font-weight: 700; opacity: 0.8;">👨‍💻 Técnico:</span>
+    <select id="select-filter-assignee" class="info-text-input" style="font-size: 12px; padding: 5px 8px;">
+      <option value="Todos" ${activeTicketAssigneeFilter === 'Todos' ? 'selected' : ''}>Todos los técnicos</option>
+      <option value="Rezki Budiman Mulyati" ${activeTicketAssigneeFilter === 'Rezki Budiman Mulyati' ? 'selected' : ''}>Rezki Budiman Mulyati</option>
+      <option value="Francisco Godino Calvente" ${activeTicketAssigneeFilter === 'Francisco Godino Calvente' ? 'selected' : ''}>Francisco Godino Calvente</option>
+    </select>
+  `;
+
+  assigneeSelectGroup.querySelector('#select-filter-assignee').addEventListener('change', (e) => {
+    activeTicketAssigneeFilter = e.target.value;
+    renderTicketsView(ticketsData);
+  });
+
   const btnNew = document.createElement('button');
   btnNew.className = 'btn-new-ticket';
   btnNew.innerHTML = `➕ Crear Nuevo Ticket`;
@@ -4235,6 +4244,7 @@ function renderTicketsView(ticketsData) {
 
   toolbar.appendChild(searchGroup);
   toolbar.appendChild(filterGroup);
+  toolbar.appendChild(assigneeSelectGroup);
   toolbar.appendChild(btnNew);
   container.appendChild(toolbar);
 
@@ -4272,16 +4282,21 @@ function renderTicketGridOnly(gridEl, ticketsData) {
         return false;
       }
     }
+    // Filtro por Técnico asignado
+    if (activeTicketAssigneeFilter !== 'Todos') {
+      if (t.assignedTo !== activeTicketAssigneeFilter) return false;
+    }
     // Filtro por búsqueda
     if (ticketSearchQuery) {
       const q = ticketSearchQuery;
       const matchId = (t.id || '').toLowerCase().includes(q);
       const matchTitle = (t.title || '').toLowerCase().includes(q);
       const matchReq = (t.requester || '').toLowerCase().includes(q);
+      const matchAss = (t.assignedTo || '').toLowerCase().includes(q);
       const matchPc = (t.pcName || '').toLowerCase().includes(q);
       const matchCat = (t.category || '').toLowerCase().includes(q);
       const matchDesc = (t.description || '').toLowerCase().includes(q);
-      return matchId || matchTitle || matchReq || matchPc || matchCat || matchDesc;
+      return matchId || matchTitle || matchReq || matchAss || matchPc || matchCat || matchDesc;
     }
     return true;
   });
@@ -4306,9 +4321,6 @@ function renderTicketGridOnly(gridEl, ticketsData) {
     card.className = 'ticket-item-card';
 
     const statusCss = ticket.status ? ticket.status.replace(/\s+/g, '_') : 'Abierto';
-    const dateFormatted = ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('es-ES', {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-    }) : 'Reciente';
 
     card.innerHTML = `
       <div class="ticket-item-header">
@@ -4320,8 +4332,15 @@ function renderTicketGridOnly(gridEl, ticketsData) {
       </div>
       <div class="ticket-item-title">${escapeHtml(ticket.title)}</div>
       <div class="ticket-item-desc">${escapeHtml(ticket.description || 'Sin descripción adicional')}</div>
-      <div class="ticket-item-footer">
-        <span class="ticket-item-user">👤 ${escapeHtml(ticket.requester || 'Usuario')} (${escapeHtml(ticket.pcName || 'PC')})</span>
+      
+      <div style="margin-top: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; opacity: 0.9;">
+        <div><strong>👤 Solicitante:</strong> ${escapeHtml(ticket.requester || 'Usuario')} <span style="opacity: 0.75;">(${escapeHtml(ticket.pcName || 'PC')})</span></div>
+        <div><strong>👨‍💻 Gestionado por:</strong> <span style="color: #2563EB; font-weight: 700;">${escapeHtml(ticket.assignedTo || 'Sin Asignar')}</span></div>
+        <div><strong>📂 Categoría:</strong> ${escapeHtml(ticket.category || 'General')}</div>
+      </div>
+
+      <div class="ticket-item-footer" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color, #E2E8F0);">
+        <span style="font-size: 11px; color: #64748B;">📅 ${new Date(ticket.createdAt).toLocaleDateString('es-ES')}</span>
         <div class="ticket-actions-row">
           <button class="btn-ticket-action btn-view-ticket" data-id="${ticket.id}">👁️ Abrir Ticket</button>
         </div>
@@ -4336,36 +4355,54 @@ function renderTicketGridOnly(gridEl, ticketsData) {
 
 function openNewTicketModal(ticketsData) {
   const modalOverlay = document.createElement('div');
-  modalOverlay.className = 'event-modal-overlay panel-fade-in';
+  modalOverlay.className = 'event-modal-overlay';
   modalOverlay.innerHTML = `
-    <div class="event-modal-content" style="max-width: 580px; width: 95%;">
-      <div class="event-modal-header" style="border-bottom: 1px solid var(--border-color, #E2E8F0); padding-bottom: 12px;">
-        <h3 style="margin:0; font-size: 18px; display: flex; align-items: center; gap: 8px;">
-          <span>➕ Registrar Nuevo Ticket</span>
-          <span class="badge-in-tests" style="font-size: 9px;">BETA</span>
-        </h3>
-        <button class="event-modal-close" id="btn-close-new-ticket">✕</button>
-      </div>
-      <div class="event-modal-body" style="padding: 18px 0; display: flex; flex-direction: column; gap: 14px;">
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Título de la Incidencia *</label>
-          <input type="text" id="input-ticket-title" class="info-text-input" placeholder="Ej: Error al conectar la impresora de red" style="width: 100%;" />
+    <div class="event-modal-content" style="width: 560px; max-width: 95vw;">
+      <div class="event-modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); color: #059669; display: flex; align-items: center; justify-content: center; font-size: 16px;">➕</div>
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700;">Registrar Nuevo Ticket</h3>
+            <span style="font-size: 11px; opacity: 0.7;">Persistencia automática local en /tickets</span>
+          </div>
         </div>
+        <button class="event-modal-close" id="btn-close-new-ticket" title="Cerrar ventana">✕</button>
+      </div>
+
+      <div class="event-modal-body">
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Título de la Incidencia *</label>
+          <input type="text" id="input-ticket-title" class="info-text-input" placeholder="Ej: Configurar impresora de red o fallo en equipo" style="width: 100%; font-size: 13.5px; padding: 9px 12px;" />
+        </div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría</label>
-            <select id="select-ticket-category" class="info-text-input" style="width: 100%;">
-              <option value="Hardware">💻 Hardware / PC</option>
-              <option value="Red">📡 Red / WiFi / LAN</option>
-              <option value="Impresoras" selected>🖨️ Impresoras</option>
-              <option value="Software">⚙️ Software / Sistema</option>
-              <option value="Usuario">👤 Usuario / Accesos</option>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Solicitante (Nombre de usuario) *</label>
+            <input type="text" id="input-ticket-requester" class="info-text-input" placeholder="Escribe el nombre del usuario..." style="width: 100%; font-size: 13px; padding: 8px 10px;" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Equipo / Hostname</label>
+            <input type="text" id="input-ticket-pcname" class="info-text-input" value="EQUIPO-LOCAL" style="width: 100%; font-size: 13px; padding: 8px 10px;" />
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Categoría *</label>
+            <select id="select-ticket-category" class="info-text-input" style="width: 100%; font-size: 13px; padding: 8px 10px;">
+              <option value="Impresoras / Escáneres" selected>🖨️ Impresoras / Escáneres</option>
+              <option value="Hardware / PC">💻 Hardware / PC / Portátiles</option>
+              <option value="Red / Conectividad">📡 Red / WiFi / Conectividad</option>
+              <option value="Software / Aplicaciones">⚙️ Software / Licencias / SO</option>
+              <option value="Usuarios / Accesos">👤 Usuarios / Accesos / Contraseñas</option>
+              <option value="Correo Electrónico">📧 Correo Electrónico</option>
+              <option value="Telefonía / VoIP">📞 Telefonía / VoIP</option>
               <option value="Otros">📦 Otros</option>
             </select>
           </div>
           <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Prioridad</label>
-            <select id="select-ticket-priority" class="info-text-input" style="width: 100%;">
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Prioridad Inicial</label>
+            <select id="select-ticket-priority" class="info-text-input" style="width: 100%; font-size: 13px; padding: 8px 10px;">
               <option value="Baja">🟢 Baja</option>
               <option value="Media" selected>🟡 Media</option>
               <option value="Alta">🟠 Alta</option>
@@ -4373,24 +4410,24 @@ function openNewTicketModal(ticketsData) {
             </select>
           </div>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Solicitante</label>
-            <input type="text" id="input-ticket-requester" class="info-text-input" value="Soporte Usuario" style="width: 100%;" />
-          </div>
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Equipo / Hostname</label>
-            <input type="text" id="input-ticket-pcname" class="info-text-input" value="EQUIPO-LOCAL" style="width: 100%;" />
-          </div>
-        </div>
+
         <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Descripción detallada</label>
-          <textarea id="input-ticket-desc" class="info-text-input" rows="4" placeholder="Escribe los detalles de la falla, sintomatología y pruebas realizadas..." style="width: 100%; resize: vertical; font-family: inherit;"></textarea>
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Gestionado por (Técnico de IT) *</label>
+          <select id="select-ticket-assigned" class="info-text-input" style="width: 100%; font-size: 13px; padding: 8px 10px;">
+            <option value="Rezki Budiman Mulyati" selected>👨‍💻 Rezki Budiman Mulyati</option>
+            <option value="Francisco Godino Calvente">👨‍💻 Francisco Godino Calvente</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Descripción del Problema</label>
+          <textarea id="input-ticket-desc" class="info-text-input" rows="4" placeholder="Describe los detalles de la incidencia o requerimiento reportado..." style="width: 100%; resize: vertical; font-family: inherit; font-size: 13px; padding: 10px; line-height: 1.4;"></textarea>
         </div>
       </div>
-      <div class="event-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color, #E2E8F0); padding-top: 12px;">
-        <button class="info-action-btn secondary" id="btn-cancel-new-ticket">Cancelar</button>
-        <button class="info-action-btn primary" id="btn-save-new-ticket">💾 Guardar Ticket</button>
+
+      <div class="event-modal-footer">
+        <button class="btn-ticket-action" id="btn-cancel-new-ticket" style="padding: 8px 16px; font-size: 12.5px;">Cancelar</button>
+        <button class="btn-new-ticket" id="btn-save-new-ticket">💾 Guardar Ticket</button>
       </div>
     </div>
   `;
@@ -4398,13 +4435,16 @@ function openNewTicketModal(ticketsData) {
   document.body.appendChild(modalOverlay);
 
   const closeModal = () => modalOverlay.remove();
+  modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
   modalOverlay.querySelector('#btn-close-new-ticket').addEventListener('click', closeModal);
   modalOverlay.querySelector('#btn-cancel-new-ticket').addEventListener('click', closeModal);
 
-  // Intentar rellenar con nombre de usuario y hostname actuales
+  // Intentar rellenar datos del equipo actual
   window.api.getEquipmentSummary?.().then(s => {
     if (s) {
-      if (s.userName) modalOverlay.querySelector('#input-ticket-requester').value = s.userName;
+      if (s.userName && !modalOverlay.querySelector('#input-ticket-requester').value) {
+        modalOverlay.querySelector('#input-ticket-requester').value = s.userName;
+      }
       if (s.computerName) modalOverlay.querySelector('#input-ticket-pcname').value = s.computerName;
     }
   }).catch(() => {});
@@ -4412,28 +4452,29 @@ function openNewTicketModal(ticketsData) {
   modalOverlay.querySelector('#btn-save-new-ticket').addEventListener('click', async () => {
     const title = modalOverlay.querySelector('#input-ticket-title').value.trim();
     if (!title) {
-      alert('Por favor introduce un título para el ticket.');
+      alert('Por favor introduce un título para la incidencia.');
       return;
     }
 
+    const requester = modalOverlay.querySelector('#input-ticket-requester').value.trim() || 'Usuario Soporte';
+    const pcName = modalOverlay.querySelector('#input-ticket-pcname').value.trim() || 'PC-LOCAL';
     const category = modalOverlay.querySelector('#select-ticket-category').value;
     const priority = modalOverlay.querySelector('#select-ticket-priority').value;
-    const requester = modalOverlay.querySelector('#input-ticket-requester').value.trim();
-    const pcName = modalOverlay.querySelector('#input-ticket-pcname').value.trim();
+    const assignedTo = modalOverlay.querySelector('#select-ticket-assigned').value;
     const description = modalOverlay.querySelector('#input-ticket-desc').value.trim();
 
     closeModal();
-    setBusy(true, 'Guardando ticket en la carpeta local /tickets...');
+    setBusy(true, 'Guardando ticket localmente en /tickets...');
 
     try {
       const res = await window.api.createTicket({
-        title, category, priority, requester, pcName, description
+        title, category, priority, requester, pcName, assignedTo, description
       });
       setBusy(false);
       if (res.success) {
         await loadAndRenderTickets();
       } else {
-        alert('Error al guardar el ticket: ' + (res.error || 'Desconocido'));
+        alert('Error al crear el ticket: ' + (res.error || 'Desconocido'));
       }
     } catch (err) {
       setBusy(false);
@@ -4444,110 +4485,181 @@ function openNewTicketModal(ticketsData) {
 
 function openTicketDetailModal(ticket, ticketsData) {
   const modalOverlay = document.createElement('div');
-  modalOverlay.className = 'event-modal-overlay panel-fade-in';
+  modalOverlay.className = 'event-modal-overlay';
 
-  const notesList = (ticket.notes || []).map(n => `
-    <div style="background: rgba(0,0,0,0.03); border-left: 3px solid #3B82F6; padding: 10px 12px; border-radius: 6px; font-size: 12.5px; margin-bottom: 8px;">
-      <div style="display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 4px; color: #3B82F6;">
-        <span>👤 ${escapeHtml(n.author || 'Técnico')}</span>
-        <span style="font-weight: 500; font-size: 11px; opacity: 0.75;">${new Date(n.date).toLocaleString('es-ES')}</span>
+  const notesListHtml = (ticket.notes || []).map(n => `
+    <div class="ticket-note-card">
+      <div class="ticket-note-header">
+        <span class="ticket-note-author">👤 ${escapeHtml(n.author || 'Técnico TI')}</span>
+        <span class="ticket-note-date">🕒 ${new Date(n.date).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
       </div>
-      <div style="color: var(--text-color, #1E293B); line-height: 1.4;">${escapeHtml(n.text)}</div>
+      <div class="ticket-note-text">${escapeHtml(n.text)}</div>
     </div>
   `).join('');
 
+  const statusCss = ticket.status ? ticket.status.replace(/\s+/g, '_') : 'Abierto';
+
   modalOverlay.innerHTML = `
-    <div class="event-modal-content" style="max-width: 650px; width: 95%;">
-      <div class="event-modal-header" style="border-bottom: 1px solid var(--border-color, #E2E8F0); padding-bottom: 12px;">
-        <div>
-          <span class="ticket-id-tag" style="font-size: 14px;">${escapeHtml(ticket.id)}</span>
-          <h3 style="margin: 4px 0 0 0; font-size: 18px;">${escapeHtml(ticket.title)}</h3>
+    <div class="event-modal-content" style="width: 640px; max-width: 95vw;">
+      
+      <!-- Cabeza de la ventana flotante -->
+      <div class="event-modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="ticket-id-tag" style="font-size: 13px; padding: 4px 10px;">${escapeHtml(ticket.id)}</span>
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.2;">${escapeHtml(ticket.title)}</h3>
+            <span style="font-size: 11px; opacity: 0.75;">Gestión y Diagnóstico de Incidencia TI</span>
+          </div>
         </div>
-        <button class="event-modal-close" id="btn-close-detail-ticket">✕</button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge-status ${escapeHtml(statusCss)}">${escapeHtml(ticket.status || 'Abierto')}</span>
+          <button class="event-modal-close" id="btn-close-detail-ticket" title="Cerrar ventana">✕</button>
+        </div>
       </div>
 
-      <div class="event-modal-body" style="padding: 16px 0; display: flex; flex-direction: column; gap: 16px; max-height: 70vh; overflow-y: auto;">
+      <!-- Cuerpo de la ventana flotante -->
+      <div class="event-modal-body">
         
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: 8px; font-size: 12.5px;">
-          <div><strong>Solicitante:</strong> ${escapeHtml(ticket.requester || 'N/A')}</div>
-          <div><strong>Equipo PC:</strong> ${escapeHtml(ticket.pcName || 'N/A')}</div>
-          <div><strong>Categoría:</strong> ${escapeHtml(ticket.category || 'General')}</div>
-          <div><strong>Fecha:</strong> ${new Date(ticket.createdAt).toLocaleString('es-ES')}</div>
+        <!-- Grid de Metadatos -->
+        <div class="ticket-meta-grid">
+          <div class="ticket-meta-chip">
+            <span>👤</span>
+            <div><strong>Solicitante:</strong> ${escapeHtml(ticket.requester || 'Usuario')}</div>
+          </div>
+          <div class="ticket-meta-chip">
+            <span>💻</span>
+            <div><strong>Equipo PC:</strong> ${escapeHtml(ticket.pcName || 'Hostname')}</div>
+          </div>
+          <div class="ticket-meta-chip">
+            <span>📂</span>
+            <div><strong>Categoría:</strong> ${escapeHtml(ticket.category || 'General')}</div>
+          </div>
+          <div class="ticket-meta-chip">
+            <span>👨‍💻</span>
+            <div><strong>Gestionado por:</strong> <span style="color: #2563EB; font-weight: 700;">${escapeHtml(ticket.assignedTo || 'Sin Asignar')}</span></div>
+          </div>
         </div>
 
+        <!-- Descripción del problema -->
         <div>
-          <h4 style="font-size: 13px; font-weight: 700; margin: 0 0 6px 0;">Descripción del Problema:</h4>
-          <div style="background: rgba(0,0,0,0.02); padding: 12px; border-radius: 8px; font-size: 13px; line-height: 1.5; color: var(--text-color, #334155);">
-            ${escapeHtml(ticket.description || 'Sin detalles.')}
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">📌 Descripción de la Incidencia</label>
+          <div class="ticket-desc-box">${escapeHtml(ticket.description || 'Sin detalles especificados.')}</div>
+        </div>
+
+        <!-- Edición de Parámetros del Ticket -->
+        <div style="background: rgba(0,0,0,0.02); padding: 14px; border-radius: 10px; border: 1px solid var(--border-color, #E2E8F0); display: flex; flex-direction: column; gap: 12px;">
+          <div style="font-size: 12px; font-weight: 700; color: #2563EB; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">
+            ⚙️ Ajustes y Asignación de Soporte
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Gestionado por</label>
+              <select id="select-update-assigned" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
+                <option value="Rezki Budiman Mulyati" ${ticket.assignedTo === 'Rezki Budiman Mulyati' ? 'selected' : ''}>👨‍💻 Rezki Budiman Mulyati</option>
+                <option value="Francisco Godino Calvente" ${ticket.assignedTo === 'Francisco Godino Calvente' ? 'selected' : ''}>👨‍💻 Francisco Godino Calvente</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría</label>
+              <select id="select-update-category" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
+                <option value="Impresoras / Escáneres" ${ticket.category === 'Impresoras / Escáneres' || ticket.category === 'Impresoras' ? 'selected' : ''}>🖨️ Impresoras / Escáneres</option>
+                <option value="Hardware / PC" ${ticket.category === 'Hardware / PC' || ticket.category === 'Hardware' ? 'selected' : ''}>💻 Hardware / PC / Portátiles</option>
+                <option value="Red / Conectividad" ${ticket.category === 'Red / Conectividad' || ticket.category === 'Red' ? 'selected' : ''}>📡 Red / WiFi / Conectividad</option>
+                <option value="Software / Aplicaciones" ${ticket.category === 'Software / Aplicaciones' || ticket.category === 'Software' ? 'selected' : ''}>⚙️ Software / Licencias / SO</option>
+                <option value="Usuarios / Accesos" ${ticket.category === 'Usuarios / Accesos' || ticket.category === 'Usuario' ? 'selected' : ''}>👤 Usuarios / Accesos / Contraseñas</option>
+                <option value="Correo Electrónico" ${ticket.category === 'Correo Electrónico' ? 'selected' : ''}>📧 Correo Electrónico</option>
+                <option value="Telefonía / VoIP" ${ticket.category === 'Telefonía / VoIP' ? 'selected' : ''}>📞 Telefonía / VoIP</option>
+                <option value="Otros" ${ticket.category === 'Otros' ? 'selected' : ''}>📦 Otros</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Estado del Ticket</label>
+              <select id="select-update-status" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
+                <option value="Abierto" ${ticket.status === 'Abierto' ? 'selected' : ''}>🔓 Abierto</option>
+                <option value="En Proceso" ${ticket.status === 'En Proceso' ? 'selected' : ''}>⚙️ En Proceso</option>
+                <option value="Resuelto" ${ticket.status === 'Resuelto' ? 'selected' : ''}>✅ Resuelto</option>
+                <option value="Cerrado" ${ticket.status === 'Cerrado' ? 'selected' : ''}>🔒 Cerrado</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nivel de Prioridad</label>
+              <select id="select-update-priority" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
+                <option value="Baja" ${ticket.priority === 'Baja' ? 'selected' : ''}>🟢 Baja</option>
+                <option value="Media" ${ticket.priority === 'Media' ? 'selected' : ''}>🟡 Media</option>
+                <option value="Alta" ${ticket.priority === 'Alta' ? 'selected' : ''}>🟠 Alta</option>
+                <option value="Crítica" ${ticket.priority === 'Crítica' ? 'selected' : ''}>🔴 Crítica</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nombre del Solicitante</label>
+            <input type="text" id="input-update-requester" class="info-text-input" value="${escapeHtml(ticket.requester || '')}" style="width: 100%; font-size: 13px; padding: 7px 10px;" />
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Estado del Ticket</label>
-            <select id="select-update-status" class="info-text-input" style="width: 100%;">
-              <option value="Abierto" ${ticket.status === 'Abierto' ? 'selected' : ''}>🔓 Abierto</option>
-              <option value="En Proceso" ${ticket.status === 'En Proceso' ? 'selected' : ''}>⚙️ En Proceso</option>
-              <option value="Resuelto" ${ticket.status === 'Resuelto' ? 'selected' : ''}>✅ Resuelto</option>
-              <option value="Cerrado" ${ticket.status === 'Cerrado' ? 'selected' : ''}>🔒 Cerrado</option>
-            </select>
-          </div>
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Prioridad</label>
-            <select id="select-update-priority" class="info-text-input" style="width: 100%;">
-              <option value="Baja" ${ticket.priority === 'Baja' ? 'selected' : ''}>🟢 Baja</option>
-              <option value="Media" ${ticket.priority === 'Media' ? 'selected' : ''}>🟡 Media</option>
-              <option value="Alta" ${ticket.priority === 'Alta' ? 'selected' : ''}>🟠 Alta</option>
-              <option value="Crítica" ${ticket.priority === 'Crítica' ? 'selected' : ''}>🔴 Crítica</option>
-            </select>
-          </div>
-        </div>
-
+        <!-- Historial de Notas -->
         <div>
-          <h4 style="font-size: 13px; font-weight: 700; margin: 0 0 8px 0;">Historial de Notas y Avances (${(ticket.notes || []).length}):</h4>
-          <div style="max-height: 180px; overflow-y: auto;">
-            ${notesList || '<p style="font-size: 12px; color: #94A3B8;">Sin notas aún.</p>'}
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <label style="font-size: 12px; font-weight: 700;">💬 Historial de Seguimiento (${(ticket.notes || []).length})</label>
+          </div>
+          <div class="ticket-notes-timeline">
+            ${notesListHtml || '<p style="font-size: 12px; color: #94A3B8; font-style: italic; margin: 0;">No hay notas o avances registrados en este ticket.</p>'}
           </div>
         </div>
 
-        <div style="border-top: 1px solid var(--border-color, #E2E8F0); padding-top: 12px;">
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Añadir Nota o Diagnóstico Técnico</label>
-          <textarea id="input-new-note-text" class="info-text-input" rows="2" placeholder="Escribe un avance técnico o resolución..." style="width: 100%; font-family: inherit; resize: vertical;"></textarea>
+        <!-- Nueva Nota -->
+        <div>
+          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">✏️ Añadir Nota o Diagnóstico Técnico</label>
+          <textarea id="input-new-note-text" class="info-text-input" rows="2" placeholder="Escribe un avance técnico o resolución..." style="width: 100%; font-family: inherit; font-size: 13px; resize: vertical; padding: 8px 10px;"></textarea>
         </div>
 
       </div>
 
-      <div class="event-modal-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color, #E2E8F0); padding-top: 12px;">
-        <button class="info-action-btn secondary" id="btn-delete-ticket" style="color: #EF4444; border-color: rgba(239, 68, 68, 0.4);">🗑️ Eliminar Ticket</button>
+      <!-- Pie de la ventana flotante -->
+      <div class="event-modal-footer">
+        <button class="btn-ticket-action" id="btn-delete-ticket" style="color: #EF4444; border-color: rgba(239, 68, 68, 0.4); padding: 7px 14px; font-size: 12px;">🗑️ Eliminar Ticket</button>
         <div style="display: flex; gap: 8px;">
-          <button class="info-action-btn secondary" id="btn-cancel-detail">Cerrar</button>
-          <button class="info-action-btn primary" id="btn-save-update-ticket">💾 Guardar Cambios</button>
+          <button class="btn-ticket-action" id="btn-cancel-detail" style="padding: 7px 14px; font-size: 12px;">Cerrar</button>
+          <button class="btn-new-ticket" id="btn-save-update-ticket" style="padding: 7px 16px; font-size: 12.5px;">💾 Guardar Cambios</button>
         </div>
       </div>
+
     </div>
   `;
 
   document.body.appendChild(modalOverlay);
 
   const closeModal = () => modalOverlay.remove();
+  modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
   modalOverlay.querySelector('#btn-close-detail-ticket').addEventListener('click', closeModal);
   modalOverlay.querySelector('#btn-cancel-detail').addEventListener('click', closeModal);
 
   modalOverlay.querySelector('#btn-save-update-ticket').addEventListener('click', async () => {
     const newStatus = modalOverlay.querySelector('#select-update-status').value;
     const newPriority = modalOverlay.querySelector('#select-update-priority').value;
+    const newCategory = modalOverlay.querySelector('#select-update-category').value;
+    const newAssigned = modalOverlay.querySelector('#select-update-assigned').value;
+    const newRequester = modalOverlay.querySelector('#input-update-requester').value.trim();
     const noteText = modalOverlay.querySelector('#input-new-note-text').value.trim();
 
     closeModal();
-    setBusy(true, 'Actualizando ticket en /tickets...');
+    setBusy(true, 'Actualizando ticket localmente en /tickets...');
 
     try {
       const res = await window.api.updateTicket({
         id: ticket.id,
         status: newStatus,
         priority: newPriority,
+        category: newCategory,
+        assignedTo: newAssigned,
+        requester: newRequester,
         noteText,
-        noteAuthor: 'Soporte TI'
+        noteAuthor: newAssigned || 'Técnico TI'
       });
       setBusy(false);
       if (res.success) {
@@ -4580,5 +4692,6 @@ function openTicketDetailModal(ticket, ticketsData) {
     }
   });
 }
+
 
 

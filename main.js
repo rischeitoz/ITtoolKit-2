@@ -2876,7 +2876,10 @@ ipcMain.handle('update-ticket', async (_event, data) => {
 
     if (data.status) ticket.status = data.status;
     if (data.priority) ticket.priority = data.priority;
+    if (data.category) ticket.category = data.category;
     if (data.assignedTo) ticket.assignedTo = data.assignedTo;
+    if (data.requester) ticket.requester = data.requester;
+    if (data.description) ticket.description = data.description;
     ticket.updatedAt = new Date().toISOString();
 
     if (data.noteText) {

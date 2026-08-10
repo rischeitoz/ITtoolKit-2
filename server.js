@@ -2307,7 +2307,7 @@ app.post('/api/tickets/create', (req, res) => {
 
 app.post('/api/tickets/update', (req, res) => {
   try {
-    const { id, status, priority, noteText, noteAuthor, assignedTo } = req.body;
+    const { id, status, priority, category, requester, description, noteText, noteAuthor, assignedTo } = req.body;
     const tickets = getAllTickets();
     const ticket = tickets.find(t => t.id === id);
     if (!ticket) {
@@ -2316,7 +2316,10 @@ app.post('/api/tickets/update', (req, res) => {
 
     if (status) ticket.status = status;
     if (priority) ticket.priority = priority;
+    if (category) ticket.category = category;
     if (assignedTo) ticket.assignedTo = assignedTo;
+    if (requester) ticket.requester = requester;
+    if (description) ticket.description = description;
     ticket.updatedAt = new Date().toISOString();
 
     if (noteText) {
