@@ -78,6 +78,65 @@ app.post('/api/auth/login', (req, res) => {
   }
 });
 
+// Endpoint Proxy de Descarga de Software para Barra de Progreso y Guardado Directo
+app.get('/api/software/proxy-download', async (req, res) => {
+  const fileUrl = req.query.url;
+  if (!fileUrl) {
+    return res.status(400).json({ error: 'El parámetro url es requerido.' });
+  }
+
+  try {
+    const fetchWithRedirects = (currentUrl, redirectsLeft = 5) => {
+      return new Promise((resolve, reject) => {
+        if (redirectsLeft <= 0) return reject(new Error('Demasiadas redirecciones en la descarga.'));
+        
+        const isHttps = currentUrl.startsWith('https');
+        const httpLib = isHttps ? require('https') : require('http');
+
+        const request = httpLib.get(currentUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        }, (response) => {
+          if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+            let nextUrl = response.headers.location;
+            if (!nextUrl.startsWith('http')) {
+              const parsed = new URL(currentUrl);
+              nextUrl = `${parsed.protocol}//${parsed.host}${nextUrl}`;
+            }
+            return resolve(fetchWithRedirects(nextUrl, redirectsLeft - 1));
+          }
+          if (response.statusCode !== 200) {
+            return reject(new Error(`Servidor de origen devolvió estado HTTP ${response.statusCode}`));
+          }
+          resolve(response);
+        });
+
+        request.on('error', reject);
+      });
+    };
+
+    const remoteRes = await fetchWithRedirects(fileUrl);
+    const contentLength = remoteRes.headers['content-length'] || '';
+    const contentType = remoteRes.headers['content-type'] || 'application/octet-stream';
+    const contentDisposition = remoteRes.headers['content-disposition'] || 'attachment; filename="installer.exe"';
+
+    res.setHeader('Content-Type', contentType);
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    res.setHeader('Content-Disposition', contentDisposition);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Disposition');
+
+    appLog('INFO', `[DOWNLOAD STREAM] Iniciando streaming de software: ${fileUrl} (${contentLength || 'Tamaño desconocido'} bytes)`);
+    remoteRes.pipe(res);
+  } catch (err) {
+    appLog('ERROR', `[DOWNLOAD PROXY ERROR] ${err.message}`);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
 // SSE endpoint for progress & logs
 app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');

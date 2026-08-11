@@ -5310,9 +5310,10 @@ const softwareCatalog = [
     id: 'forticlient-vpn',
     title: 'FortiClient VPN',
     publisher: 'Fortinet',
-    version: 'v7.2.2 / Última Versión',
+    version: 'v7.2.2 / Oficial',
     platform: 'Windows (x64 / x86)',
     category: 'Redes y Seguridad',
+    defaultFileName: 'FortiClientVPN_v7.2.2_Setup.exe',
     description: 'Cliente VPN oficial de Fortinet para conexiones remotas seguras (SSL / IPsec VPN) a la red corporativa.',
     downloadUrl: 'https://links.fortinet.com/forticlient/win/vpnagent',
     logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -5322,8 +5323,44 @@ const softwareCatalog = [
       <path d="M38 18H82V26H38V18Z" fill="white" opacity="0.8"/>
       <path d="M38 94H82V102H38V94Z" fill="white" opacity="0.8"/>
     </svg>`,
-    fileInfo: 'Instalador Oficial .exe • Enlace Directo',
+    fileInfo: 'Instalador Oficial .exe',
     badgeText: 'OFICIAL'
+  },
+  {
+    id: 'anydesk',
+    title: 'AnyDesk Remote',
+    publisher: 'AnyDesk Software',
+    version: 'v7.1.13 / Portable',
+    platform: 'Windows (x64 / x86)',
+    category: 'Soporte y Asistencia',
+    defaultFileName: 'AnyDesk_Portable_v7.1.exe',
+    description: 'Herramienta de escritorio remoto rápida para soporte técnico instantáneo y asistencia a usuarios.',
+    downloadUrl: 'https://download.anydesk.com/AnyDesk.exe',
+    logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="120" rx="22" fill="#EF4444"/>
+      <path d="M42 38L78 38L96 60L78 82L42 82L24 60L42 38Z" fill="white"/>
+      <path d="M60 48L72 60L60 72L48 60L60 48Z" fill="#EF4444"/>
+    </svg>`,
+    fileInfo: 'Ejecutable .exe • Sin Instalación',
+    badgeText: 'POPULAR'
+  },
+  {
+    id: '7zip-archiver',
+    title: '7-Zip Archiver',
+    publisher: 'Igor Pavlov',
+    version: 'v23.01 / Estable',
+    platform: 'Windows (x64)',
+    category: 'Compresión de Archivos',
+    defaultFileName: '7zip_x64_v23.01_Setup.exe',
+    description: 'Archivador y compresor gratuito de alto rendimiento para archivos .zip, .7z, .rar, .tar, .iso y más.',
+    downloadUrl: 'https://www.7-zip.org/a/7z2301-x64.exe',
+    logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="120" rx="22" fill="#1E293B"/>
+      <path d="M25 35H95V85H25V35Z" fill="#334155"/>
+      <text x="32" y="70" fill="#38BDF8" font-family="Arial" font-weight="900" font-size="34">7z</text>
+    </svg>`,
+    fileInfo: 'Instalador Oficial .exe',
+    badgeText: 'UTILERÍA'
   }
 ];
 
@@ -5343,7 +5380,7 @@ function openSoftwarePanel() {
         <strong style="font-size:16px; color:var(--text-primary);">Catálogo de Software y Programas</strong>
       </div>
       <span style="font-size:13px; color:var(--text-secondary);">
-        Programas e instaladores recomendados que se irán añadiendo poco a poco para descarga directa.
+        Descargas integradas directamente en la herramienta con barra de progreso en tiempo real y selección de ruta de guardado.
       </span>
     </div>
     <div>
@@ -5359,7 +5396,7 @@ function openSoftwarePanel() {
   notice.className = 'software-notice-banner';
   notice.innerHTML = `
     <span style="font-size:18px;">ℹ️</span>
-    <span>A continuación se muestran los programas disponibles. Haz clic en el botón grande <strong>"DESCARGAR"</strong> para descargar directamente.</span>
+    <span>Al hacer clic en <strong>"DESCARGAR"</strong>, la app te preguntará la carpeta donde deseas guardar el ejecutable y mostrará la velocidad y porcentaje de descarga en vivo.</span>
   `;
   container.appendChild(notice);
 
@@ -5370,6 +5407,7 @@ function openSoftwarePanel() {
   softwareCatalog.forEach(prog => {
     const card = document.createElement('div');
     card.className = 'software-card';
+    card.id = `soft-card-${prog.id}`;
 
     card.innerHTML = `
       <div class="soft-card-top">
@@ -5391,19 +5429,16 @@ function openSoftwarePanel() {
       </div>
 
       <div class="soft-card-bottom">
-        <a href="${prog.downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-big" id="btn-download-${prog.id}">
+        <button class="btn-download-big" id="btn-download-${prog.id}">
           <span class="download-icon-anim">⬇️</span>
           <span>DESCARGAR</span>
-        </a>
+        </button>
       </div>
     `;
 
     const dlBtn = card.querySelector(`#btn-download-${prog.id}`);
-    dlBtn.addEventListener('click', (e) => {
-      if (window.api?.openUrl) {
-        e.preventDefault();
-        window.api.openUrl(prog.downloadUrl);
-      }
+    dlBtn.addEventListener('click', () => {
+      startSoftwareDownloadProcess(prog, card);
     });
 
     grid.appendChild(card);
@@ -5411,6 +5446,298 @@ function openSoftwarePanel() {
 
   container.appendChild(grid);
   resultsEl.appendChild(container);
+}
+
+// Modal para consultar ubicación de guardado antes de descargar
+function showSaveLocationModal(prog, defaultPath) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'dl-modal-overlay';
+
+    modal.innerHTML = `
+      <div class="dl-modal-card">
+        <div class="dl-modal-header">
+          <div class="dl-modal-icon">💾</div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <h3 class="dl-modal-title">Ubicación de Guardado</h3>
+            <span class="dl-modal-subtitle">Seleccione dónde desea guardar el archivo ejecutable antes de iniciar la descarga.</span>
+          </div>
+        </div>
+
+        <div class="dl-file-summary">
+          <span class="dl-file-name">📦 ${escapeHtml(prog.title)} (${escapeHtml(prog.version)})</span>
+          <span class="dl-file-meta">💻 ${escapeHtml(prog.platform)} • ${escapeHtml(prog.fileInfo)}</span>
+        </div>
+
+        <div class="dl-field-group">
+          <label class="dl-field-label">Nombre y Ruta de Destino:</label>
+          <div class="dl-input-row">
+            <input type="text" id="modal-input-path" class="dl-input-path" value="${escapeHtml(defaultPath)}" />
+            <button class="btn-browse-folder" id="btn-native-picker" title="Seleccionar carpeta mediante el explorador nativo">
+              <span>📁 Explorar...</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="dl-modal-footer">
+          <button class="btn-dl-cancel" id="btn-modal-cancel">❌ Cancelar</button>
+          <button class="btn-dl-start" id="btn-modal-confirm">
+            <span>✔ Confirmar y Descargar</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const inputPath = modal.querySelector('#modal-input-path');
+    const browseBtn = modal.querySelector('#btn-native-picker');
+    const cancelBtn = modal.querySelector('#btn-modal-cancel');
+    const confirmBtn = modal.querySelector('#btn-modal-confirm');
+
+    let selectedFileHandle = null;
+
+    if (browseBtn) {
+      browseBtn.addEventListener('click', async () => {
+        if ('showSaveFilePicker' in window) {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: prog.defaultFileName,
+              types: [{
+                description: 'Archivo ejecutable instalador (.exe)',
+                accept: { 'application/x-msdownload': ['.exe', '.msi', '.zip'] }
+              }]
+            });
+            selectedFileHandle = handle;
+            if (handle && handle.name) {
+              inputPath.value = `C:\\Descargas\\${handle.name}`;
+            }
+          } catch (err) {
+            // Cancelado por usuario
+          }
+        } else {
+          inputPath.focus();
+          inputPath.select();
+        }
+      });
+    }
+
+    const closeModal = (result) => {
+      if (document.body.contains(modal)) {
+        document.body.removeChild(modal);
+      }
+      resolve(result);
+    };
+
+    cancelBtn.addEventListener('click', () => closeModal(null));
+    confirmBtn.addEventListener('click', () => {
+      const chosen = inputPath.value.trim() || defaultPath;
+      closeModal({ chosenPath: chosen, fileHandle: selectedFileHandle });
+    });
+
+    const onKeydown = (e) => {
+      if (e.key === 'Escape') {
+        window.removeEventListener('keydown', onKeydown);
+        closeModal(null);
+      }
+    };
+    window.addEventListener('keydown', onKeydown);
+  });
+}
+
+// Proceso de Descarga Directa con Barra de Progreso en Vivo
+async function startSoftwareDownloadProcess(prog, cardElement) {
+  const defaultPath = `C:\\Descargas\\${prog.defaultFileName}`;
+  
+  const targetLocation = await showSaveLocationModal(prog, defaultPath);
+  if (!targetLocation) return; // Cancelado por usuario
+
+  const { chosenPath, fileHandle } = targetLocation;
+
+  const bottomBox = cardElement.querySelector('.soft-card-bottom');
+  if (!bottomBox) return;
+
+  bottomBox.innerHTML = `
+    <div class="download-progress-box" id="dl-box-${prog.id}">
+      <div class="dl-progress-top">
+        <span class="dl-progress-status-title">
+          <span style="font-size:16px;">⏳</span> Descargando ${escapeHtml(prog.title)}...
+        </span>
+        <span class="dl-progress-percentage" id="dl-pct-${prog.id}">0%</span>
+      </div>
+
+      <div class="dl-bar-track">
+        <div class="dl-bar-fill" id="dl-bar-${prog.id}" style="width: 0%;"></div>
+      </div>
+
+      <div class="dl-metrics-row">
+        <span id="dl-bytes-${prog.id}">0 MB / Conectando...</span>
+        <span id="dl-speed-${prog.id}">0.0 MB/s</span>
+        <span id="dl-eta-${prog.id}">⏱️ --:--</span>
+      </div>
+
+      <div class="dl-path-saved-info">
+        📂 Destino: <strong>${escapeHtml(chosenPath)}</strong>
+      </div>
+
+      <div class="dl-controls-row">
+        <button class="btn-cancel-active-dl" id="btn-cancel-dl-${prog.id}">❌ Cancelar Descarga</button>
+      </div>
+    </div>
+  `;
+
+  const barFill = bottomBox.querySelector(`#dl-bar-${prog.id}`);
+  const pctText = bottomBox.querySelector(`#dl-pct-${prog.id}`);
+  const bytesText = bottomBox.querySelector(`#dl-bytes-${prog.id}`);
+  const speedText = bottomBox.querySelector(`#dl-speed-${prog.id}`);
+  const etaText = bottomBox.querySelector(`#dl-eta-${prog.id}`);
+  const cancelBtn = bottomBox.querySelector(`#btn-cancel-dl-${prog.id}`);
+
+  const abortController = new AbortController();
+  let isCancelled = false;
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      isCancelled = true;
+      abortController.abort();
+      bottomBox.innerHTML = `
+        <div class="software-notice-banner" style="background:rgba(239, 68, 68, 0.1); border-color:rgba(239, 68, 68, 0.3); color:#EF4444;">
+          <span>❌ Descarga cancelada.</span>
+        </div>
+        <button class="btn-download-big" id="btn-retry-${prog.id}" style="margin-top:10px;">
+          <span class="download-icon-anim">🔄</span>
+          <span>REINTENTAR DESCARGA</span>
+        </button>
+      `;
+      const retryBtn = bottomBox.querySelector(`#btn-retry-${prog.id}`);
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => startSoftwareDownloadProcess(prog, cardElement));
+      }
+    });
+  }
+
+  try {
+    const proxyUrl = `/api/software/proxy-download?url=${encodeURIComponent(prog.downloadUrl)}`;
+    const response = await fetch(proxyUrl, { signal: abortController.signal });
+
+    if (!response.ok) {
+      throw new Error(`Error HTTP ${response.status}: Servidor no disponible.`);
+    }
+
+    const contentLengthHeader = response.headers.get('Content-Length');
+    const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
+
+    let receivedBytes = 0;
+    const reader = response.body.getReader();
+    const startTime = Date.now();
+    const chunks = [];
+
+    let writableStream = null;
+    if (fileHandle) {
+      try {
+        writableStream = await fileHandle.createWritable();
+      } catch (e) {
+        console.warn('FileHandle stream indisponible, fallback a Blob:', e);
+      }
+    }
+
+    while (true) {
+      if (isCancelled) break;
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      if (writableStream) {
+        await writableStream.write(value);
+      } else {
+        chunks.push(value);
+      }
+
+      receivedBytes += value.length;
+
+      const now = Date.now();
+      const pct = totalBytes > 0 ? Math.min(100, (receivedBytes / totalBytes) * 100) : 0;
+      
+      const elapsedSec = (now - startTime) / 1000;
+      const currentSpeedBps = elapsedSec > 0 ? (receivedBytes / elapsedSec) : 0;
+      const currentSpeedMBps = (currentSpeedBps / (1024 * 1024)).toFixed(1);
+
+      const recMB = (receivedBytes / (1024 * 1024)).toFixed(1);
+      const totalMB = totalBytes > 0 ? (totalBytes / (1024 * 1024)).toFixed(1) + ' MB' : 'Desconocido';
+
+      let etaStr = '--:--';
+      if (totalBytes > 0 && currentSpeedBps > 0) {
+        const remainingBytes = totalBytes - receivedBytes;
+        const etaSec = Math.ceil(remainingBytes / currentSpeedBps);
+        const mins = Math.floor(etaSec / 60);
+        const secs = etaSec % 60;
+        etaStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} min`;
+      }
+
+      if (barFill) barFill.style.width = `${pct.toFixed(1)}%`;
+      if (pctText) pctText.textContent = totalBytes > 0 ? `${pct.toFixed(0)}%` : `${recMB} MB`;
+      if (bytesText) bytesText.textContent = `${recMB} MB / ${totalMB}`;
+      if (speedText) speedText.textContent = `${currentSpeedMBps} MB/s`;
+      if (etaText) etaText.textContent = `⏱️ ${etaStr}`;
+    }
+
+    if (isCancelled) return;
+
+    if (writableStream) {
+      await writableStream.close();
+    } else {
+      const blob = new Blob(chunks, { type: 'application/octet-stream' });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = prog.defaultFileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    }
+
+    if (barFill) barFill.style.width = '100%';
+    if (pctText) pctText.textContent = '100%';
+
+    bottomBox.innerHTML = `
+      <div class="download-progress-box" style="background:rgba(16, 185, 129, 0.12); border-color:#10B981;">
+        <div class="dl-progress-top">
+          <span class="dl-progress-status-title" style="color:#059669;">
+            <span style="font-size:18px;">🎉</span> ¡Descarga Completada con Éxito!
+          </span>
+          <span class="dl-progress-percentage" style="color:#059669;">100%</span>
+        </div>
+        <div class="dl-path-saved-info">
+          📁 Guardado en: <strong>${escapeHtml(chosenPath)}</strong>
+        </div>
+        <button class="btn-download-big" id="btn-download-again-${prog.id}">
+          <span class="download-icon-anim">🔄</span>
+          <span>DESCARGAR DE NUEVO</span>
+        </button>
+      </div>
+    `;
+
+    const againBtn = bottomBox.querySelector(`#btn-download-again-${prog.id}`);
+    if (againBtn) {
+      againBtn.addEventListener('click', () => startSoftwareDownloadProcess(prog, cardElement));
+    }
+
+  } catch (err) {
+    if (isCancelled) return;
+    bottomBox.innerHTML = `
+      <div class="software-notice-banner" style="background:rgba(239, 68, 68, 0.1); border-color:rgba(239, 68, 68, 0.3); color:#EF4444;">
+        <span>❌ Error durante la descarga: ${escapeHtml(err.message)}</span>
+      </div>
+      <button class="btn-download-big" id="btn-retry-err-${prog.id}" style="margin-top:10px;">
+        <span class="download-icon-anim">🔄</span>
+        <span>REINTENTAR DESCARGAR</span>
+      </button>
+    `;
+    const retryBtn = bottomBox.querySelector(`#btn-retry-err-${prog.id}`);
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => startSoftwareDownloadProcess(prog, cardElement));
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -5427,26 +5754,20 @@ const loginUsername = document.getElementById('login-username');
 const loginPassword = document.getElementById('login-password');
 const btnTogglePassword = document.getElementById('btn-toggle-password');
 const loginCapsWarning = document.getElementById('login-caps-warning');
-const loginRemember = document.getElementById('login-remember');
 const loginStatusMsg = document.getElementById('login-status-msg');
 const btnLoginSubmit = document.getElementById('btn-login-submit');
 const btnLoginText = document.getElementById('btn-login-text');
 const btnLockSession = document.getElementById('btn-lock-session');
 
-// Verificación inicial de estado de sesión
+// Verificación inicial de estado de sesión (solicita login cada vez que se abre la app)
 function checkInitialAuth() {
-  const isAuthLocal = localStorage.getItem(AUTH_KEY) === 'true';
-  const isAuthSession = sessionStorage.getItem(AUTH_KEY) === 'true';
-
-  if (isAuthLocal || isAuthSession) {
-    if (loginOverlay) loginOverlay.classList.add('hidden-login');
-  } else {
-    if (loginOverlay) {
-      loginOverlay.classList.remove('hidden-login');
-      setTimeout(() => {
-        if (loginPassword) loginPassword.focus();
-      }, 200);
-    }
+  localStorage.removeItem(AUTH_KEY);
+  sessionStorage.removeItem(AUTH_KEY);
+  if (loginOverlay) {
+    loginOverlay.classList.remove('hidden-login');
+    setTimeout(() => {
+      if (loginPassword) loginPassword.focus();
+    }, 200);
   }
 }
 
@@ -5506,13 +5827,6 @@ if (loginForm) {
         if (loginCard) {
           loginCard.classList.remove('shake-error');
           loginCard.classList.add('unlock-success');
-        }
-
-        // Guardar sesión según preferencia
-        if (loginRemember && loginRemember.checked) {
-          localStorage.setItem(AUTH_KEY, 'true');
-        } else {
-          sessionStorage.setItem(AUTH_KEY, 'true');
         }
 
         setTimeout(() => {
