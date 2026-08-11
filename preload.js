@@ -37,6 +37,13 @@ contextBridge.exposeInMainWorld('api', {
   changeDomainWorkgroup: (data) => ipcRenderer.invoke('change-domain-workgroup', data),
   changeUserPassword: (data) => ipcRenderer.invoke('change-user-password', data),
 
+  getMonitorsInfo: () => ipcRenderer.invoke('get-monitors-info'),
+  detectMonitorsAction: () => ipcRenderer.invoke('detect-monitors-action'),
+  setMonitorHz: (data) => ipcRenderer.invoke('set-monitor-hz', data),
+  openDisplaySettings: () => ipcRenderer.invoke('open-display-settings'),
+
+  getPeripheralsInfo: () => ipcRenderer.invoke('get-peripherals-info'),
+
   getSystemUpdates: () => ipcRenderer.invoke('get-system-updates'),
   runSystemUpdatesAction: (data) => ipcRenderer.invoke('run-system-updates-action', data),
 
@@ -57,12 +64,6 @@ contextBridge.exposeInMainWorld('api', {
   readPdfBase64: (filePath) => ipcRenderer.invoke('read-pdf-base64', filePath),
   readDocHtml: (filePath) => ipcRenderer.invoke('read-doc-html', filePath),
   openExternalFile: (filePath) => ipcRenderer.invoke('open-external-file', filePath),
-
-  // Sistema de Ticketing (Módulo en Pruebas)
-  getTickets: () => ipcRenderer.invoke('get-tickets'),
-  createTicket: (data) => ipcRenderer.invoke('create-ticket', data),
-  updateTicket: (data) => ipcRenderer.invoke('update-ticket', data),
-  deleteTicket: (data) => ipcRenderer.invoke('delete-ticket', data),
 
   // Controles de ventana (Custom TitleBar)
   minimizeWindow: () => ipcRenderer.send('window-minimize'),

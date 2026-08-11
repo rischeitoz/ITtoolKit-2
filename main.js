@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, clipboard, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, clipboard, dialog, screen } = require('electron');
 const path  = require('path');
 const os    = require('os');
 const { execFile, exec } = require('child_process');
@@ -2751,169 +2751,542 @@ ipcMain.handle('open-external-file', async (_event, filePath) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SISTEMA DE TICKETING (LOCAL EN RUTA /TICKETS)
+// MÓDULO: DETECCIÓN DE MONITORES Y PANTALLAS CONECTADAS
 // ─────────────────────────────────────────────────────────────────────────────
-function getTicketsDir() {
-  const ticketsDir = path.join(process.cwd(), 'tickets');
-  if (!fs.existsSync(ticketsDir)) {
+const DISPLAY_MANUFACTURERS = {
+  'GSM': 'LG Electronics',
+  'LGD': 'LG Display',
+  'DEL': 'Dell Inc.',
+  'SAM': 'Samsung',
+  'SEC': 'Samsung Electronics',
+  'ACI': 'ASUS',
+  'ASU': 'ASUS',
+  'AOC': 'AOC',
+  'HWP': 'HP',
+  'HEW': 'Hewlett-Packard',
+  'BEN': 'BenQ',
+  'MSI': 'MSI',
+  'ACR': 'Acer',
+  'PHL': 'Philips',
+  'LEN': 'Lenovo',
+  'SNY': 'Sony',
+  'NEC': 'NEC',
+  'GVT': 'Gigabyte',
+  'GIGA': 'Gigabyte',
+  'VIEW': 'ViewSonic',
+  'VSC': 'ViewSonic',
+  'EIZ': 'EIZO',
+  'AUO': 'AU Optronics',
+  'CMN': 'Chimei Innolux',
+  'BOE': 'BOE Technology'
+};
+
+async function getMonitorsInfo() {
+  appLog('INFO', '[Monitores] Consultando monitores y pantallas conectadas...');
+  const results = [];
+
+  let electronDisplays = [];
+  let primaryId = null;
+  try {
+    if (screen) {
+      electronDisplays = screen.getAllDisplays();
+      const primary = screen.getPrimaryDisplay();
+      if (primary) primaryId = primary.id;
+    }
+  } catch (err) {
+    appLog('WARN', `[Monitores] Error en Electron screen API: ${err.message}`);
+  }
+
+  let wmiDetailedList = [];
+  if (process.platform === 'win32') {
     try {
-      fs.mkdirSync(ticketsDir, { recursive: true });
-      appLog('INFO', `[Tickets] Carpeta /tickets creada en: ${ticketsDir}`);
-    } catch (err) {
-      appLog('ERROR', `[Tickets] Error al crear la carpeta tickets: ${err.message}`);
-    }
-  }
-  return ticketsDir;
-}
-
-function saveTicketFile(ticket) {
-  const dir = getTicketsDir();
-  const filePath = path.join(dir, `ticket_${ticket.id}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(ticket, null, 2), 'utf8');
-}
-
-function deleteTicketFile(id) {
-  const dir = getTicketsDir();
-  const filePath = path.join(dir, `ticket_${id}.json`);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    return true;
-  }
-  return false;
-}
-
-function getAllTickets() {
-  const dir = getTicketsDir();
-  const tickets = [];
-  try {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      if (file.endsWith('.json')) {
+      const psScript = `
+        $Output = @()
         try {
-          const content = fs.readFileSync(path.join(dir, file), 'utf8');
-          const data = JSON.parse(content);
-          if (data && data.id) {
-            tickets.push(data);
+          $wmiMon = Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorID -ErrorAction SilentlyContinue
+          
+          function Decode-Bytes($bytes) {
+            if (-not $bytes) { return "" }
+            $chars = $bytes | Where-Object { $_ -ne 0 }
+            if ($chars) { return [System.Text.Encoding]::ASCII.GetString($chars).Trim() }
+            return ""
           }
-        } catch (e) {}
+
+          $wmiData = @()
+          foreach ($m in $wmiMon) {
+            $mfg = Decode-Bytes $m.ManufacturerName
+            $name = Decode-Bytes $m.UserFriendlyName
+            $serial = Decode-Bytes $m.SerialNumberID
+            $wmiData += @{
+              InstanceName = $m.InstanceName
+              MfgCode = $mfg
+              ModelName = $name
+              Serial = $serial
+            }
+          }
+
+          Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public class DisplayHelper {
+              [DllImport("user32.dll")]
+              public static extern bool EnumDisplaySettings(string lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
+              [DllImport("user32.dll")]
+              public static extern bool EnumDisplayDevices(string lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+
+              [StructLayout(LayoutKind.Sequential)]
+              public struct DISPLAY_DEVICE {
+                  public int cb;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceString;
+                  public int StateFlags;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceID;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
+              }
+
+              [StructLayout(LayoutKind.Sequential)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                  public short dmSpecVersion;
+                  public short dmDriverVersion;
+                  public short dmSize;
+                  public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX;
+                  public int dmPositionY;
+                  public int dmDisplayOrientation;
+                  public int dmDisplayFixedOutput;
+                  public short dmColor;
+                  public short dmDuplex;
+                  public short dmYResolution;
+                  public short dmTTOption;
+                  public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                  public short dmLogPixels;
+                  public int dmBitsPerPel;
+                  public int dmPelsWidth;
+                  public int dmPelsHeight;
+                  public int dmDisplayFlags;
+                  public int dmDisplayFrequency;
+                  public int dmICMMethod;
+                  public int dmICMIntent;
+                  public int dmMediaType;
+                  public int dmDitherType;
+                  public int dmReserved1;
+                  public int dmReserved2;
+                  public int dmPanningWidth;
+                  public int dmPanningHeight;
+              }
+          }
+"@ -ErrorAction SilentlyContinue
+
+          $devIndex = 0
+          while ($true) {
+            $d = New-Object DisplayHelper+DISPLAY_DEVICE
+            $d.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($d)
+            if (-not [DisplayHelper]::EnumDisplayDevices($null, $devIndex, [ref]$d, 1)) { break }
+            
+            if (($d.StateFlags -band 1) -ne 0) {
+              $dmCurrent = New-Object DisplayHelper+DEVMODE
+              $dmCurrent.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dmCurrent)
+              $hasCurrent = [DisplayHelper]::EnumDisplaySettings($d.DeviceName, -1, [ref]$dmCurrent)
+
+              $maxHz = 60
+              $hzList = @()
+              if ($hasCurrent) {
+                $maxHz = $dmCurrent.dmDisplayFrequency
+                if ($dmCurrent.dmDisplayFrequency -gt 0) { $hzList += $dmCurrent.dmDisplayFrequency }
+                $modeIdx = 0
+                while ($true) {
+                  $dmMode = New-Object DisplayHelper+DEVMODE
+                  $dmMode.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dmMode)
+                  if (-not [DisplayHelper]::EnumDisplaySettings($d.DeviceName, $modeIdx, [ref]$dmMode)) { break }
+                  if ($dmMode.dmPelsWidth -eq $dmCurrent.dmPelsWidth -and $dmMode.dmPelsHeight -eq $dmCurrent.dmPelsHeight) {
+                    if ($dmMode.dmDisplayFrequency -gt $maxHz) { $maxHz = $dmMode.dmDisplayFrequency }
+                    if ($dmMode.dmDisplayFrequency -ge 30 -and $hzList -notcontains $dmMode.dmDisplayFrequency) {
+                      $hzList += $dmMode.dmDisplayFrequency
+                    }
+                  }
+                  $modeIdx++
+                  if ($modeIdx -gt 250) { break }
+                }
+              }
+
+              $wmiObj = if ($wmiData.Count -gt $Output.Count) { $wmiData[$Output.Count] } else { $null }
+
+              $Output += [PSCustomObject]@{
+                DeviceName = $d.DeviceName
+                DeviceString = $d.DeviceString
+                IsPrimary = (($d.StateFlags -band 4) -ne 0)
+                Width = if ($hasCurrent) { $dmCurrent.dmPelsWidth } else { 0 }
+                Height = if ($hasCurrent) { $dmCurrent.dmPelsHeight } else { 0 }
+                CurrentHz = if ($hasCurrent) { $dmCurrent.dmDisplayFrequency } else { 60 }
+                MaxHz = $maxHz
+                AvailableHz = ($hzList | Sort-Object -Unique)
+                MfgCode = if ($wmiObj) { $wmiObj.MfgCode } else { "" }
+                ModelName = if ($wmiObj) { $wmiObj.ModelName } else { "" }
+                Serial = if ($wmiObj) { $wmiObj.Serial } else { "" }
+              }
+            }
+            $devIndex++
+            if ($devIndex -gt 16) { break }
+          }
+        } catch {}
+        $Output | ConvertTo-Json -Compress
+      `;
+
+      const psRes = await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], 7000);
+      if (psRes.ok && psRes.stdout) {
+        try {
+          const parsed = JSON.parse(psRes.stdout);
+          wmiDetailedList = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {}
       }
+    } catch (e) {
+      appLog('WARN', `[Monitores] Error en PowerShell de monitores: ${e.message}`);
     }
-  } catch (err) {
-    appLog('ERROR', `[Tickets] Error al leer la carpeta de tickets: ${err.message}`);
   }
 
-  // Si la lista está vacía, crear un ticket de demostración inicial
-  if (tickets.length === 0) {
-    const demoTicket = {
-      id: 'TK-1001',
-      title: 'Incidencia de prueba - Configuración de Impresora Red',
-      description: 'La impresora de administración no responde al intentar imprimir desde la estación de trabajo principal.',
-      category: 'Impresoras',
-      priority: 'Media',
-      status: 'En Proceso',
-      requester: os.userInfo().username || 'Usuario Demostración',
-      pcName: os.hostname(),
-      assignedTo: 'Soporte TI',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      notes: [
-        {
-          author: 'Sistema de Tickets (Módulo en Pruebas)',
-          date: new Date().toISOString(),
-          text: 'Ticket de bienvenida generado automáticamente. Todos los tickets se guardan localmente en la carpeta /tickets de la aplicación.'
-        }
-      ]
-    };
-    saveTicketFile(demoTicket);
-    tickets.push(demoTicket);
+  if (electronDisplays.length > 0) {
+    electronDisplays.forEach((disp, idx) => {
+      const isPrimary = disp.id === primaryId || (disp.bounds.x === 0 && disp.bounds.y === 0);
+      const wmiData = wmiDetailedList[idx] || {};
+
+      const physicalWidth = wmiData.Width || Math.round(disp.bounds.width * (disp.scaleFactor || 1));
+      const physicalHeight = wmiData.Height || Math.round(disp.bounds.height * (disp.scaleFactor || 1));
+      const resText = `${physicalWidth} x ${physicalHeight} px`;
+
+      const currentHz = wmiData.CurrentHz || (disp.displayFrequency ? Math.round(disp.displayFrequency) : 60);
+      const maxHz = Math.max(currentHz, wmiData.MaxHz || currentHz);
+
+      const mfgCode = (wmiData.MfgCode || '').toUpperCase();
+      let manufacturer = DISPLAY_MANUFACTURERS[mfgCode] || (mfgCode ? mfgCode : 'Genérico PnP');
+      if (disp.internal) manufacturer += ' (Pantalla Integrada Laptop)';
+
+      let model = wmiData.ModelName || (disp.internal ? 'Panel LCD/OLED Integrado' : `Monitor ${idx + 1}`);
+
+      let orientationText = 'Horizontal (0°)';
+      if (disp.rotation === 90) orientationText = 'Vertical (90°)';
+      else if (disp.rotation === 180) orientationText = 'Invertido (180°)';
+      else if (disp.rotation === 270) orientationText = 'Vertical Invertido (270°)';
+
+      let availableHz = Array.isArray(wmiData.AvailableHz) ? wmiData.AvailableHz : [];
+      if (!availableHz.length) {
+        const std = [50, 60, 75, 90, 100, 120, 144, 165, 180, 240, 360];
+        availableHz = std.filter(h => h <= maxHz);
+        if (!availableHz.includes(currentHz)) availableHz.push(currentHz);
+        if (!availableHz.includes(maxHz)) availableHz.push(maxHz);
+        availableHz.sort((a, b) => a - b);
+      }
+
+      results.push({
+        id: idx + 1,
+        electronId: disp.id,
+        isPrimary,
+        deviceName: wmiData.DeviceName || `Display ${idx + 1}`,
+        deviceString: wmiData.DeviceString || 'Adaptador de Vídeo',
+        manufacturer,
+        model,
+        resolution: resText,
+        width: physicalWidth,
+        height: physicalHeight,
+        currentHz,
+        maxHz,
+        availableHz,
+        scaleFactor: Math.round((disp.scaleFactor || 1) * 100),
+        orientation: orientationText,
+        isLaptopInternal: !!disp.internal
+      });
+    });
+  } else if (wmiDetailedList.length > 0) {
+    wmiDetailedList.forEach((item, idx) => {
+      const mfgCode = (item.MfgCode || '').toUpperCase();
+      const manufacturer = DISPLAY_MANUFACTURERS[mfgCode] || (mfgCode ? mfgCode : 'Genérico PnP');
+      const model = item.ModelName || `Monitor ${idx + 1}`;
+      const resText = item.Width && item.Height ? `${item.Width} x ${item.Height} px` : '1920 x 1080 px';
+      const currentHz = item.CurrentHz || 60;
+      const maxHz = Math.max(currentHz, item.MaxHz || 60);
+
+      let availableHz = Array.isArray(item.AvailableHz) ? item.AvailableHz : [];
+      if (!availableHz.length) {
+        const std = [50, 60, 75, 90, 100, 120, 144, 165, 180, 240, 360];
+        availableHz = std.filter(h => h <= maxHz);
+        if (!availableHz.includes(currentHz)) availableHz.push(currentHz);
+        if (!availableHz.includes(maxHz)) availableHz.push(maxHz);
+        availableHz.sort((a, b) => a - b);
+      }
+
+      results.push({
+        id: idx + 1,
+        isPrimary: !!item.IsPrimary,
+        deviceName: item.DeviceName || `Display ${idx + 1}`,
+        deviceString: item.DeviceString || 'Adaptador de Pantalla',
+        manufacturer,
+        model,
+        resolution: resText,
+        width: item.Width || 1920,
+        height: item.Height || 1080,
+        currentHz,
+        maxHz,
+        availableHz,
+        scaleFactor: 100,
+        orientation: 'Horizontal (0°)',
+        isLaptopInternal: false
+      });
+    });
+  } else {
+    results.push({
+      id: 1,
+      isPrimary: true,
+      deviceName: '\\\\.\\DISPLAY1',
+      deviceString: 'Adaptador de Pantalla Principal',
+      manufacturer: 'Genérico PnP',
+      model: 'Pantalla de Sistema Principal',
+      resolution: '1920 x 1080 px',
+      width: 1920,
+      height: 1080,
+      currentHz: 60,
+      maxHz: 60,
+      availableHz: [60],
+      scaleFactor: 100,
+      orientation: 'Horizontal (0°)',
+      isLaptopInternal: false
+    });
   }
 
-  return tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  appLog('INFO', `[Monitores] ${results.length} pantalla(s) obtenida(s).`);
+  return {
+    success: true,
+    count: results.length,
+    monitors: results
+  };
 }
 
-ipcMain.handle('get-tickets', async () => {
-  return { success: true, tickets: getAllTickets(), ticketsDir: getTicketsDir() };
-});
+async function detectMonitorsAction() {
+  appLog('INFO', '[Monitores] Ejecutando detección forzada de dispositivos de pantalla...');
+  if (process.platform === 'win32') {
+    try { await runCmd('pnputil', ['/scan-devices'], 3000); } catch {}
+    try { await runCmd('displayswitch.exe', ['/extend'], 2000); } catch {}
+  }
+  await new Promise(res => setTimeout(res, 800));
+  const updatedInfo = await getMonitorsInfo();
+  return {
+    success: true,
+    message: `Re-detección completada exitosamente. Se han escaneado los dispositivos PnP y salidas de vídeo (${updatedInfo.count} pantalla(s) encontradas).`,
+    count: updatedInfo.count,
+    monitors: updatedInfo.monitors
+  };
+}
 
-ipcMain.handle('create-ticket', async (_event, data) => {
-  try {
-    const all = getAllTickets();
-    const nextNum = 1000 + all.length + Math.floor(Math.random() * 90);
-    const newTicket = {
-      id: `TK-${nextNum}`,
-      title: data.title || 'Sin título',
-      description: data.description || '',
-      category: data.category || 'General',
-      priority: data.priority || 'Media',
-      status: 'Abierto',
-      requester: data.requester || os.userInfo().username || 'Usuario',
-      pcName: data.pcName || os.hostname(),
-      assignedTo: data.assignedTo || 'Soporte TI',
-      attachments: Array.isArray(data.attachments) ? data.attachments : [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      notes: [
-        {
-          author: data.requester || os.userInfo().username || 'Usuario',
-          date: new Date().toISOString(),
-          text: 'Ticket registrado e ingresado en el sistema.'
+async function setMonitorHzAction(data) {
+  const { deviceName, targetHz } = data || {};
+  appLog('INFO', `[Monitores] Solicitado cambio de frecuencia a ${targetHz} Hz para ${deviceName}`);
+  
+  if (process.platform === 'win32') {
+    try {
+      const psScript = `
+        Add-Type -TypeDefinition @"
+        using System;
+        using System.Runtime.InteropServices;
+        public class DisplayChanger {
+            [DllImport("user32.dll")]
+            public static extern bool EnumDisplaySettings(string lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
+            [DllImport("user32.dll")]
+            public static extern int ChangeDisplaySettingsEx(string lpszDeviceName, ref DEVMODE lpDevMode, IntPtr hwnd, uint dwflags, IntPtr lParam);
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct DEVMODE {
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                public short dmSpecVersion;
+                public short dmDriverVersion;
+                public short dmSize;
+                public short dmDriverExtra;
+                public int dmFields;
+                public int dmPositionX;
+                public int dmPositionY;
+                public int dmDisplayOrientation;
+                public int dmDisplayFixedOutput;
+                public short dmColor;
+                public short dmDuplex;
+                public short dmYResolution;
+                public short dmTTOption;
+                public short dmCollate;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                public short dmLogPixels;
+                public int dmBitsPerPel;
+                public int dmPelsWidth;
+                public int dmPelsHeight;
+                public int dmDisplayFlags;
+                public int dmDisplayFrequency;
+                public int dmICMMethod;
+                public int dmICMIntent;
+                public int dmMediaType;
+                public int dmDitherType;
+                public int dmReserved1;
+                public int dmReserved2;
+                public int dmPanningWidth;
+                public int dmPanningHeight;
+            }
         }
-      ]
-    };
-    saveTicketFile(newTicket);
-    return { success: true, ticket: newTicket };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
+"@ -ErrorAction SilentlyContinue
 
-ipcMain.handle('update-ticket', async (_event, data) => {
+        $devName = "${(deviceName || '').replace(/"/g, '')}"
+        $targetHz = ${parseInt(targetHz) || 60}
+
+        $dm = New-Object DisplayChanger+DEVMODE
+        $dm.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dm)
+        
+        $found = $false
+        $modeIdx = 0
+        while ($true) {
+          if (-not [DisplayChanger]::EnumDisplaySettings($devName, $modeIdx, [ref]$dm)) { break }
+          if ($dm.dmDisplayFrequency -eq $targetHz) {
+            $found = $true
+            break
+          }
+          $modeIdx++
+          if ($modeIdx -gt 250) { break }
+        }
+
+        if (-not $found) {
+          [DisplayChanger]::EnumDisplaySettings($devName, -1, [ref]$dm)
+          $dm.dmDisplayFrequency = $targetHz
+          $dm.dmFields = 0x400000
+        }
+
+        $res = [DisplayChanger]::ChangeDisplaySettingsEx($devName, [ref]$dm, [IntPtr]::Zero, 1, [IntPtr]::Zero)
+        if ($res -eq 0) {
+          [DisplayChanger]::ChangeDisplaySettingsEx($devName, [ref]$dm, [IntPtr]::Zero, 0, [IntPtr]::Zero)
+          "SUCCESS"
+        } else {
+          "RESULT_$res"
+        }
+      `;
+      const psRes = await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], 5000);
+      if (psRes.ok && psRes.stdout.includes('SUCCESS')) {
+        return { success: true, message: `Frecuencia configurada con éxito a ${targetHz} Hz.` };
+      }
+    } catch (e) {
+      appLog('WARN', `[Monitores] Error al cambiar Hz: ${e.message}`);
+    }
+  }
+
+  // Fallback si no se pudo aplicar directamente via driver
   try {
-    const tickets = getAllTickets();
-    const ticket = tickets.find(t => t.id === data.id);
-    if (!ticket) {
-      return { success: false, error: 'Ticket no encontrado.' };
-    }
+    await shell.openExternal('ms-settings:display-advanced');
+  } catch {}
+  return {
+    success: true,
+    message: `Se ha abierto la Configuración Avanzada de Pantalla de Windows para aplicar ${targetHz} Hz.`,
+    openedSettings: true
+  };
+}
 
-    if (data.status) ticket.status = data.status;
-    if (data.priority) ticket.priority = data.priority;
-    if (data.category) ticket.category = data.category;
-    if (data.assignedTo) ticket.assignedTo = data.assignedTo;
-    if (data.requester) ticket.requester = data.requester;
-    if (data.description) ticket.description = data.description;
-    if (data.attachments) {
-      ticket.attachments = data.attachments;
-    } else if (data.newAttachments && Array.isArray(data.newAttachments)) {
-      if (!ticket.attachments) ticket.attachments = [];
-      ticket.attachments.push(...data.newAttachments);
-    }
-    ticket.updatedAt = new Date().toISOString();
-
-    if (data.noteText) {
-      if (!ticket.notes) ticket.notes = [];
-      ticket.notes.push({
-        author: data.noteAuthor || 'Soporte TI',
-        date: new Date().toISOString(),
-        text: data.noteText
-      });
-    }
-
-    saveTicketFile(ticket);
-    return { success: true, ticket };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
-ipcMain.handle('delete-ticket', async (_event, data) => {
+ipcMain.handle('get-monitors-info', async () => getMonitorsInfo());
+ipcMain.handle('detect-monitors-action', async () => detectMonitorsAction());
+ipcMain.handle('set-monitor-hz', async (_e, data) => setMonitorHzAction(data));
+ipcMain.handle('open-display-settings', async () => {
   try {
-    const deleted = deleteTicketFile(data.id);
-    return { success: deleted };
+    await shell.openExternal('ms-settings:display');
+    return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MÓDULO: PERIFÉRICOS (TECLADO, RATÓN, MICRÓFONO, AURICULARES, WEBCAM)
+// ─────────────────────────────────────────────────────────────────────────────
+async function getPeripheralsInfo() {
+  appLog('INFO', '[Periféricos] Consultando teclados, ratones, micrófonos, auriculares y webcams...');
+  let keyboards = [];
+  let mice = [];
+  let microphones = [];
+  let headphones = [];
+  let webcams = [];
 
+  if (process.platform === 'win32') {
+    try {
+      const psScript = `
+        $Output = @{
+          Keyboards = @()
+          Mice = @()
+          Microphones = @()
+          Headphones = @()
+          Webcams = @()
+        }
 
+        try {
+          $kb = Get-CimInstance Win32_Keyboard -ErrorAction SilentlyContinue
+          foreach ($k in $kb) {
+            $Output.Keyboards += @{
+              name = if ($k.Description) { $k.Description } else { "Teclado USB/PS2" }
+              deviceId = $k.DeviceID
+            }
+          }
+        } catch {}
+
+        try {
+          $m = Get-CimInstance Win32_PointingDevice -ErrorAction SilentlyContinue
+          foreach ($p in $m) {
+            $Output.Mice += @{
+              name = if ($p.Name) { $p.Name } else { "Ratón / Touchpad" }
+              mfg = if ($p.Manufacturer) { $p.Manufacturer } else { "Genérico PnP" }
+            }
+          }
+        } catch {}
+
+        try {
+          $snd = Get-CimInstance Win32_SoundDevice -ErrorAction SilentlyContinue
+          foreach ($s in $snd) {
+            $Output.Microphones += @{
+              name = if ($s.Name) { $s.Name } else { "Dispositivo de Entrada de Audio" }
+              mfg = if ($s.Manufacturer) { $s.Manufacturer } else { "Realtek / High Definition Audio" }
+            }
+            $Output.Headphones += @{
+              name = if ($s.Name) { $s.Name } else { "Auriculares / Altavoces HD" }
+              mfg = if ($s.Manufacturer) { $s.Manufacturer } else { "Realtek / Audio Salida Estéreo" }
+            }
+          }
+        } catch {}
+
+        try {
+          $cams = Get-CimInstance Win32_PnPEntity | Where-Object { $_.PNPClass -eq 'Camera' -or $_.PNPClass -eq 'Image' -or $_.Caption -like '*Camera*' -or $_.Caption -like '*Webcam*' } -ErrorAction SilentlyContinue
+          foreach ($c in $cams) {
+            $Output.Webcams += @{
+              name = if ($c.Caption) { $c.Caption } else { "Cámara HD Integrada / USB" }
+              mfg = if ($c.Manufacturer) { $c.Manufacturer } else { "Genérico" }
+            }
+          }
+        } catch {}
+
+        $Output | ConvertTo-Json -Compress
+      `;
+      const psRes = await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], 6000);
+      if (psRes.ok && psRes.stdout) {
+        try {
+          const parsed = JSON.parse(psRes.stdout);
+          if (parsed.Keyboards) keyboards = Array.isArray(parsed.Keyboards) ? parsed.Keyboards : [parsed.Keyboards];
+          if (parsed.Mice) mice = Array.isArray(parsed.Mice) ? parsed.Mice : [parsed.Mice];
+          if (parsed.Microphones) microphones = Array.isArray(parsed.Microphones) ? parsed.Microphones : [parsed.Microphones];
+          if (parsed.Headphones) headphones = Array.isArray(parsed.Headphones) ? parsed.Headphones : [parsed.Headphones];
+          if (parsed.Webcams) webcams = Array.isArray(parsed.Webcams) ? parsed.Webcams : [parsed.Webcams];
+        } catch {}
+      }
+    } catch (e) {
+      appLog('WARN', `[Periféricos] Error en PowerShell de periféricos: ${e.message}`);
+    }
+  }
+
+  return {
+    success: true,
+    keyboards,
+    mice,
+    microphones,
+    headphones,
+    webcams
+  };
+}
+
+ipcMain.handle('get-peripherals-info', async () => getPeripheralsInfo());
 

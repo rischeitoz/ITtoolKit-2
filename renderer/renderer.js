@@ -26,7 +26,7 @@ const statusText = document.getElementById('status-text');
 const statusBar = document.getElementById('statusbar');
 
 const ALL_BTN_IDS = [
-  'btn-info-equipo', 'btn-speedtest', 'btn-ping', 'btn-netoptions',
+  'btn-info-equipo', 'btn-monitores', 'btn-speedtest', 'btn-ping', 'btn-netoptions',
   'btn-diagnostico', 'btn-gpudrivers', 'btn-sysupdates', 'btn-eventlog', 'btn-highperf', 'btn-healthcheck',
   'btn-sfc', 'btn-dism', 'btn-mdsched', 'btn-cleantemp',
 ];
@@ -855,6 +855,298 @@ function renderPingResultsReport(containerEl, r) {
   report.appendChild(actionBar);
 
   containerEl.appendChild(report);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Utilidad — Monitores y Pantallas Conectadas
+// ═══════════════════════════════════════════════════════════════════════════════
+document.getElementById('btn-monitores')?.addEventListener('click', async () => {
+  renderMonitoresUtility();
+});
+
+async function renderMonitoresUtility() {
+  clearResults('Monitores y Pantallas Conectadas');
+
+  const loadingEl = document.createElement('div');
+  loadingEl.className = 'sysinfo-loading-container panel-fade-in';
+  loadingEl.innerHTML = `
+    <div class="sysinfo-loading-scanner">
+      <div class="sysinfo-scanner-ring"></div>
+      <div class="sysinfo-scanner-core">
+        <span class="sysinfo-loading-icon">🖥️</span>
+      </div>
+    </div>
+    <div class="sysinfo-loading-title">Detectando Pantallas y Monitores...</div>
+    <div class="sysinfo-loading-subtitle">Escaneando salidas HDMI, DisplayPort, VGA y datos EDID / WMI del sistema</div>
+  `;
+  resultsEl.appendChild(loadingEl);
+
+  setBusy(true, 'Escaneando pantallas y monitores conectados...');
+
+  try {
+    const res = await window.api.getMonitorsInfo();
+    setBusy(false);
+    clearResults('Monitores y Pantallas Conectadas');
+
+    if (!res || !res.success) {
+      showError('Error al detectar monitores', res?.error || 'No se pudo obtener la lista de pantallas.');
+      return;
+    }
+
+    renderMonitoresContent(res);
+  } catch (err) {
+    setBusy(false);
+    showError('Error inesperado al detectar monitores', err.message);
+  }
+}
+
+function renderMonitoresContent(data) {
+  const container = document.createElement('div');
+  container.className = 'monitors-container panel-fade-in';
+
+  const count = data.count || (data.monitors ? data.monitors.length : 0);
+  const monitors = data.monitors || [];
+
+  // 1. Header Banner & Quick Actions
+  const header = document.createElement('div');
+  header.className = 'monitors-header-card';
+  header.innerHTML = `
+    <div class="monitors-header-top">
+      <div class="monitors-header-info">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span style="font-size:32px;">🖥️</span>
+          <div>
+            <h3 style="margin:0; font-size:20px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:10px;">
+              Pantallas Conectadas
+              <span class="monitors-count-badge">${count} ${count === 1 ? 'Pantalla Detectada' : 'Pantallas Detectadas'}</span>
+            </h3>
+            <p style="margin:4px 0 0 0; font-size:13.5px; color:var(--text-secondary);">
+              Supervisión de hardware de vídeo: resolución, tasa de refresco actual y máxima (Hz), fabricante, modelo y pantalla principal.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="monitors-header-actions">
+        <button class="btn-monitor-detect" id="btn-detect-monitors">
+          <span class="btn-icon">🔍</span>
+          <span>Detectar Monitor que no aparece</span>
+        </button>
+        <button class="btn-monitor-settings" id="btn-win-display-settings" title="Abrir Configuración de Pantalla de Windows">
+          <span class="btn-icon">⚙️</span>
+          <span>Configuración Windows</span>
+        </button>
+      </div>
+    </div>
+  `;
+  container.appendChild(header);
+
+  // 2. Banner informativo para la opción de re-detección
+  const detectNotice = document.createElement('div');
+  detectNotice.className = 'monitors-detect-notice';
+  detectNotice.innerHTML = `
+    <div style="display:flex; align-items:flex-start; gap:12px;">
+      <span style="font-size:22px; margin-top:2px;">💡</span>
+      <div style="flex:1;">
+        <strong style="color:var(--text-primary); font-size:14px;">¿Conectaste un segundo o tercer monitor y no aparece en la lista?</strong>
+        <p style="margin:4px 0 0 0; font-size:13px; color:var(--text-secondary); line-height:1.5;">
+          Por lo general suelen haber 2 pantallas conectadas en un puesto de trabajo. Si alguna pantalla no se muestra, pulsa en
+          <strong style="color:#60A5FA;">"Detectar Monitor que no aparece"</strong> arriba para forzar el re-escaneo de puertos PnP de vídeo (HDMI, DisplayPort, USB-C) en el sistema.
+        </p>
+      </div>
+    </div>
+  `;
+  container.appendChild(detectNotice);
+
+  // 3. Grid de Tarjetas de Monitores
+  const grid = document.createElement('div');
+  grid.className = 'monitors-grid';
+
+  monitors.forEach((mon) => {
+    const card = document.createElement('div');
+    card.className = `monitor-card ${mon.isPrimary ? 'is-primary' : ''}`;
+
+    const isHzUpgradable = mon.maxHz > mon.currentHz;
+
+    let avail = Array.isArray(mon.availableHz) && mon.availableHz.length > 0
+      ? [...mon.availableHz]
+      : [50, 60, 75, 90, 100, 120, 144, 165, 180, 240, 360].filter(h => h <= mon.maxHz);
+
+    if (!avail.includes(mon.currentHz)) avail.push(mon.currentHz);
+    if (!avail.includes(mon.maxHz)) avail.push(mon.maxHz);
+    avail.sort((a, b) => a - b);
+
+    const hzOptionsHTML = avail.map(hz => {
+      const isCurrent = hz === mon.currentHz;
+      const isMax = hz === mon.maxHz;
+      let label = `${hz} Hz`;
+      if (isCurrent && isMax) label += ' — Actual y Máximo';
+      else if (isCurrent) label += ' — Configurado Actual';
+      else if (isMax) label += ' — Máximo Soportado';
+      return `<option value="${hz}" ${isCurrent ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const showSelector = isHzUpgradable || avail.length > 1;
+
+    card.innerHTML = `
+      <div class="monitor-card-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="monitor-num-circle">${mon.id}</div>
+          <div>
+            <h4 class="monitor-title">${escapeHtml(mon.manufacturer)} ${escapeHtml(mon.model)}</h4>
+            <span class="monitor-device-name">${escapeHtml(mon.deviceName)} (${escapeHtml(mon.deviceString)})</span>
+          </div>
+        </div>
+        ${mon.isPrimary 
+          ? `<span class="monitor-badge-primary">⭐ Monitor Principal</span>` 
+          : `<span class="monitor-badge-secondary">🖥️ Monitor Secundario</span>`}
+      </div>
+
+      <div class="monitor-visual-box">
+        <div class="monitor-svg-frame">
+          <svg width="76" height="54" viewBox="0 0 72 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="2" width="68" height="38" rx="4" fill="#0F172A" stroke="${mon.isPrimary ? '#3B82F6' : '#64748B'}" stroke-width="2.5"/>
+            <rect x="6" y="6" width="60" height="30" rx="2" fill="${mon.isPrimary ? 'rgba(59, 130, 246, 0.2)' : 'rgba(100, 116, 139, 0.12)'}"/>
+            <path d="M26 40L22 49H50L46 40" stroke="${mon.isPrimary ? '#3B82F6' : '#64748B'}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20 49H52" stroke="${mon.isPrimary ? '#3B82F6' : '#64748B'}" stroke-width="2.5" stroke-linecap="round"/>
+            <text x="36" y="24" fill="${mon.isPrimary ? '#60A5FA' : '#94A3B8'}" font-size="10" font-weight="bold" text-anchor="middle">${mon.width}x${mon.height}</text>
+          </svg>
+        </div>
+        <div class="monitor-hz-highlight">
+          <div class="hz-current-val">${mon.currentHz} <span class="hz-unit">Hz</span></div>
+          <div class="hz-label">Frecuencia Configurada</div>
+          ${isHzUpgradable 
+            ? `<div class="hz-max-badge">🚀 Configurable hasta ${mon.maxHz} Hz</div>`
+            : `<div class="hz-max-badge ok">⚡ Tasa Máxima (${mon.maxHz} Hz)</div>`}
+        </div>
+      </div>
+
+      <div class="monitor-specs-grid">
+        <div class="spec-item">
+          <span class="spec-label">🏢 Fabricante</span>
+          <span class="spec-value">${escapeHtml(mon.manufacturer)}</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">🖥️ Modelo</span>
+          <span class="spec-value">${escapeHtml(mon.model)}</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">📐 Resolución</span>
+          <span class="spec-value highlight">${escapeHtml(mon.resolution)}</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">⚡ Refresco (Hz)</span>
+          <span class="spec-value highlight">
+            ${mon.currentHz} Hz
+            ${isHzUpgradable ? `<small style="color:#10B981; margin-left:4px; font-weight:700;">(Subible a ${mon.maxHz} Hz)</small>` : ''}
+          </span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">🔍 Escala PPP</span>
+          <span class="spec-value">${mon.scaleFactor}%</span>
+        </div>
+        <div class="spec-item">
+          <span class="spec-label">🔄 Orientación</span>
+          <span class="spec-value">${escapeHtml(mon.orientation)}</span>
+        </div>
+      </div>
+
+      ${showSelector ? `
+        <div class="monitor-hz-selector-box">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <span class="hz-select-label">⚙️ Seleccionar Tasa de Refresco (Hz):</span>
+            <span style="font-size:11.5px; font-weight:700; color:${isHzUpgradable ? '#10B981' : '#3B82F6'};">
+              ${isHzUpgradable ? `🚀 Disponible hasta ${mon.maxHz} Hz` : `⚡ ${mon.currentHz} Hz`}
+            </span>
+          </div>
+          <div class="hz-select-row">
+            <select class="hz-select-dropdown" id="select-hz-${mon.id}">
+              ${hzOptionsHTML}
+            </select>
+            <button class="btn-apply-hz" id="btn-apply-hz-${mon.id}">
+              <span>Aplicar Hz</span>
+            </button>
+          </div>
+        </div>
+      ` : ''}
+
+      ${isHzUpgradable ? `
+        <div class="monitor-hz-advice">
+          💡 <strong>Sugerencia de Fluidez:</strong> Puedes seleccionar una frecuencia superior (p. ej. <strong>${mon.maxHz} Hz</strong>) en el desplegable de arriba y pulsar <strong>"Aplicar Hz"</strong> para maximizar los fotogramas por segundo y la fluidez visual de la pantalla.
+        </div>
+      ` : ''}
+    `;
+
+    grid.appendChild(card);
+
+    if (showSelector) {
+      setTimeout(() => {
+        document.getElementById(`btn-apply-hz-${mon.id}`)?.addEventListener('click', async (e) => {
+          const btn = e.currentTarget;
+          const selectEl = document.getElementById(`select-hz-${mon.id}`);
+          const targetHz = selectEl ? parseInt(selectEl.value, 10) : mon.maxHz;
+
+          btn.disabled = true;
+          btn.innerHTML = `<span>⏳ Aplicando ${targetHz} Hz...</span>`;
+          setBusy(true, `Ajustando tasa de refresco a ${targetHz} Hz para ${mon.model}...`);
+
+          try {
+            const res = await window.api.setMonitorHz({ deviceName: mon.deviceName, targetHz });
+            setBusy(false);
+            if (res && res.success) {
+              statusText.textContent = `✔ ${res.message}`;
+              setTimeout(() => renderMonitoresUtility(), 600);
+            } else {
+              showError('Error al cambiar Hz', res?.error || 'No se pudo aplicar la frecuencia de refresco.');
+            }
+          } catch (err) {
+            setBusy(false);
+            showError('Error al cambiar Hz', err.message);
+          }
+        });
+      }, 0);
+    }
+  });
+
+  container.appendChild(grid);
+  resultsEl.appendChild(container);
+
+  // Eventos de botones
+  document.getElementById('btn-detect-monitors')?.addEventListener('click', async () => {
+    await handleDetectMonitorsAction();
+  });
+
+  document.getElementById('btn-win-display-settings')?.addEventListener('click', async () => {
+    await window.api?.openDisplaySettings?.();
+  });
+}
+
+async function handleDetectMonitorsAction() {
+  const btn = document.getElementById('btn-detect-monitors');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-icon">⏳</span> Escaneando salidas de vídeo...`;
+  }
+  setBusy(true, 'Ejecutando detección forzada de monitores y dispositivos PnP...');
+
+  try {
+    const res = await window.api.detectMonitorsAction();
+    setBusy(false);
+
+    if (res && res.success) {
+      statusText.textContent = `✔ ${res.message}`;
+      renderMonitoresUtility();
+    } else {
+      statusText.textContent = '⚠ Re-detección completada.';
+      renderMonitoresUtility();
+    }
+  } catch (err) {
+    setBusy(false);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span class="btn-icon">🔍</span> Detectar Monitor que no aparece`;
+    }
+    showError('Error al detectar monitores', err.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3534,7 +3826,7 @@ function goHome() {
   // Asegurar que hay una pestaña activa en la barra lateral y desplegar su contenido
   let activeTabBtn = document.querySelector('.tab-btn.active');
   if (!activeTabBtn) {
-    activeTabBtn = document.querySelector('.tab-btn[data-tab="utilidades"]');
+    activeTabBtn = document.querySelector('.tab-btn[data-tab="diagnostico"]');
   }
 
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -3547,10 +3839,10 @@ function goHome() {
       targetContent.classList.add('active');
     }
   } else {
-    const utilBtn = document.querySelector('.tab-btn[data-tab="utilidades"]');
-    const utilContent = document.getElementById('tab-utilidades');
-    if (utilBtn) utilBtn.classList.add('active');
-    if (utilContent) utilContent.classList.add('active');
+    const diagBtn = document.querySelector('.tab-btn[data-tab="diagnostico"]');
+    const diagContent = document.getElementById('tab-diagnostico');
+    if (diagBtn) diagBtn.classList.add('active');
+    if (diagContent) diagContent.classList.add('active');
   }
 
   // Renderizar el Dashboard principal en el panel derecho
@@ -3678,20 +3970,33 @@ let activeTutorialCategory = 'Todos';
 let tutorialSearchQuery = '';
 
 const btnOpenTutorials = document.getElementById('btn-open-tutorials');
+const btnOpenSoftware = document.getElementById('btn-open-software');
 
 if (btnOpenTutorials) {
   btnOpenTutorials.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    if (btnOpenSoftware) btnOpenSoftware.classList.remove('active');
     btnOpenTutorials.classList.add('active');
     loadAndRenderTutorials();
   });
 }
 
-// Desmarcar botón Tutoriales cuando el usuario hace clic en alguna de las pestañas normales
+if (btnOpenSoftware) {
+  btnOpenSoftware.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    if (btnOpenTutorials) btnOpenTutorials.classList.remove('active');
+    btnOpenSoftware.classList.add('active');
+    openSoftwarePanel();
+  });
+}
+
+// Desmarcar botones destacados cuando el usuario hace clic en alguna de las pestañas normales
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     if (btnOpenTutorials) btnOpenTutorials.classList.remove('active');
+    if (btnOpenSoftware) btnOpenSoftware.classList.remove('active');
   });
 });
 
@@ -3773,7 +4078,10 @@ function renderTutorialsGallery(resData) {
     <div style="display:flex; flex-direction:column; gap:4px;">
       <div style="display:flex; align-items:center; gap:8px;">
         <span style="font-size:18px;">📚</span>
-        <strong style="font-size:15px; color:var(--text-primary);">Manuales y Guías Técnicas (PDF y Word)</strong>
+        <strong style="font-size:15px; color:var(--text-primary);">Centro de Tutoriales</strong>
+      </div>
+      <div style="font-size:13px; font-weight:700; color:#3B82F6;">
+        Tutoriales creados y documentados por HCP
       </div>
       <div class="tutorials-path-info">
         <span>${pathStatusIcon}</span>
@@ -4076,868 +4384,1224 @@ async function openDocumentViewerInApp(docItem) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MÓDULO: SISTEMA DE TICKETING E INCIDENCIAS (EN PRUEBAS / BETA)
+// Utilidad — Periféricos (Micrófono, Teclado, Ratón y Webcam)
 // ═══════════════════════════════════════════════════════════════════════════════
-let currentTicketsList = [];
-let activeTicketStatusFilter = 'Todos';
-let activeTicketAssigneeFilter = 'Todos';
-let ticketSearchQuery = '';
-
-const btnOpenTickets = document.getElementById('btn-open-tickets');
-
-// Helper functions for ticket attachments
-function handleFileInputSelection(files, attachedArray, updateContainerFn) {
-  const maxFileSize = 10 * 1024 * 1024; // 10MB
-  Array.from(files).forEach(file => {
-    if (file.size > maxFileSize) {
-      alert(`El archivo "${file.name}" supera el límite de 10MB.`);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      attachedArray.push({
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        size: file.size,
-        data: e.target.result
-      });
-      updateContainerFn();
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function renderAttachmentChips(attachedArray, containerEl) {
-  if (!attachedArray || attachedArray.length === 0) {
-    containerEl.innerHTML = '';
-    return;
-  }
-  containerEl.innerHTML = attachedArray.map((att, idx) => {
-    const isImg = (att.type && att.type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.name);
-    const isPdf = att.type === 'application/pdf' || (att.name && att.name.toLowerCase().endsWith('.pdf'));
-    const icon = isImg ? '🖼️' : (isPdf ? '📄' : '📝');
-    const previewHtml = isImg && att.data ? `<img src="${att.data}" class="attachment-chip-preview" />` : `<div class="attachment-chip-preview">${icon}</div>`;
-    const sizeKb = (att.size ? Math.round(att.size / 1024) : 0) + ' KB';
-
-    return `
-      <div class="attachment-chip">
-        ${previewHtml}
-        <div style="display: flex; flex-direction: column; overflow: hidden;">
-          <span class="attachment-chip-name" title="${escapeHtml(att.name)}">${escapeHtml(att.name)}</span>
-          <span class="attachment-chip-size">${sizeKb}</span>
-        </div>
-        <button type="button" class="attachment-chip-remove" data-idx="${idx}" title="Quitar archivo">✕</button>
-      </div>
-    `;
-  }).join('');
-
-  containerEl.querySelectorAll('.attachment-chip-remove').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = parseInt(btn.getAttribute('data-idx'), 10);
-      attachedArray.splice(idx, 1);
-      renderAttachmentChips(attachedArray, containerEl);
-    });
-  });
-}
-
-function deactivateFeaturedButtons() {
-  if (typeof btnOpenTutorials !== 'undefined' && btnOpenTutorials) {
-    btnOpenTutorials.classList.remove('active');
-  }
-  if (btnOpenTickets) {
-    btnOpenTickets.classList.remove('active');
-  }
-}
-
-if (btnOpenTickets) {
-  btnOpenTickets.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    deactivateFeaturedButtons();
-    btnOpenTickets.classList.add('active');
-    loadAndRenderTickets();
-  });
-}
-
-// Desmarcar botón Tickets cuando se hace clic en pestañas normales
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (btnOpenTickets) btnOpenTickets.classList.remove('active');
-  });
+document.getElementById('btn-perifericos')?.addEventListener('click', async () => {
+  renderPerifericosUtility();
 });
 
-async function loadAndRenderTickets() {
-  clearResults('🎫 Sistema de Tickets (Módulo en Pruebas)');
-  setBusy(true, 'Cargando sistema de gestión de tickets e incidencias local...');
+async function renderPerifericosUtility() {
+  clearResults('Detección y Prueba de Periféricos');
+
+  const loadingEl = document.createElement('div');
+  loadingEl.className = 'sysinfo-loading-container panel-fade-in';
+  loadingEl.innerHTML = `
+    <div class="sysinfo-loading-scanner">
+      <div class="sysinfo-scanner-ring"></div>
+      <div class="sysinfo-scanner-core">
+        <span class="sysinfo-loading-icon">⌨️</span>
+      </div>
+    </div>
+    <div class="sysinfo-loading-title">Detectando Periféricos Conectados...</div>
+    <div class="sysinfo-loading-subtitle">Escaneando PnP para Teclado, Ratón, Micrófono y Cámaras Web del Sistema</div>
+  `;
+  resultsEl.appendChild(loadingEl);
+
+  setBusy(true, 'Escaneando dispositivos PnP y multimedia...');
+
   try {
-    const res = await window.api.getTickets();
+    const sysData = await window.api.getPeripheralsInfo().catch(() => ({ success: false }));
+    
+    let mediaDevicesList = [];
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      try {
+        mediaDevicesList = await navigator.mediaDevices.enumerateDevices();
+      } catch (e) {}
+    }
+
     setBusy(false);
-    currentTicketsList = res.tickets || [];
-    renderTicketsView(res);
+    clearResults('Detección y Prueba de Periféricos');
+
+    renderPerifericosContent(sysData, mediaDevicesList);
   } catch (err) {
     setBusy(false);
-    clearResults('🎫 Sistema de Tickets (Módulo en Pruebas)');
-    resultsEl.innerHTML = `
-      <div class="result-box error-box">
-        <p>⚠️ <strong>Error al cargar los tickets localmente:</strong> ${err.message}</p>
-      </div>
-    `;
+    showError('Error al detectar periféricos', err.message);
   }
 }
 
-function renderTicketsView(ticketsData) {
-  clearResults('🎫 Sistema de Tickets (Módulo en Pruebas)');
+function renderPerifericosContent(sysData, mediaDevices) {
+  const container = document.createElement('div');
+  container.className = 'peripherals-container panel-fade-in';
+
+  // 1. Extraer y construir listas unificadas de dispositivos por categoría
+  const audioInputs = mediaDevices.filter(d => d.kind === 'audioinput');
+  const audioOutputs = mediaDevices.filter(d => d.kind === 'audiooutput');
+  const videoInputs = mediaDevices.filter(d => d.kind === 'videoinput');
+
+  // Micrófonos
+  const sysMics = (sysData && sysData.microphones) || [];
+  const micList = [];
+  sysMics.forEach((m, idx) => {
+    micList.push({ name: m.name, id: m.deviceId || `sys-mic-${idx}`, mfg: m.mfg });
+  });
+  audioInputs.forEach((ai, idx) => {
+    if (ai.label && !micList.some(item => item.name === ai.label)) {
+      micList.push({ name: ai.label, id: ai.deviceId || `ai-${idx}` });
+    }
+  });
+  if (micList.length === 0) {
+    micList.push({ name: 'Micrófono de Sistema / Realtek Audio', id: 'default' });
+  }
+
+  // Auriculares / Altavoces
+  const sysHeadphones = (sysData && sysData.headphones) || [];
+  const hpList = [];
+  sysHeadphones.forEach((h, idx) => {
+    hpList.push({ name: h.name, id: h.deviceId || `sys-hp-${idx}`, mfg: h.mfg });
+  });
+  audioOutputs.forEach((ao, idx) => {
+    if (ao.label && !hpList.some(item => item.name === ao.label)) {
+      hpList.push({ name: ao.label, id: ao.deviceId || `ao-${idx}` });
+    }
+  });
+  if (hpList.length === 0) {
+    hpList.push({ name: 'Auriculares Estéreo HD / Altavoces (Realtek)', id: 'default' });
+  }
+
+  // Webcams
+  const sysWebcams = (sysData && sysData.webcams) || [];
+  const webcamList = [];
+  sysWebcams.forEach((w, idx) => {
+    webcamList.push({ name: w.name, id: w.deviceId || `sys-cam-${idx}`, mfg: w.mfg });
+  });
+  videoInputs.forEach((vi, idx) => {
+    if (vi.label && !webcamList.some(item => item.name === vi.label)) {
+      webcamList.push({ name: vi.label, id: vi.deviceId || `vi-${idx}` });
+    }
+  });
+  if (webcamList.length === 0) {
+    webcamList.push({ name: 'Cámara Web HD Integrada', id: 'default' });
+  }
+
+  // Teclados
+  const sysKeyboards = (sysData && sysData.keyboards) || [];
+  const kbList = [];
+  sysKeyboards.forEach((k, idx) => {
+    kbList.push({ name: k.name, id: k.deviceId || `sys-kb-${idx}` });
+  });
+  if (kbList.length === 0) {
+    kbList.push({ name: 'Teclado Estándar USB / PS2 (PnP)', id: 'default' });
+  }
+
+  // Ratones
+  const sysMice = (sysData && sysData.mice) || [];
+  const mouseList = [];
+  sysMice.forEach((m, idx) => {
+    mouseList.push({ name: m.name, id: m.deviceId || `sys-mouse-${idx}` });
+  });
+  if (mouseList.length === 0) {
+    mouseList.push({ name: 'Ratón Óptico USB / Touchpad PnP', id: 'default' });
+  }
+
+  // Helper para renderizar selector o nombre fijo
+  function renderDeviceSelectorHTML(list, selectId) {
+    if (list.length > 1) {
+      return `
+        <div class="peri-info-row">
+          <span class="peri-label">Elegir Dispositivo:</span>
+          <select id="${selectId}" class="peri-select">
+            ${list.map((item, idx) => `<option value="${idx}">${escapeHtml(item.name)}</option>`).join('')}
+          </select>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="peri-info-row">
+          <span class="peri-label">Modelo / Dispositivo:</span>
+          <span class="peri-value">${escapeHtml(list[0].name)}</span>
+        </div>
+      `;
+    }
+  }
+
+  // Header Banner
+  const header = document.createElement('div');
+  header.className = 'peripherals-header-card';
+  header.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <span style="font-size:36px;">🎧</span>
+        <div>
+          <h3 style="margin:0; font-size:20px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:10px;">
+            Periféricos del Sistema
+            <span class="monitors-count-badge">5/5 Categorías Detectadas</span>
+          </h3>
+          <p style="margin:4px 0 0 0; font-size:13.5px; color:var(--text-secondary);">
+            Detección de hardware y selección de modelo mediante desplegable para Auriculares, Micrófono y Cámara Web.
+          </p>
+        </div>
+      </div>
+      <button class="btn-monitor-settings" id="btn-refresh-peripherals" title="Re-escanear periféricos">
+        <span class="btn-icon">🔄</span>
+        <span>Re-escanear Periféricos</span>
+      </button>
+    </div>
+  `;
+  container.appendChild(header);
+
+  // Grid de Tarjetas de Periféricos
+  const grid = document.createElement('div');
+  grid.className = 'peripherals-grid';
+
+  // 1. TARJETA AURICULARES / ALTAVOCES
+  const hpCard = document.createElement('div');
+  hpCard.className = 'peripheral-card';
+  hpCard.innerHTML = `
+    <div class="peri-card-top">
+      <div class="peri-icon-badge hp">🎧</div>
+      <div class="peri-title-box">
+        <h4 class="peri-title">Auriculares / Salida de Audio</h4>
+        <span class="peri-status-badge ok">✔ ${hpList.length} ${hpList.length > 1 ? 'Modelos Detectados' : 'Conectados'}</span>
+      </div>
+    </div>
+    <div class="peri-info-body">
+      ${renderDeviceSelectorHTML(hpList, 'select-hp-card')}
+      <div class="peri-info-row">
+        <span class="peri-label">Canales Audio:</span>
+        <span class="peri-value">Estéreo Izquierda / Derecha (2.0)</span>
+      </div>
+      <div class="peri-info-row">
+        <span class="peri-label">Prueba de Sonido:</span>
+        <span class="peri-value highlight">Test Estéreo L/R y Frecuencias</span>
+      </div>
+    </div>
+    <div class="peri-card-footer">
+      <button class="btn-peri-test" id="btn-test-headphones">
+        <span>🎧 Probar Auriculares (Test Estéreo L/R)</span>
+      </button>
+    </div>
+  `;
+  grid.appendChild(hpCard);
+
+  // 2. TARJETA MICRÓFONO
+  const micCard = document.createElement('div');
+  micCard.className = 'peripheral-card';
+  micCard.innerHTML = `
+    <div class="peri-card-top">
+      <div class="peri-icon-badge mic">🎙️</div>
+      <div class="peri-title-box">
+        <h4 class="peri-title">Micrófono / Entrada de Audio</h4>
+        <span class="peri-status-badge ok">✔ ${micList.length} ${micList.length > 1 ? 'Modelos Detectados' : 'Conectado'}</span>
+      </div>
+    </div>
+    <div class="peri-info-body">
+      ${renderDeviceSelectorHTML(micList, 'select-mic-card')}
+      <div class="peri-info-row">
+        <span class="peri-label">Canales Audio:</span>
+        <span class="peri-value">Estéreo / Matriz de Micrófonos HD</span>
+      </div>
+      <div class="peri-info-row">
+        <span class="peri-label">Prueba de Voz:</span>
+        <span class="peri-value highlight">VU-Meter y Grabación en Vivo</span>
+      </div>
+    </div>
+    <div class="peri-card-footer">
+      <button class="btn-peri-test" id="btn-test-mic">
+        <span>🎙️ Probar Micrófono (VU-Meter & Voz)</span>
+      </button>
+    </div>
+  `;
+  grid.appendChild(micCard);
+
+  // 3. TARJETA WEBCAM
+  const camCard = document.createElement('div');
+  camCard.className = 'peripheral-card';
+  camCard.innerHTML = `
+    <div class="peri-card-top">
+      <div class="peri-icon-badge cam">📷</div>
+      <div class="peri-title-box">
+        <h4 class="peri-title">Cámara Web (Webcam)</h4>
+        <span class="peri-status-badge ok">✔ ${webcamList.length} ${webcamList.length > 1 ? 'Modelos Detectados' : 'Conectada'}</span>
+      </div>
+    </div>
+    <div class="peri-info-body">
+      ${renderDeviceSelectorHTML(webcamList, 'select-cam-card')}
+      <div class="peri-info-row">
+        <span class="peri-label">Resolución Máxima:</span>
+        <span class="peri-value highlight">1920 x 1080 px (Full HD)</span>
+      </div>
+      <div class="peri-info-row">
+        <span class="peri-label">Test de Vídeo:</span>
+        <span class="peri-value highlight">Vídeo en Directo y Captura de Fotos</span>
+      </div>
+    </div>
+    <div class="peri-card-footer">
+      <button class="btn-peri-test" id="btn-test-webcam">
+        <span>📷 Probar Cámara Web (Vídeo en Directo)</span>
+      </button>
+    </div>
+  `;
+  grid.appendChild(camCard);
+
+  // 4. TARJETA TECLADO
+  const kbCard = document.createElement('div');
+  kbCard.className = 'peripheral-card';
+  kbCard.innerHTML = `
+    <div class="peri-card-top">
+      <div class="peri-icon-badge kb">⌨️</div>
+      <div class="peri-title-box">
+        <h4 class="peri-title">Teclado</h4>
+        <span class="peri-status-badge ok">✔ ${kbList.length} ${kbList.length > 1 ? 'Modelos Detectados' : 'Conectado'}</span>
+      </div>
+    </div>
+    <div class="peri-info-body">
+      ${renderDeviceSelectorHTML(kbList, 'select-kb-card')}
+      <div class="peri-info-row">
+        <span class="peri-label">Tipo de Conexión:</span>
+        <span class="peri-value">USB HID / Teclado Plug & Play</span>
+      </div>
+      <div class="peri-info-row">
+        <span class="peri-label">Disposición:</span>
+        <span class="peri-value">Español QWERTY / PnP</span>
+      </div>
+    </div>
+  `;
+  grid.appendChild(kbCard);
+
+  // 5. TARJETA RATÓN
+  const mouseCard = document.createElement('div');
+  mouseCard.className = 'peripheral-card';
+  mouseCard.innerHTML = `
+    <div class="peri-card-top">
+      <div class="peri-icon-badge mouse">🖱️</div>
+      <div class="peri-title-box">
+        <h4 class="peri-title">Ratón / Dispositivo Puntero</h4>
+        <span class="peri-status-badge ok">✔ ${mouseList.length} ${mouseList.length > 1 ? 'Modelos Detectados' : 'Conectado'}</span>
+      </div>
+    </div>
+    <div class="peri-info-body">
+      ${renderDeviceSelectorHTML(mouseList, 'select-mouse-card')}
+      <div class="peri-info-row">
+        <span class="peri-label">Tipo de Conexión:</span>
+        <span class="peri-value">USB HID / Ratón PnP</span>
+      </div>
+      <div class="peri-info-row">
+        <span class="peri-label">Botones Soportados:</span>
+        <span class="peri-value">Izquierdo, Derecho y Rueda Central</span>
+      </div>
+    </div>
+  `;
+  grid.appendChild(mouseCard);
+
+  container.appendChild(grid);
+
+  // Área de contenedor dinámico para la prueba seleccionada
+  const testArea = document.createElement('div');
+  testArea.id = 'peripheral-test-area';
+  testArea.className = 'peri-test-area-box';
+  testArea.style.display = 'none';
+  container.appendChild(testArea);
+
+  resultsEl.appendChild(container);
+
+  // Event Listeners
+  document.getElementById('btn-refresh-peripherals')?.addEventListener('click', () => {
+    renderPerifericosUtility();
+  });
+
+  document.getElementById('btn-test-headphones')?.addEventListener('click', () => {
+    const sel = document.getElementById('select-hp-card');
+    const selectedIdx = sel ? parseInt(sel.value, 10) : 0;
+    openHeadphonesTestPanel(hpList, selectedIdx);
+  });
+
+  document.getElementById('btn-test-mic')?.addEventListener('click', () => {
+    const sel = document.getElementById('select-mic-card');
+    const selectedIdx = sel ? parseInt(sel.value, 10) : 0;
+    openMicTestPanel(micList, selectedIdx);
+  });
+
+  document.getElementById('btn-test-webcam')?.addEventListener('click', () => {
+    const sel = document.getElementById('select-cam-card');
+    const selectedIdx = sel ? parseInt(sel.value, 10) : 0;
+    openWebcamTestPanel(webcamList, selectedIdx);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PANALES DE PRUEBA INDIVIDUALES
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 0. TEST DE AURICULARES / ALTAVOCES
+function openHeadphonesTestPanel(hpList, initialIdx = 0) {
+  const area = document.getElementById('peripheral-test-area');
+  if (!area) return;
+  area.style.display = 'block';
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  let currentDeviceName = hpList[initialIdx] ? hpList[initialIdx].name : 'Auricular Seleccionado';
+
+  area.innerHTML = `
+    <div class="peri-test-modal-card">
+      <div class="peri-test-header">
+        <h3 style="margin:0; font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
+          🎧 Prueba de Audio y Canales Estéreo para Auriculares
+        </h3>
+        <button class="btn-close-test" id="btn-close-peri-test">✖ Cerrar Test</button>
+      </div>
+      <p style="margin:4px 0 12px 0; font-size:13px; color:var(--text-secondary);">
+        Comprueba la orientación estéreo de tus auriculares (Canal Izquierdo y Derecho) y la calidad de reproducción de frecuencias.
+      </p>
+
+      ${hpList.length > 1 ? `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; background:var(--bg); padding:10px 14px; border-radius:8px; border:1px solid var(--card-border);">
+          <label style="font-size:13px; font-weight:700;">Dispositivo a Probar:</label>
+          <select id="modal-select-hp" class="peri-select" style="flex:1; max-width:100%;">
+            ${hpList.map((item, idx) => `<option value="${idx}" ${idx === initialIdx ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+
+      <div class="hp-test-grid" style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+          <button class="btn-peri-action primary" id="btn-play-left" style="padding:14px; justify-content:center; flex-direction:column; gap:4px;">
+            <span style="font-size:20px;">👈</span>
+            <span>Canal IZQUIERDO (L)</span>
+            <span style="font-size:11px; opacity:0.8;">Tono 440 Hz (La)</span>
+          </button>
+
+          <button class="btn-peri-action primary" id="btn-play-right" style="padding:14px; justify-content:center; flex-direction:column; gap:4px; background:linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);">
+            <span style="font-size:20px;">👉</span>
+            <span>Canal DERECHO (R)</span>
+            <span style="font-size:11px; opacity:0.8;">Tono 660 Hz (Mi)</span>
+          </button>
+
+          <button class="btn-peri-action" id="btn-play-stereo" style="padding:14px; justify-content:center; flex-direction:column; gap:4px;">
+            <span style="font-size:20px;">🎵</span>
+            <span>Estéreo Ambos (L + R)</span>
+            <span style="font-size:11px; color:var(--text-secondary);">Acorde Armónico</span>
+          </button>
+
+          <button class="btn-peri-action" id="btn-play-sweep" style="padding:14px; justify-content:center; flex-direction:column; gap:4px;">
+            <span style="font-size:20px;">🌊</span>
+            <span>Barrido de Frecuencias</span>
+            <span style="font-size:11px; color:var(--text-secondary);">100 Hz a 2000 Hz</span>
+          </button>
+        </div>
+
+        <div id="hp-test-status" class="peri-test-msg">Probando en: <strong>${escapeHtml(currentDeviceName)}</strong>. Ponte los auriculares y pulsa cualquiera de los botones para verificar el sonido.</div>
+      </div>
+    </div>
+  `;
+
+  let audioCtx = null;
+
+  function getAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playTone(freq, pan, durationMs = 1200) {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (durationMs / 1000));
+
+    if (ctx.createStereoPanner) {
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = pan; // -1 Left, 1 Right
+      osc.connect(gain);
+      gain.connect(panner);
+      panner.connect(ctx.destination);
+    } else {
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+    }
+
+    osc.start();
+    osc.stop(ctx.currentTime + (durationMs / 1000));
+  }
+
+  document.getElementById('modal-select-hp')?.addEventListener('change', (e) => {
+    const idx = parseInt(e.target.value, 10);
+    currentDeviceName = hpList[idx] ? hpList[idx].name : 'Auricular';
+    const status = document.getElementById('hp-test-status');
+    if (status) {
+      status.textContent = `Dispositivo cambiado a: "${currentDeviceName}". Haz clic en los botones para probar el sonido.`;
+      status.style.color = '#3B82F6';
+    }
+  });
+
+  document.getElementById('btn-play-left')?.addEventListener('click', () => {
+    playTone(440, -1.0, 1500);
+    const status = document.getElementById('hp-test-status');
+    if (status) {
+      status.textContent = `👈 Reproduciendo sonido SOLO en Canal IZQUIERDO en (${currentDeviceName})...`;
+      status.style.color = '#10B981';
+    }
+  });
+
+  document.getElementById('btn-play-right')?.addEventListener('click', () => {
+    playTone(660, 1.0, 1500);
+    const status = document.getElementById('hp-test-status');
+    if (status) {
+      status.textContent = `👉 Reproduciendo sonido SOLO en Canal DERECHO en (${currentDeviceName})...`;
+      status.style.color = '#3B82F6';
+    }
+  });
+
+  document.getElementById('btn-play-stereo')?.addEventListener('click', () => {
+    playTone(523.25, 0, 1500);
+    setTimeout(() => playTone(659.25, 0, 1200), 200);
+    setTimeout(() => playTone(783.99, 0, 1000), 400);
+    const status = document.getElementById('hp-test-status');
+    if (status) {
+      status.textContent = `🎵 Reproduciendo acorde estéreo en ambos canales (${currentDeviceName})...`;
+      status.style.color = 'var(--text-primary)';
+    }
+  });
+
+  document.getElementById('btn-play-sweep')?.addEventListener('click', () => {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(100, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(2000, ctx.currentTime + 2.5);
+
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.5);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 2.5);
+
+    const status = document.getElementById('hp-test-status');
+    if (status) {
+      status.textContent = `🌊 Barrido de frecuencia 100Hz - 2000Hz en (${currentDeviceName})...`;
+      status.style.color = '#8B5CF6';
+    }
+  });
+
+  document.getElementById('btn-close-peri-test')?.addEventListener('click', () => {
+    if (audioCtx) {
+      audioCtx.close().catch(() => {});
+      audioCtx = null;
+    }
+    area.style.display = 'none';
+  });
+}
+
+// 1. TEST DE MICRÓFONO
+async function openMicTestPanel(micList, initialIdx = 0) {
+  const area = document.getElementById('peripheral-test-area');
+  if (!area) return;
+  area.style.display = 'block';
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  let currentDevice = micList[initialIdx] || micList[0] || { name: 'Micrófono' };
+
+  area.innerHTML = `
+    <div class="peri-test-modal-card">
+      <div class="peri-test-header">
+        <h3 style="margin:0; font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
+          🎙️ Prueba de Micrófono y Nivel de Audio
+        </h3>
+        <button class="btn-close-test" id="btn-close-peri-test">✖ Cerrar Test</button>
+      </div>
+      <p style="margin:4px 0 12px 0; font-size:13px; color:var(--text-secondary);">
+        Habla cerca del micrófono para comprobar la entrada de voz y el vúmetro de volumen en tiempo real.
+      </p>
+
+      ${micList.length > 1 ? `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; background:var(--bg); padding:10px 14px; border-radius:8px; border:1px solid var(--card-border);">
+          <label style="font-size:13px; font-weight:700;">Micrófono a Probar:</label>
+          <select id="modal-select-mic" class="peri-select" style="flex:1; max-width:100%;">
+            ${micList.map((item, idx) => `<option value="${idx}" ${idx === initialIdx ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+
+      <div class="mic-test-body">
+        <div class="mic-vu-box">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:12.5px; font-weight:700;">
+            <span>Nivel de Entrada (Volumen)</span>
+            <span id="mic-db-text" style="color:#10B981;">0 %</span>
+          </div>
+          <div class="vu-bar-track">
+            <div class="vu-bar-fill" id="mic-vu-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div class="mic-wave-box">
+          <canvas id="mic-wave-canvas" width="600" height="100"></canvas>
+        </div>
+
+        <div class="mic-controls-row">
+          <button class="btn-peri-action primary" id="btn-start-mic">
+            <span>🎙️ Iniciar Test de Micrófono</span>
+          </button>
+          <button class="btn-peri-action" id="btn-rec-mic" disabled style="display:none;">
+            <span>🔴 Grabar 5 Segundos</span>
+          </button>
+          <button class="btn-peri-action" id="btn-play-mic" disabled style="display:none;">
+            <span>▶️ Escuchar Grabación</span>
+          </button>
+        </div>
+        <div id="mic-test-status" class="peri-test-msg">Probando: <strong>${escapeHtml(currentDevice.name)}</strong>. Pulsa "Iniciar Test de Micrófono" para comenzar.</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-close-peri-test')?.addEventListener('click', () => {
+    stopMicStream();
+    area.style.display = 'none';
+  });
+
+  let micStream = null;
+  let audioCtx = null;
+  let analyser = null;
+  let animFrame = null;
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let audioBlob = null;
+
+  function stopMicStream() {
+    if (animFrame) cancelAnimationFrame(animFrame);
+    if (micStream) {
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (audioCtx) {
+      audioCtx.close().catch(() => {});
+      audioCtx = null;
+    }
+  }
+
+  document.getElementById('modal-select-mic')?.addEventListener('change', (e) => {
+    const idx = parseInt(e.target.value, 10);
+    currentDevice = micList[idx] || micList[0];
+    stopMicStream();
+    const startBtn = document.getElementById('btn-start-mic');
+    if (startBtn) startBtn.disabled = false;
+    const statusEl = document.getElementById('mic-test-status');
+    if (statusEl) {
+      statusEl.textContent = `Micrófono cambiado a: "${currentDevice.name}". Pulsa "Iniciar Test de Micrófono" para conectarlo.`;
+      statusEl.style.color = '#3B82F6';
+    }
+  });
+
+  document.getElementById('btn-start-mic')?.addEventListener('click', async () => {
+    const statusEl = document.getElementById('mic-test-status');
+    const startBtn = document.getElementById('btn-start-mic');
+    const recBtn = document.getElementById('btn-rec-mic');
+
+    try {
+      statusEl.textContent = `Solicitando acceso a (${currentDevice.name})...`;
+      const audioConstraints = currentDevice.id && !currentDevice.id.startsWith('sys-') && currentDevice.id !== 'default'
+        ? { deviceId: { exact: currentDevice.id } }
+        : true;
+
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
+      statusEl.textContent = `✔ Micrófono (${currentDevice.name}) conectado. Habla para ver los picos de audio.`;
+      statusEl.style.color = '#10B981';
+
+      startBtn.disabled = true;
+      if (recBtn) {
+        recBtn.style.display = 'inline-flex';
+        recBtn.disabled = false;
+      }
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(micStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const canvas = document.getElementById('mic-wave-canvas');
+      const ctx = canvas ? canvas.getContext('2d') : null;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      function draw() {
+        animFrame = requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        let average = sum / dataArray.length;
+        let percentage = Math.min(100, Math.round((average / 128) * 100));
+
+        const fill = document.getElementById('mic-vu-fill');
+        const dbTxt = document.getElementById('mic-db-text');
+        if (fill) fill.style.width = percentage + '%';
+        if (dbTxt) dbTxt.textContent = percentage + '%';
+
+        if (ctx && canvas) {
+          ctx.fillStyle = '#0F172A';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = '#3B82F6';
+          ctx.beginPath();
+
+          const sliceWidth = canvas.width / dataArray.length;
+          let x = 0;
+
+          for (let i = 0; i < dataArray.length; i++) {
+            let v = dataArray[i] / 255.0;
+            let y = canvas.height - (v * canvas.height);
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+
+            x += sliceWidth;
+          }
+
+          ctx.lineTo(canvas.width, canvas.height / 2);
+          ctx.stroke();
+        }
+      }
+      draw();
+
+    } catch (err) {
+      statusEl.textContent = '❌ No se pudo acceder al micrófono: ' + err.message;
+      statusEl.style.color = '#EF4444';
+    }
+  });
+
+  // Grabación de voz
+  document.getElementById('btn-rec-mic')?.addEventListener('click', () => {
+    if (!micStream) return;
+    const statusEl = document.getElementById('mic-test-status');
+    const recBtn = document.getElementById('btn-rec-mic');
+    const playBtn = document.getElementById('btn-play-mic');
+
+    recordedChunks = [];
+    try {
+      mediaRecorder = new MediaRecorder(micStream);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+      mediaRecorder.onstop = () => {
+        audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+        statusEl.textContent = '✔ Grabación de 5 segundos completada. Pulsa "Escuchar Grabación".';
+        if (playBtn) {
+          playBtn.style.display = 'inline-flex';
+          playBtn.disabled = false;
+        }
+        if (recBtn) {
+          recBtn.disabled = false;
+          recBtn.innerHTML = '<span>🔴 Volver a Grabar (5s)</span>';
+        }
+      };
+
+      mediaRecorder.start();
+      recBtn.disabled = true;
+      let countdown = 5;
+      statusEl.textContent = `🔴 Grabando audio de (${currentDevice.name})... (${countdown}s)`;
+
+      const timer = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          statusEl.textContent = `🔴 Grabando audio de (${currentDevice.name})... (${countdown}s)`;
+        } else {
+          clearInterval(timer);
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+        }
+      }, 1000);
+
+    } catch (e) {
+      statusEl.textContent = 'Error al iniciar grabación: ' + e.message;
+    }
+  });
+
+  // Escuchar grabación
+  document.getElementById('btn-play-mic')?.addEventListener('click', () => {
+    if (!audioBlob) return;
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    audio.play();
+    const statusEl = document.getElementById('mic-test-status');
+    statusEl.textContent = '▶️ Reproduciendo grabación de audio... Escucha los altavoces / auriculares.';
+  });
+}
+
+// 2. TEST DE CÁMARA WEB
+async function openWebcamTestPanel(webcamList, initialIdx = 0) {
+  const area = document.getElementById('peripheral-test-area');
+  if (!area) return;
+  area.style.display = 'block';
+  area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  let currentDevice = webcamList[initialIdx] || webcamList[0] || { name: 'Cámara Web' };
+
+  area.innerHTML = `
+    <div class="peri-test-modal-card">
+      <div class="peri-test-header">
+        <h3 style="margin:0; font-size:18px; font-weight:800; display:flex; align-items:center; gap:8px;">
+          📷 Prueba de Cámara Web y Resolución en Directo
+        </h3>
+        <button class="btn-close-test" id="btn-close-peri-test">✖ Cerrar Test</button>
+      </div>
+      <p style="margin:4px 0 12px 0; font-size:13px; color:var(--text-secondary);">
+        Comprueba la señal de vídeo, los cuadros por segundo (FPS) y la resolución máxima soportada.
+      </p>
+
+      ${webcamList.length > 1 ? `
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; background:var(--bg); padding:10px 14px; border-radius:8px; border:1px solid var(--card-border);">
+          <label style="font-size:13px; font-weight:700;">Cámara Web a Probar:</label>
+          <select id="modal-select-cam" class="peri-select" style="flex:1; max-width:100%;">
+            ${webcamList.map((item, idx) => `<option value="${idx}" ${idx === initialIdx ? 'selected' : ''}>${escapeHtml(item.name)}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+
+      <div class="webcam-test-body">
+        <div class="webcam-video-frame">
+          <video id="webcam-live-video" autoplay playsinline muted></video>
+          <div class="webcam-overlay-badge" id="webcam-res-badge">Iniciando cámara...</div>
+        </div>
+
+        <div class="webcam-controls-row">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label style="font-size:13px; font-weight:700;">Probador de Resolución:</label>
+            <select class="hz-select-dropdown" id="select-webcam-res" style="width: auto;">
+              <option value="1080p">1920 x 1080 (Full HD)</option>
+              <option value="720p" selected>1280 x 720 (HD Ready)</option>
+              <option value="480p">640 x 480 (VGA Standard)</option>
+            </select>
+          </div>
+          <button class="btn-peri-action primary" id="btn-snapshot-cam">
+            <span>📸 Capturar Foto de Prueba</span>
+          </button>
+        </div>
+
+        <div id="webcam-snapshots-box" class="webcam-snapshots-container"></div>
+        <div id="webcam-test-status" class="peri-test-msg">Solicitando permiso de cámara para <strong>${escapeHtml(currentDevice.name)}</strong>...</div>
+      </div>
+    </div>
+  `;
+
+  let videoStream = null;
+
+  async function startCamStream(targetWidth, targetHeight) {
+    const video = document.getElementById('webcam-live-video');
+    const badge = document.getElementById('webcam-res-badge');
+    const statusEl = document.getElementById('webcam-test-status');
+
+    if (videoStream) {
+      videoStream.getTracks().forEach(t => t.stop());
+    }
+
+    try {
+      const videoConstraints = {
+        width: { ideal: targetWidth },
+        height: { ideal: targetHeight }
+      };
+      if (currentDevice.id && !currentDevice.id.startsWith('sys-') && currentDevice.id !== 'default') {
+        videoConstraints.deviceId = { exact: currentDevice.id };
+      }
+
+      videoStream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false
+      });
+
+      if (video) {
+        video.srcObject = videoStream;
+      }
+
+      const track = videoStream.getVideoTracks()[0];
+      const settings = track.getSettings();
+      const realW = settings.width || targetWidth;
+      const realH = settings.height || targetHeight;
+
+      if (badge) {
+        badge.textContent = `🟢 ${realW} x ${realH} px @ 30 FPS (${currentDevice.name})`;
+      }
+      if (statusEl) {
+        statusEl.textContent = `✔ Cámara "${currentDevice.name}" activada correctamente. Funcionando a ${realW}x${realH} píxeles.`;
+        statusEl.style.color = '#10B981';
+      }
+
+    } catch (err) {
+      if (badge) badge.textContent = '❌ Error de vídeo';
+      if (statusEl) {
+        statusEl.textContent = `❌ No se pudo conectar a (${currentDevice.name}): ` + err.message;
+        statusEl.style.color = '#EF4444';
+      }
+    }
+  }
+
+  // Iniciar a 1280x720 por defecto
+  startCamStream(1280, 720);
+
+  document.getElementById('modal-select-cam')?.addEventListener('change', (e) => {
+    const idx = parseInt(e.target.value, 10);
+    currentDevice = webcamList[idx] || webcamList[0];
+    const resSel = document.getElementById('select-webcam-res');
+    const val = resSel ? resSel.value : '720p';
+    let targetW = 1280, targetH = 720;
+    if (val === '1080p') { targetW = 1920; targetH = 1080; }
+    else if (val === '480p') { targetW = 640; targetH = 480; }
+    startCamStream(targetW, targetH);
+  });
+
+  document.getElementById('select-webcam-res')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val === '1080p') startCamStream(1920, 1080);
+    else if (val === '720p') startCamStream(1280, 720);
+    else if (val === '480p') startCamStream(640, 480);
+  });
+
+  // Tomar captura
+  document.getElementById('btn-snapshot-cam')?.addEventListener('click', () => {
+    const video = document.getElementById('webcam-live-video');
+    const box = document.getElementById('webcam-snapshots-box');
+    if (!video || !box) return;
+
+    const snapCanvas = document.createElement('canvas');
+    snapCanvas.width = video.videoWidth || 640;
+    snapCanvas.height = video.videoHeight || 480;
+    const snapCtx = snapCanvas.getContext('2d');
+    snapCtx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+
+    const imgUrl = snapCanvas.toDataURL('image/jpeg');
+
+    const thumb = document.createElement('div');
+    thumb.className = 'webcam-snap-thumb';
+    thumb.innerHTML = `
+      <img src="${imgUrl}" alt="Foto de prueba"/>
+      <div style="font-size:11px; text-align:center; margin-top:2px; font-weight:700;">Foto ${snapCanvas.width}x${snapCanvas.height}</div>
+    `;
+    box.appendChild(thumb);
+  });
+
+  document.getElementById('btn-close-peri-test')?.addEventListener('click', () => {
+    if (videoStream) {
+      videoStream.getTracks().forEach(t => t.stop());
+    }
+    area.style.display = 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÓDULO DE SOFTWARE Y PROGRAMAS DESCARGABLES
+// ═══════════════════════════════════════════════════════════════════════════════
+const softwareCatalog = [
+  {
+    id: 'forticlient-vpn',
+    title: 'FortiClient VPN',
+    publisher: 'Fortinet',
+    version: 'v7.2.2 / Última Versión',
+    platform: 'Windows (x64 / x86)',
+    category: 'Redes y Seguridad',
+    description: 'Cliente VPN oficial de Fortinet para conexiones remotas seguras (SSL / IPsec VPN) a la red corporativa.',
+    downloadUrl: 'https://links.fortinet.com/forticlient/win/vpnagent',
+    logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="120" rx="22" fill="#DA291C"/>
+      <path d="M26 34H56V50H26V34ZM64 34H94V50H64V34ZM26 70H56V86H26V70ZM64 70H94V86H64V70Z" fill="white"/>
+      <path d="M56 50H64V70H56V50Z" fill="white"/>
+      <path d="M38 18H82V26H38V18Z" fill="white" opacity="0.8"/>
+      <path d="M38 94H82V102H38V94Z" fill="white" opacity="0.8"/>
+    </svg>`,
+    fileInfo: 'Instalador Oficial .exe • Enlace Directo',
+    badgeText: 'OFICIAL'
+  }
+];
+
+function openSoftwarePanel() {
+  clearResults('💻 Catálogo de Software y Programas');
 
   const container = document.createElement('div');
-  container.className = 'tickets-module-container panel-fade-in';
+  container.className = 'software-container panel-fade-in';
 
-  // 1. Banner Informativo (En Pruebas)
-  const banner = document.createElement('div');
-  banner.className = 'tickets-banner';
-  banner.innerHTML = `
-    <div class="tickets-banner-info">
-      <div class="tickets-banner-header">
-        <span class="tickets-banner-title">🎫 Gestor de Tickets e Incidencias</span>
-        <span class="badge-in-tests">🧪 EN PRUEBAS / BETA</span>
+  // 1. Header Banner
+  const header = document.createElement('div');
+  header.className = 'software-header';
+  header.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:20px;">💻</span>
+        <strong style="font-size:16px; color:var(--text-primary);">Catálogo de Software y Programas</strong>
       </div>
-      <span class="tickets-banner-sub">Módulo de administración y seguimiento de incidencias de soporte técnico. Persistencia automática local.</span>
+      <span style="font-size:13px; color:var(--text-secondary);">
+        Programas e instaladores recomendados que se irán añadiendo poco a poco para descarga directa.
+      </span>
     </div>
-    <div class="tickets-folder-chip" title="Los archivos .json de los tickets se guardan en esta carpeta local de la aplicación">
-      📂 Carpeta local: <code>${ticketsData.ticketsDir || 'tickets/'}</code>
+    <div>
+      <span class="soft-publisher-tag" style="font-size:12px; padding:6px 14px; border-radius:20px;">
+        📦 ${softwareCatalog.length} Programa${softwareCatalog.length !== 1 ? 's' : ''} Disponible${softwareCatalog.length !== 1 ? 's' : ''}
+      </span>
     </div>
   `;
-  container.appendChild(banner);
+  container.appendChild(header);
 
-  // 2. Tarjetas KPI
-  const totalCount = currentTicketsList.length;
-  const openCount = currentTicketsList.filter(t => t.status === 'Abierto').length;
-  const inProgressCount = currentTicketsList.filter(t => t.status === 'En Proceso').length;
-  const resolvedCount = currentTicketsList.filter(t => t.status === 'Resuelto' || t.status === 'Cerrado').length;
-
-  const kpiGrid = document.createElement('div');
-  kpiGrid.className = 'tickets-kpi-grid';
-  kpiGrid.innerHTML = `
-    <div class="ticket-kpi-card">
-      <div class="ticket-kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: #3B82F6;">📋</div>
-      <div class="ticket-kpi-info">
-        <span class="ticket-kpi-value">${totalCount}</span>
-        <span class="ticket-kpi-label">Total Registrados</span>
-      </div>
-    </div>
-    <div class="ticket-kpi-card">
-      <div class="ticket-kpi-icon" style="background: rgba(59, 130, 246, 0.15); color: #2563EB;">🔓</div>
-      <div class="ticket-kpi-info">
-        <span class="ticket-kpi-value">${openCount}</span>
-        <span class="ticket-kpi-label">Abiertos</span>
-      </div>
-    </div>
-    <div class="ticket-kpi-card">
-      <div class="ticket-kpi-icon" style="background: rgba(245, 158, 11, 0.15); color: #D97706;">⚙️</div>
-      <div class="ticket-kpi-info">
-        <span class="ticket-kpi-value">${inProgressCount}</span>
-        <span class="ticket-kpi-label">En Proceso</span>
-      </div>
-    </div>
-    <div class="ticket-kpi-card">
-      <div class="ticket-kpi-icon" style="background: rgba(16, 185, 129, 0.15); color: #059669;">✅</div>
-      <div class="ticket-kpi-info">
-        <span class="ticket-kpi-value">${resolvedCount}</span>
-        <span class="ticket-kpi-label">Resueltos / Cerrados</span>
-      </div>
-    </div>
+  // 2. Banner informativo
+  const notice = document.createElement('div');
+  notice.className = 'software-notice-banner';
+  notice.innerHTML = `
+    <span style="font-size:18px;">ℹ️</span>
+    <span>A continuación se muestran los programas disponibles. Haz clic en el botón grande <strong>"DESCARGAR"</strong> para descargar directamente.</span>
   `;
-  container.appendChild(kpiGrid);
+  container.appendChild(notice);
 
-  // 3. Toolbar (Buscador + Filtros por Estado y Técnico + Botón Nuevo)
-  const toolbar = document.createElement('div');
-  toolbar.className = 'tickets-toolbar';
+  // 3. Grid de Tarjetas de Software
+  const grid = document.createElement('div');
+  grid.className = 'software-grid';
 
-  const searchGroup = document.createElement('div');
-  searchGroup.className = 'tickets-search-group';
-  searchGroup.innerHTML = `
-    <input type="text" id="ticket-search-box" class="ticket-search-input" placeholder="🔍 Buscar por ID, título, solicitante, técnico, PC o categoría..." value="${escapeHtml(ticketSearchQuery)}" />
-  `;
+  softwareCatalog.forEach(prog => {
+    const card = document.createElement('div');
+    card.className = 'software-card';
 
-  const filterGroup = document.createElement('div');
-  filterGroup.className = 'tickets-filter-group';
-  const filterOptions = ['Todos', 'Abierto', 'En Proceso', 'Resuelto', 'Cerrado'];
+    card.innerHTML = `
+      <div class="soft-card-top">
+        <div class="soft-logo-container">
+          ${prog.logoSvg}
+        </div>
+        <div class="soft-card-meta">
+          <div class="soft-title-row">
+            <h3 class="soft-title">${escapeHtml(prog.title)}</h3>
+            <span class="soft-publisher-tag">${escapeHtml(prog.publisher)}</span>
+          </div>
+          <span class="soft-platform-text">💻 ${escapeHtml(prog.platform)} • ${escapeHtml(prog.version)}</span>
+          <p class="soft-description">${escapeHtml(prog.description)}</p>
+          <div class="soft-details-chips">
+            <span class="soft-chip">🏷️ ${escapeHtml(prog.category)}</span>
+            <span class="soft-chip">⚡ ${escapeHtml(prog.fileInfo)}</span>
+          </div>
+        </div>
+      </div>
 
-  filterOptions.forEach(statusOpt => {
-    const chip = document.createElement('button');
-    chip.className = `ticket-filter-chip ${activeTicketStatusFilter === statusOpt ? 'active' : ''}`;
-    chip.textContent = statusOpt;
-    chip.addEventListener('click', () => {
-      activeTicketStatusFilter = statusOpt;
-      renderTicketsView(ticketsData);
+      <div class="soft-card-bottom">
+        <a href="${prog.downloadUrl}" target="_blank" rel="noopener noreferrer" class="btn-download-big" id="btn-download-${prog.id}">
+          <span class="download-icon-anim">⬇️</span>
+          <span>DESCARGAR</span>
+        </a>
+      </div>
+    `;
+
+    const dlBtn = card.querySelector(`#btn-download-${prog.id}`);
+    dlBtn.addEventListener('click', (e) => {
+      if (window.api?.openUrl) {
+        e.preventDefault();
+        window.api.openUrl(prog.downloadUrl);
+      }
     });
-    filterGroup.appendChild(chip);
+
+    grid.appendChild(card);
   });
 
-  // Filtro por Técnico Asignado
-  const assigneeSelectGroup = document.createElement('div');
-  assigneeSelectGroup.style.display = 'flex';
-  assigneeSelectGroup.style.alignItems = 'center';
-  assigneeSelectGroup.style.gap = '6px';
-  assigneeSelectGroup.innerHTML = `
-    <span style="font-size: 12px; font-weight: 700; opacity: 0.8;">👨‍💻 Técnico:</span>
-    <select id="select-filter-assignee" class="info-text-input" style="font-size: 12px; padding: 5px 8px;">
-      <option value="Todos" ${activeTicketAssigneeFilter === 'Todos' ? 'selected' : ''}>Todos los técnicos</option>
-      <option value="Rezki Budiman Mulyati" ${activeTicketAssigneeFilter === 'Rezki Budiman Mulyati' ? 'selected' : ''}>Rezki Budiman Mulyati</option>
-      <option value="Francisco Godino Calvente" ${activeTicketAssigneeFilter === 'Francisco Godino Calvente' ? 'selected' : ''}>Francisco Godino Calvente</option>
-    </select>
-  `;
-
-  assigneeSelectGroup.querySelector('#select-filter-assignee').addEventListener('change', (e) => {
-    activeTicketAssigneeFilter = e.target.value;
-    renderTicketsView(ticketsData);
-  });
-
-  const btnNew = document.createElement('button');
-  btnNew.className = 'btn-new-ticket';
-  btnNew.innerHTML = `➕ Crear Nuevo Ticket`;
-  btnNew.addEventListener('click', () => openNewTicketModal(ticketsData));
-
-  toolbar.appendChild(searchGroup);
-  toolbar.appendChild(filterGroup);
-  toolbar.appendChild(assigneeSelectGroup);
-  toolbar.appendChild(btnNew);
-  container.appendChild(toolbar);
-
-  // Event handler para la caja de búsqueda
-  setTimeout(() => {
-    const searchBox = document.getElementById('ticket-search-box');
-    if (searchBox) {
-      searchBox.focus();
-      searchBox.setSelectionRange(searchBox.value.length, searchBox.value.length);
-      searchBox.addEventListener('input', (e) => {
-        ticketSearchQuery = e.target.value.toLowerCase().trim();
-        renderTicketGridOnly(gridContainer, ticketsData);
-      });
-    }
-  }, 50);
-
-  // 4. Grid de Tickets
-  const gridContainer = document.createElement('div');
-  gridContainer.className = 'tickets-grid';
-  renderTicketGridOnly(gridContainer, ticketsData);
-  container.appendChild(gridContainer);
-
+  container.appendChild(grid);
   resultsEl.appendChild(container);
 }
 
-function renderTicketGridOnly(gridEl, ticketsData) {
-  gridEl.innerHTML = '';
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÓDULO DE SEGURIDAD Y AUTENTICACIÓN (LOGIN DE ADMINISTRADOR)
+// ═══════════════════════════════════════════════════════════════════════════════
+const AUTH_KEY = 'hcptoolkit_admin_authenticated';
+let failedLoginAttempts = 0;
+let lockoutTimer = null;
 
-  let filtered = currentTicketsList.filter(t => {
-    // Filtro por estado
-    if (activeTicketStatusFilter !== 'Todos') {
-      if (activeTicketStatusFilter === 'En Proceso') {
-        if (t.status !== 'En Proceso') return false;
-      } else if (t.status !== activeTicketStatusFilter) {
-        return false;
-      }
-    }
-    // Filtro por Técnico asignado
-    if (activeTicketAssigneeFilter !== 'Todos') {
-      if (t.assignedTo !== activeTicketAssigneeFilter) return false;
-    }
-    // Filtro por búsqueda
-    if (ticketSearchQuery) {
-      const q = ticketSearchQuery;
-      const matchId = (t.id || '').toLowerCase().includes(q);
-      const matchTitle = (t.title || '').toLowerCase().includes(q);
-      const matchReq = (t.requester || '').toLowerCase().includes(q);
-      const matchAss = (t.assignedTo || '').toLowerCase().includes(q);
-      const matchPc = (t.pcName || '').toLowerCase().includes(q);
-      const matchCat = (t.category || '').toLowerCase().includes(q);
-      const matchDesc = (t.description || '').toLowerCase().includes(q);
-      return matchId || matchTitle || matchReq || matchAss || matchPc || matchCat || matchDesc;
-    }
-    return true;
-  });
+const loginOverlay = document.getElementById('login-overlay');
+const loginCard = document.getElementById('login-card');
+const loginForm = document.getElementById('login-form');
+const loginUsername = document.getElementById('login-username');
+const loginPassword = document.getElementById('login-password');
+const btnTogglePassword = document.getElementById('btn-toggle-password');
+const loginCapsWarning = document.getElementById('login-caps-warning');
+const loginRemember = document.getElementById('login-remember');
+const loginStatusMsg = document.getElementById('login-status-msg');
+const btnLoginSubmit = document.getElementById('btn-login-submit');
+const btnLoginText = document.getElementById('btn-login-text');
+const btnLockSession = document.getElementById('btn-lock-session');
 
-  if (filtered.length === 0) {
-    gridEl.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: rgba(0,0,0,0.02); border-radius: 12px; border: 1px dashed var(--border-color, #CBD5E1);">
-        <div style="font-size: 38px; margin-bottom: 8px;">🎫</div>
-        <h3 style="font-size: 16px; margin-bottom: 4px; color: var(--text-color, #334155);">No se encontraron tickets</h3>
-        <p style="font-size: 13px; color: #64748B; margin-bottom: 16px;">Prueba a cambiar el filtro o crea una nueva incidencia en el sistema.</p>
-        <button class="btn-new-ticket" id="btn-empty-create-ticket">➕ Crear Nuevo Ticket</button>
-      </div>
-    `;
-    setTimeout(() => {
-      document.getElementById('btn-empty-create-ticket')?.addEventListener('click', () => openNewTicketModal(ticketsData));
-    }, 50);
-    return;
+// Verificación inicial de estado de sesión
+function checkInitialAuth() {
+  const isAuthLocal = localStorage.getItem(AUTH_KEY) === 'true';
+  const isAuthSession = sessionStorage.getItem(AUTH_KEY) === 'true';
+
+  if (isAuthLocal || isAuthSession) {
+    if (loginOverlay) loginOverlay.classList.add('hidden-login');
+  } else {
+    if (loginOverlay) {
+      loginOverlay.classList.remove('hidden-login');
+      setTimeout(() => {
+        if (loginPassword) loginPassword.focus();
+      }, 200);
+    }
   }
+}
 
-  filtered.forEach(ticket => {
-    const card = document.createElement('div');
-    card.className = 'ticket-item-card';
-
-    const statusCss = ticket.status ? ticket.status.replace(/\s+/g, '_') : 'Abierto';
-    const isClosedOrResolved = ticket.status === 'Resuelto' || ticket.status === 'Cerrado';
-    const attachCount = (ticket.attachments && ticket.attachments.length) || 0;
-
-    card.innerHTML = `
-      <div class="ticket-item-header">
-        <span class="ticket-id-tag">${escapeHtml(ticket.id)}</span>
-        <div class="ticket-badges-row">
-          <span class="badge-priority ${escapeHtml(ticket.priority || 'Media')}">${escapeHtml(ticket.priority || 'Media')}</span>
-          <span class="badge-status ${escapeHtml(statusCss)}">${escapeHtml(ticket.status || 'Abierto')}</span>
-        </div>
-      </div>
-      <div class="ticket-item-title">${escapeHtml(ticket.title)}</div>
-      <div class="ticket-item-desc">${escapeHtml(ticket.description || 'Sin descripción adicional')}</div>
-      
-      <div style="margin-top: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; opacity: 0.9;">
-        <div><strong>👤 Solicitante:</strong> ${escapeHtml(ticket.requester || 'Usuario')} <span style="opacity: 0.75;">(${escapeHtml(ticket.pcName || 'PC')})</span></div>
-        <div><strong>👨‍💻 Gestionado por:</strong> <span style="color: #2563EB; font-weight: 700;">${escapeHtml(ticket.assignedTo || 'Sin Asignar')}</span></div>
-        <div><strong>📂 Categoría:</strong> ${escapeHtml(ticket.category || 'General')}</div>
-        ${attachCount > 0 ? `<div style="color: #2563EB; font-weight: 600; font-size: 11.5px; display: flex; align-items: center; gap: 4px;">📎 <strong>${attachCount}</strong> archivo(s) adjunto(s)</div>` : ''}
-      </div>
-
-      <div class="ticket-item-footer" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color, #E2E8F0);">
-        <span style="font-size: 11px; color: #64748B;">📅 ${new Date(ticket.createdAt).toLocaleDateString('es-ES')}</span>
-        <div class="ticket-actions-row">
-          <button class="btn-ticket-action btn-view-ticket" data-id="${ticket.id}">👁️ Abrir</button>
-          ${isClosedOrResolved ? `<button class="btn-ticket-action btn-ticket-reopen btn-reopen-card" data-id="${ticket.id}" title="Reabrir ticket">🔓 Reabrir</button>` : ''}
-          <button class="btn-ticket-action btn-ticket-danger btn-delete-card" data-id="${ticket.id}" title="Eliminar ticket">🗑️ Eliminar</button>
-        </div>
-      </div>
-    `;
-
-    card.querySelector('.btn-view-ticket')?.addEventListener('click', () => openTicketDetailModal(ticket, ticketsData));
-
-    card.querySelector('.btn-reopen-card')?.addEventListener('click', async () => {
-      if (confirm(`¿Deseas reabrir el ticket ${ticket.id}?`)) {
-        setBusy(true, 'Reabriendo ticket...');
-        try {
-          const res = await window.api.updateTicket({
-            id: ticket.id,
-            status: 'Abierto',
-            noteText: '🔓 Incidencia reabierta desde la vista de lista de tickets.',
-            noteAuthor: ticket.assignedTo || 'Técnico TI'
-          });
-          setBusy(false);
-          if (res.success) {
-            await loadAndRenderTickets();
-          } else {
-            alert('Error al reabrir ticket: ' + (res.error || 'Desconocido'));
-          }
-        } catch (err) {
-          setBusy(false);
-          alert('Error: ' + err.message);
-        }
-      }
-    });
-
-    card.querySelector('.btn-delete-card')?.addEventListener('click', async () => {
-      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el ticket ${ticket.id}?`)) {
-        setBusy(true, 'Eliminando ticket...');
-        try {
-          const res = await window.api.deleteTicket({ id: ticket.id });
-          setBusy(false);
-          if (res.success) {
-            await loadAndRenderTickets();
-          } else {
-            alert('No se pudo eliminar el ticket.');
-          }
-        } catch (err) {
-          setBusy(false);
-          alert('Error: ' + err.message);
-        }
-      }
-    });
-
-    gridEl.appendChild(card);
+// Toggle visualización de contraseña
+if (btnTogglePassword && loginPassword) {
+  btnTogglePassword.addEventListener('click', () => {
+    const isPass = loginPassword.type === 'password';
+    loginPassword.type = isPass ? 'text' : 'password';
+    btnTogglePassword.textContent = isPass ? '🙈' : '👁️';
   });
 }
 
-function openNewTicketModal(ticketsData) {
-  const newTicketAttachments = [];
-  const modalOverlay = document.createElement('div');
-  modalOverlay.className = 'event-modal-overlay';
-  modalOverlay.innerHTML = `
-    <div class="event-modal-content" style="width: 580px; max-width: 95vw;">
-      <div class="event-modal-header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); color: #059669; display: flex; align-items: center; justify-content: center; font-size: 16px;">➕</div>
-          <div>
-            <h3 style="margin: 0; font-size: 16px; font-weight: 700;">Registrar Nuevo Ticket</h3>
-            <span style="font-size: 11px; opacity: 0.7;">Persistencia automática local en /tickets</span>
-          </div>
-        </div>
-        <button class="event-modal-close" id="btn-close-new-ticket" title="Cerrar ventana">✕</button>
-      </div>
-
-      <div class="event-modal-body">
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Título de la Incidencia *</label>
-          <input type="text" id="input-ticket-title" class="info-text-input" placeholder="Ej: Configurar impresora de red o fallo en equipo" style="width: 100%; font-size: 13.5px; padding: 9px 12px;" />
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Solicitante (Nombre de usuario) *</label>
-            <input type="text" id="input-ticket-requester" class="info-text-input" placeholder="Escribe el nombre del usuario..." style="width: 100%; font-size: 13px; padding: 8px 10px;" />
-          </div>
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Equipo / Hostname</label>
-            <input type="text" id="input-ticket-pcname" class="info-text-input" value="EQUIPO-LOCAL" style="width: 100%; font-size: 13px; padding: 8px 10px;" />
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Categoría *</label>
-            <select id="select-ticket-category" class="info-text-input" style="width: 100%; font-size: 13px; padding: 8px 10px;">
-              <option value="Impresoras / Escáneres" selected>🖨️ Impresoras / Escáneres</option>
-              <option value="Hardware / PC">💻 Hardware / PC / Portátiles</option>
-              <option value="Red / Conectividad">📡 Red / WiFi / Conectividad</option>
-              <option value="Software / Aplicaciones">⚙️ Software / Licencias / SO</option>
-              <option value="Usuarios / Accesos">👤 Usuarios / Accesos / Contraseñas</option>
-              <option value="Correo Electrónico">📧 Correo Electrónico</option>
-              <option value="Telefonía / VoIP">📞 Telefonía / VoIP</option>
-              <option value="Otros">📦 Otros</option>
-            </select>
-          </div>
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Prioridad Inicial</label>
-            <select id="select-ticket-priority" class="info-text-input" style="width: 100%; font-size: 13px; padding: 8px 10px;">
-              <option value="Baja">🟢 Baja</option>
-              <option value="Media" selected>🟡 Media</option>
-              <option value="Alta">🟠 Alta</option>
-              <option value="Crítica">🔴 Crítica</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Gestionado por (Técnico de IT) *</label>
-          <select id="select-ticket-assigned" class="info-text-input" style="width: 100%; font-size: 13px; padding: 8px 10px;">
-            <option value="Rezki Budiman Mulyati" selected>👨‍💻 Rezki Budiman Mulyati</option>
-            <option value="Francisco Godino Calvente">👨‍💻 Francisco Godino Calvente</option>
-          </select>
-        </div>
-
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Descripción del Problema</label>
-          <textarea id="input-ticket-desc" class="info-text-input" rows="3" placeholder="Describe los detalles de la incidencia o requerimiento reportado..." style="width: 100%; resize: vertical; font-family: inherit; font-size: 13px; padding: 10px; line-height: 1.4;"></textarea>
-        </div>
-
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">📎 Adjuntar Archivos (Capturas, Imágenes, PDF, Logs, Texto)</label>
-          <div class="ticket-dropzone" id="new-ticket-dropzone">
-            <div style="font-size: 22px; margin-bottom: 2px;">📂</div>
-            <div style="font-size: 12.5px; font-weight: 700;">Haz clic o arrastra capturas o archivos aquí</div>
-            <div style="font-size: 11px; opacity: 0.75; margin-top: 2px;">Imágenes (PNG, JPG), PDF, Logs, Archivos de texto (Máx 10MB)</div>
-            <input type="file" id="input-new-ticket-files" accept="image/*,.pdf,.txt,.log,.doc,.docx" multiple style="display: none;" />
-          </div>
-          <div id="new-ticket-attached-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
-        </div>
-      </div>
-
-      <div class="event-modal-footer">
-        <button class="btn-ticket-action" id="btn-cancel-new-ticket" style="padding: 8px 16px; font-size: 12.5px;">Cancelar</button>
-        <button class="btn-new-ticket" id="btn-save-new-ticket">💾 Guardar Ticket</button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modalOverlay);
-
-  const closeModal = () => modalOverlay.remove();
-  modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-  modalOverlay.querySelector('#btn-close-new-ticket').addEventListener('click', closeModal);
-  modalOverlay.querySelector('#btn-cancel-new-ticket').addEventListener('click', closeModal);
-
-  // Dropzone logic
-  const dropzone = modalOverlay.querySelector('#new-ticket-dropzone');
-  const fileInput = modalOverlay.querySelector('#input-new-ticket-files');
-  const chipsContainer = modalOverlay.querySelector('#new-ticket-attached-chips');
-
-  dropzone.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', (e) => {
-    if (e.target.files.length) {
-      handleFileInputSelection(e.target.files, newTicketAttachments, () => {
-        renderAttachmentChips(newTicketAttachments, chipsContainer);
-      });
-      fileInput.value = '';
-    }
-  });
-
-  dropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropzone.classList.add('dragover');
-  });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-  dropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('dragover');
-    if (e.dataTransfer.files.length) {
-      handleFileInputSelection(e.dataTransfer.files, newTicketAttachments, () => {
-        renderAttachmentChips(newTicketAttachments, chipsContainer);
-      });
-    }
-  });
-
-  // Intentar rellenar datos del equipo actual
-  window.api.getEquipmentSummary?.().then(s => {
-    if (s) {
-      if (s.userName && !modalOverlay.querySelector('#input-ticket-requester').value) {
-        modalOverlay.querySelector('#input-ticket-requester').value = s.userName;
+// Detector de Bloqueo de Mayúsculas (Caps Lock)
+if (loginPassword && loginCapsWarning) {
+  ['keydown', 'keyup'].forEach(evtType => {
+    loginPassword.addEventListener(evtType, (e) => {
+      if (e.getModifierState && e.getModifierState('CapsLock')) {
+        loginCapsWarning.style.display = 'block';
+      } else {
+        loginCapsWarning.style.display = 'none';
       }
-      if (s.computerName) modalOverlay.querySelector('#input-ticket-pcname').value = s.computerName;
-    }
-  }).catch(() => {});
+    });
+  });
+}
 
-  modalOverlay.querySelector('#btn-save-new-ticket').addEventListener('click', async () => {
-    const title = modalOverlay.querySelector('#input-ticket-title').value.trim();
-    if (!title) {
-      alert('Por favor introduce un título para la incidencia.');
+// Proceso de Login
+if (loginForm) {
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (btnLoginSubmit.disabled) return;
+
+    const usr = (loginUsername ? loginUsername.value : '').trim();
+    const pwd = loginPassword ? loginPassword.value : '';
+
+    if (!usr || !pwd) {
+      showLoginStatus('⚠️ Por favor ingrese tanto el usuario como la contraseña.', 'error');
       return;
     }
 
-    const requester = modalOverlay.querySelector('#input-ticket-requester').value.trim() || 'Usuario Soporte';
-    const pcName = modalOverlay.querySelector('#input-ticket-pcname').value.trim() || 'PC-LOCAL';
-    const category = modalOverlay.querySelector('#select-ticket-category').value;
-    const priority = modalOverlay.querySelector('#select-ticket-priority').value;
-    const assignedTo = modalOverlay.querySelector('#select-ticket-assigned').value;
-    const description = modalOverlay.querySelector('#input-ticket-desc').value.trim();
-
-    closeModal();
-    setBusy(true, 'Guardando ticket localmente en /tickets...');
+    // Deshabilitar botón durante verificación
+    btnLoginSubmit.disabled = true;
+    if (btnLoginText) btnLoginText.textContent = 'Verificando credenciales...';
 
     try {
-      const res = await window.api.createTicket({
-        title, category, priority, requester, pcName, assignedTo, description,
-        attachments: newTicketAttachments
-      });
-      setBusy(false);
-      if (res.success) {
-        await loadAndRenderTickets();
+      let authResult = { ok: false };
+      if (window.api && window.api.login) {
+        authResult = await window.api.login(usr, pwd);
       } else {
-        alert('Error al crear el ticket: ' + (res.error || 'Desconocido'));
-      }
-    } catch (err) {
-      setBusy(false);
-      alert('Error en la llamada al sistema: ' + err.message);
-    }
-  });
-}
-
-function openTicketDetailModal(ticket, ticketsData) {
-  const detailNewAttachments = [];
-  const modalOverlay = document.createElement('div');
-  modalOverlay.className = 'event-modal-overlay';
-
-  const notesListHtml = (ticket.notes || []).map(n => `
-    <div class="ticket-note-card">
-      <div class="ticket-note-header">
-        <span class="ticket-note-author">👤 ${escapeHtml(n.author || 'Técnico TI')}</span>
-        <span class="ticket-note-date">🕒 ${new Date(n.date).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-      <div class="ticket-note-text">${escapeHtml(n.text)}</div>
-    </div>
-  `).join('');
-
-  const statusCss = ticket.status ? ticket.status.replace(/\s+/g, '_') : 'Abierto';
-  const isClosedOrResolved = ticket.status === 'Resuelto' || ticket.status === 'Cerrado';
-  const existingAttachments = ticket.attachments || [];
-
-  const attachmentsHtml = existingAttachments.length > 0 ? `
-    <div>
-      <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">📎 Archivos y Capturas Adjuntas (${existingAttachments.length})</label>
-      <div class="ticket-attachments-list">
-        ${existingAttachments.map((att, idx) => {
-          const isImg = (att.type && att.type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|svg)$/i.test(att.name);
-          const isPdf = att.type === 'application/pdf' || (att.name && att.name.toLowerCase().endsWith('.pdf'));
-          const icon = isImg ? '🖼️' : (isPdf ? '📄' : '📝');
-          const thumbHtml = isImg && att.data ? `<img src="${att.data}" class="ticket-attachment-thumb" />` : `<div class="ticket-attachment-thumb">${icon}</div>`;
-          const sizeKb = (att.size ? Math.round(att.size / 1024) : 0) + ' KB';
-
-          return `
-            <a class="ticket-attachment-item" href="${att.data || '#'}" target="_blank" download="${escapeHtml(att.name)}" title="Haz clic para descargar o abrir">
-              ${thumbHtml}
-              <div style="overflow: hidden; flex: 1;">
-                <div style="font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(att.name)}</div>
-                <div style="font-size: 11px; color: #64748B;">${sizeKb} • Abrir/Descargar</div>
-              </div>
-            </a>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  ` : '';
-
-  modalOverlay.innerHTML = `
-    <div class="event-modal-content" style="width: 660px; max-width: 95vw;">
-      
-      <!-- Cabeza de la ventana flotante -->
-      <div class="event-modal-header">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span class="ticket-id-tag" style="font-size: 13px; padding: 4px 10px;">${escapeHtml(ticket.id)}</span>
-          <div>
-            <h3 style="margin: 0; font-size: 16px; font-weight: 700; line-height: 1.2;">${escapeHtml(ticket.title)}</h3>
-            <span style="font-size: 11px; opacity: 0.75;">Gestión y Diagnóstico de Incidencia TI</span>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="badge-status ${escapeHtml(statusCss)}">${escapeHtml(ticket.status || 'Abierto')}</span>
-          ${isClosedOrResolved ? `<button class="btn-ticket-action btn-ticket-reopen" id="btn-reopen-header-ticket" style="padding: 4px 10px; font-size: 11.5px; font-weight: 700;">🔓 Reabrir Ticket</button>` : ''}
-          <button class="event-modal-close" id="btn-close-detail-ticket" title="Cerrar ventana">✕</button>
-        </div>
-      </div>
-
-      <!-- Cuerpo de la ventana flotante -->
-      <div class="event-modal-body">
-        
-        <!-- Grid de Metadatos -->
-        <div class="ticket-meta-grid">
-          <div class="ticket-meta-chip">
-            <span>👤</span>
-            <div><strong>Solicitante:</strong> ${escapeHtml(ticket.requester || 'Usuario')}</div>
-          </div>
-          <div class="ticket-meta-chip">
-            <span>💻</span>
-            <div><strong>Equipo PC:</strong> ${escapeHtml(ticket.pcName || 'Hostname')}</div>
-          </div>
-          <div class="ticket-meta-chip">
-            <span>📂</span>
-            <div><strong>Categoría:</strong> ${escapeHtml(ticket.category || 'General')}</div>
-          </div>
-          <div class="ticket-meta-chip">
-            <span>👨‍💻</span>
-            <div><strong>Gestionado por:</strong> <span style="color: #2563EB; font-weight: 700;">${escapeHtml(ticket.assignedTo || 'Sin Asignar')}</span></div>
-          </div>
-        </div>
-
-        <!-- Descripción del problema -->
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">📌 Descripción de la Incidencia</label>
-          <div class="ticket-desc-box">${escapeHtml(ticket.description || 'Sin detalles especificados.')}</div>
-        </div>
-
-        <!-- Archivos Adjuntos existentes -->
-        ${attachmentsHtml}
-
-        <!-- Edición de Parámetros del Ticket -->
-        <div style="background: rgba(0,0,0,0.02); padding: 14px; border-radius: 10px; border: 1px solid var(--border-color, #E2E8F0); display: flex; flex-direction: column; gap: 12px;">
-          <div style="font-size: 12px; font-weight: 700; color: #2563EB; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">
-            ⚙️ Ajustes y Asignación de Soporte
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div>
-              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Gestionado por</label>
-              <select id="select-update-assigned" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
-                <option value="Rezki Budiman Mulyati" ${ticket.assignedTo === 'Rezki Budiman Mulyati' ? 'selected' : ''}>👨‍💻 Rezki Budiman Mulyati</option>
-                <option value="Francisco Godino Calvente" ${ticket.assignedTo === 'Francisco Godino Calvente' ? 'selected' : ''}>👨‍💻 Francisco Godino Calvente</option>
-              </select>
-            </div>
-            <div>
-              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Categoría</label>
-              <select id="select-update-category" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
-                <option value="Impresoras / Escáneres" ${ticket.category === 'Impresoras / Escáneres' || ticket.category === 'Impresoras' ? 'selected' : ''}>🖨️ Impresoras / Escáneres</option>
-                <option value="Hardware / PC" ${ticket.category === 'Hardware / PC' || ticket.category === 'Hardware' ? 'selected' : ''}>💻 Hardware / PC / Portátiles</option>
-                <option value="Red / Conectividad" ${ticket.category === 'Red / Conectividad' || ticket.category === 'Red' ? 'selected' : ''}>📡 Red / WiFi / Conectividad</option>
-                <option value="Software / Aplicaciones" ${ticket.category === 'Software / Aplicaciones' || ticket.category === 'Software' ? 'selected' : ''}>⚙️ Software / Licencias / SO</option>
-                <option value="Usuarios / Accesos" ${ticket.category === 'Usuarios / Accesos' || ticket.category === 'Usuario' ? 'selected' : ''}>👤 Usuarios / Accesos / Contraseñas</option>
-                <option value="Correo Electrónico" ${ticket.category === 'Correo Electrónico' ? 'selected' : ''}>📧 Correo Electrónico</option>
-                <option value="Telefonía / VoIP" ${ticket.category === 'Telefonía / VoIP' ? 'selected' : ''}>📞 Telefonía / VoIP</option>
-                <option value="Otros" ${ticket.category === 'Otros' ? 'selected' : ''}>📦 Otros</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div>
-              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Estado del Ticket</label>
-              <select id="select-update-status" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
-                <option value="Abierto" ${ticket.status === 'Abierto' ? 'selected' : ''}>🔓 Abierto</option>
-                <option value="En Proceso" ${ticket.status === 'En Proceso' ? 'selected' : ''}>⚙️ En Proceso</option>
-                <option value="Resuelto" ${ticket.status === 'Resuelto' ? 'selected' : ''}>✅ Resuelto</option>
-                <option value="Cerrado" ${ticket.status === 'Cerrado' ? 'selected' : ''}>🔒 Cerrado</option>
-              </select>
-            </div>
-            <div>
-              <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nivel de Prioridad</label>
-              <select id="select-update-priority" class="info-text-input" style="width: 100%; font-size: 13px; padding: 7px 10px;">
-                <option value="Baja" ${ticket.priority === 'Baja' ? 'selected' : ''}>🟢 Baja</option>
-                <option value="Media" ${ticket.priority === 'Media' ? 'selected' : ''}>🟡 Media</option>
-                <option value="Alta" ${ticket.priority === 'Alta' ? 'selected' : ''}>🟠 Alta</option>
-                <option value="Crítica" ${ticket.priority === 'Crítica' ? 'selected' : ''}>🔴 Crítica</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">Nombre del Solicitante</label>
-            <input type="text" id="input-update-requester" class="info-text-input" value="${escapeHtml(ticket.requester || '')}" style="width: 100%; font-size: 13px; padding: 7px 10px;" />
-          </div>
-        </div>
-
-        <!-- Historial de Notas -->
-        <div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <label style="font-size: 12px; font-weight: 700;">💬 Historial de Seguimiento (${(ticket.notes || []).length})</label>
-          </div>
-          <div class="ticket-notes-timeline">
-            ${notesListHtml || '<p style="font-size: 12px; color: #94A3B8; font-style: italic; margin: 0;">No hay notas o avances registrados en este ticket.</p>'}
-          </div>
-        </div>
-
-        <!-- Nueva Nota + Adjuntos adicionales -->
-        <div>
-          <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px;">✏️ Añadir Nota o Diagnóstico Técnico</label>
-          <textarea id="input-new-note-text" class="info-text-input" rows="2" placeholder="Escribe un avance técnico o resolución..." style="width: 100%; font-family: inherit; font-size: 13px; resize: vertical; padding: 8px 10px;"></textarea>
-          
-          <div style="margin-top: 8px;">
-            <label style="display: block; font-size: 11.5px; font-weight: 700; margin-bottom: 4px;">📎 Añadir Archivos o Capturas Nuevas</label>
-            <div class="ticket-dropzone" id="detail-ticket-dropzone" style="padding: 10px;">
-              <div style="font-size: 12px; font-weight: 600;">📎 Haz clic o arrastra capturas/archivos para adjuntar</div>
-              <input type="file" id="input-detail-ticket-files" accept="image/*,.pdf,.txt,.log,.doc,.docx" multiple style="display: none;" />
-            </div>
-            <div id="detail-ticket-attached-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;"></div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Pie de la ventana flotante -->
-      <div class="event-modal-footer">
-        <button class="btn-ticket-action btn-ticket-danger" id="btn-delete-ticket" style="padding: 7px 14px; font-size: 12px;">🗑️ Eliminar Ticket</button>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-ticket-action" id="btn-cancel-detail" style="padding: 7px 14px; font-size: 12px;">Cerrar</button>
-          <button class="btn-new-ticket" id="btn-save-update-ticket" style="padding: 7px 16px; font-size: 12.5px;">💾 Guardar Cambios</button>
-        </div>
-      </div>
-
-    </div>
-  `;
-
-  document.body.appendChild(modalOverlay);
-
-  const closeModal = () => modalOverlay.remove();
-  modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
-  modalOverlay.querySelector('#btn-close-detail-ticket').addEventListener('click', closeModal);
-  modalOverlay.querySelector('#btn-cancel-detail').addEventListener('click', closeModal);
-
-  // Dropzone de adjuntos en detalle
-  const detailDropzone = modalOverlay.querySelector('#detail-ticket-dropzone');
-  const detailFileInput = modalOverlay.querySelector('#input-detail-ticket-files');
-  const detailChipsContainer = modalOverlay.querySelector('#detail-ticket-attached-chips');
-
-  if (detailDropzone && detailFileInput && detailChipsContainer) {
-    detailDropzone.addEventListener('click', () => detailFileInput.click());
-    detailFileInput.addEventListener('change', (e) => {
-      if (e.target.files.length) {
-        handleFileInputSelection(e.target.files, detailNewAttachments, () => {
-          renderAttachmentChips(detailNewAttachments, detailChipsContainer);
-        });
-        detailFileInput.value = '';
-      }
-    });
-    detailDropzone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      detailDropzone.classList.add('dragover');
-    });
-    detailDropzone.addEventListener('dragleave', () => detailDropzone.classList.remove('dragover'));
-    detailDropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      detailDropzone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
-        handleFileInputSelection(e.dataTransfer.files, detailNewAttachments, () => {
-          renderAttachmentChips(detailNewAttachments, detailChipsContainer);
-        });
-      }
-    });
-  }
-
-  // Evento Reabrir Ticket desde cabecera si estaba resuelto/cerrado
-  const btnReopenHeader = modalOverlay.querySelector('#btn-reopen-header-ticket');
-  if (btnReopenHeader) {
-    btnReopenHeader.addEventListener('click', async () => {
-      if (confirm(`¿Deseas reabrir el ticket ${ticket.id}?`)) {
-        closeModal();
-        setBusy(true, 'Reabriendo ticket...');
-        try {
-          const res = await window.api.updateTicket({
-            id: ticket.id,
-            status: 'Abierto',
-            noteText: '🔓 Incidencia reabierta desde el panel de detalle.',
-            noteAuthor: ticket.assignedTo || 'Técnico TI'
-          });
-          setBusy(false);
-          if (res.success) {
-            await loadAndRenderTickets();
-          } else {
-            alert('Error al reabrir el ticket: ' + (res.error || 'Desconocido'));
-          }
-        } catch (err) {
-          setBusy(false);
-          alert('Error: ' + err.message);
-        }
-      }
-    });
-  }
-
-  modalOverlay.querySelector('#btn-save-update-ticket').addEventListener('click', async () => {
-    const newStatus = modalOverlay.querySelector('#select-update-status').value;
-    const newPriority = modalOverlay.querySelector('#select-update-priority').value;
-    const newCategory = modalOverlay.querySelector('#select-update-category').value;
-    const newAssigned = modalOverlay.querySelector('#select-update-assigned').value;
-    const newRequester = modalOverlay.querySelector('#input-update-requester').value.trim();
-    const noteText = modalOverlay.querySelector('#input-new-note-text').value.trim();
-
-    closeModal();
-    setBusy(true, 'Actualizando ticket localmente en /tickets...');
-
-    try {
-      const res = await window.api.updateTicket({
-        id: ticket.id,
-        status: newStatus,
-        priority: newPriority,
-        category: newCategory,
-        assignedTo: newAssigned,
-        requester: newRequester,
-        noteText,
-        noteAuthor: newAssigned || 'Técnico TI',
-        newAttachments: detailNewAttachments
-      });
-      setBusy(false);
-      if (res.success) {
-        await loadAndRenderTickets();
-      } else {
-        alert('Error al actualizar el ticket: ' + (res.error || 'Desconocido'));
-      }
-    } catch (err) {
-      setBusy(false);
-      alert('Error en la llamada al sistema: ' + err.message);
-    }
-  });
-
-  modalOverlay.querySelector('#btn-delete-ticket').addEventListener('click', async () => {
-    if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el ticket ${ticket.id}?`)) {
-      closeModal();
-      setBusy(true, 'Eliminando ticket de /tickets...');
-      try {
-        const res = await window.api.deleteTicket({ id: ticket.id });
-        setBusy(false);
-        if (res.success) {
-          await loadAndRenderTickets();
+        // Fallback local
+        if (usr === 'admin' && pwd === 'Qaz123,.-') {
+          authResult = { ok: true };
         } else {
-          alert('No se pudo eliminar el ticket.');
+          authResult = { ok: false, error: 'Usuario o contraseña incorrectos. Acceso denegado.' };
         }
-      } catch (err) {
-        setBusy(false);
-        alert('Error: ' + err.message);
       }
+
+      if (authResult.ok) {
+        // Login Correcto
+        failedLoginAttempts = 0;
+        showLoginStatus('✔ Autenticación correcta. Acceso concedido...', 'success');
+        if (loginCard) {
+          loginCard.classList.remove('shake-error');
+          loginCard.classList.add('unlock-success');
+        }
+
+        // Guardar sesión según preferencia
+        if (loginRemember && loginRemember.checked) {
+          localStorage.setItem(AUTH_KEY, 'true');
+        } else {
+          sessionStorage.setItem(AUTH_KEY, 'true');
+        }
+
+        setTimeout(() => {
+          if (loginOverlay) loginOverlay.classList.add('hidden-login');
+          if (loginCard) loginCard.classList.remove('unlock-success');
+          btnLoginSubmit.disabled = false;
+          if (btnLoginText) btnLoginText.textContent = 'Iniciar Sesión';
+        }, 600);
+
+      } else {
+        // Login Fallido
+        failedLoginAttempts++;
+        showLoginStatus(`❌ ${authResult.error || 'Acceso Denegado. Credenciales inválidas.'}`, 'error');
+        if (loginCard) {
+          loginCard.classList.remove('shake-error');
+          void loginCard.offsetWidth; // Force reflow
+          loginCard.classList.add('shake-error');
+        }
+
+        if (loginPassword) {
+          loginPassword.value = '';
+          loginPassword.focus();
+        }
+
+        // Bloqueo temporal por intentos excesivos (>= 5)
+        if (failedLoginAttempts >= 5) {
+          startLockoutCountdown(30);
+        } else {
+          btnLoginSubmit.disabled = false;
+          if (btnLoginText) btnLoginText.textContent = 'Iniciar Sesión';
+        }
+      }
+    } catch (err) {
+      showLoginStatus('❌ Error en el servidor de autenticación: ' + err.message, 'error');
+      btnLoginSubmit.disabled = false;
+      if (btnLoginText) btnLoginText.textContent = 'Iniciar Sesión';
     }
   });
 }
 
+function showLoginStatus(msg, type) {
+  if (!loginStatusMsg) return;
+  loginStatusMsg.textContent = msg;
+  loginStatusMsg.className = `login-status-msg ${type}`;
+  loginStatusMsg.style.display = 'block';
+}
+
+function startLockoutCountdown(seconds) {
+  let remaining = seconds;
+  btnLoginSubmit.disabled = true;
+
+  if (lockoutTimer) clearInterval(lockoutTimer);
+
+  lockoutTimer = setInterval(() => {
+    if (remaining > 0) {
+      showLoginStatus(`⛔ Demasiados intentos fallidos. Reintente en ${remaining} segundo${remaining !== 1 ? 's' : ''}...`, 'error');
+      if (btnLoginText) btnLoginText.textContent = `Bloqueado (${remaining}s)`;
+      remaining--;
+    } else {
+      clearInterval(lockoutTimer);
+      btnLoginSubmit.disabled = false;
+      if (btnLoginText) btnLoginText.textContent = 'Iniciar Sesión';
+      if (loginStatusMsg) loginStatusMsg.style.display = 'none';
+      failedLoginAttempts = 0;
+    }
+  }, 1000);
+}
+
+// Cierre / Bloqueo de Sesión desde la barra superior
+if (btnLockSession) {
+  btnLockSession.addEventListener('click', () => {
+    localStorage.removeItem(AUTH_KEY);
+    sessionStorage.removeItem(AUTH_KEY);
+    if (loginStatusMsg) loginStatusMsg.style.display = 'none';
+    if (loginPassword) loginPassword.value = '';
+    if (loginOverlay) {
+      loginOverlay.classList.remove('hidden-login');
+      setTimeout(() => {
+        if (loginPassword) loginPassword.focus();
+      }, 200);
+    }
+  });
+}
+
+// Iniciar verificación al cargar
+checkInitialAuth();
 
 

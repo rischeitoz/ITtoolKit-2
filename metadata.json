@@ -1,7 +1,7 @@
 {
   "name": "HCPToolKit",
   "description": "Herramienta de diagnóstico, mantenimiento, evaluación de hardware y optimización del sistema.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

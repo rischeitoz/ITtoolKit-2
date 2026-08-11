@@ -66,6 +66,18 @@ function appLog(level, message) {
 
 initLog();
 
+// Endpoint de Autenticación de Seguridad (Login)
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (username === 'admin' && password === 'Qaz123,.-') {
+    appLog('INFO', `[AUTH SUCCESS] Sesión iniciada correctamente por usuario 'admin'`);
+    return res.json({ ok: true, user: 'admin', token: 'hcp-auth-' + Date.now() });
+  } else {
+    appLog('WARN', `[AUTH FAILED] Intento de login no autorizado para usuario: '${username || 'desconocido'}'`);
+    return res.status(401).json({ ok: false, error: 'Usuario o contraseña incorrectos. Acceso denegado.' });
+  }
+});
+
 // SSE endpoint for progress & logs
 app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -2189,170 +2201,127 @@ app.post('/api/tutorials/read-pdf', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SISTEMA DE TICKETING (REST API - RUTA LOCAL /TICKETS)
+// MONITORES Y PANTALLAS (API DEV / FALLBACK)
 // ─────────────────────────────────────────────────────────────────────────────
-function getTicketsDir() {
-  const ticketsDir = path.join(process.cwd(), 'tickets');
-  if (!fs.existsSync(ticketsDir)) {
-    try {
-      fs.mkdirSync(ticketsDir, { recursive: true });
-      appLog('INFO', `[Server/Tickets] Carpeta /tickets creada en: ${ticketsDir}`);
-    } catch (err) {
-      appLog('ERROR', `[Server/Tickets] Error creando la carpeta tickets: ${err.message}`);
-    }
-  }
-  return ticketsDir;
-}
-
-function saveTicketFile(ticket) {
-  const dir = getTicketsDir();
-  const filePath = path.join(dir, `ticket_${ticket.id}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(ticket, null, 2), 'utf8');
-}
-
-function deleteTicketFile(id) {
-  const dir = getTicketsDir();
-  const filePath = path.join(dir, `ticket_${id}.json`);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-    return true;
-  }
-  return false;
-}
-
-function getAllTickets() {
-  const dir = getTicketsDir();
-  const tickets = [];
-  try {
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-      if (file.endsWith('.json')) {
-        try {
-          const content = fs.readFileSync(path.join(dir, file), 'utf8');
-          const data = JSON.parse(content);
-          if (data && data.id) {
-            tickets.push(data);
-          }
-        } catch (e) {}
+app.get('/api/monitors', (req, res) => {
+  res.json({
+    success: true,
+    count: 2,
+    monitors: [
+      {
+        id: 1,
+        isPrimary: true,
+        deviceName: '\\\\.\\DISPLAY1',
+        deviceString: 'NVIDIA GeForce RTX 3070',
+        manufacturer: 'LG Electronics',
+        model: '27GL850 UltraGear',
+        resolution: '2560 x 1440 px',
+        width: 2560,
+        height: 1440,
+        currentHz: 144,
+        maxHz: 165,
+        availableHz: [60, 75, 100, 120, 144, 165],
+        scaleFactor: 100,
+        orientation: 'Horizontal (0°)',
+        isLaptopInternal: false
+      },
+      {
+        id: 2,
+        isPrimary: false,
+        deviceName: '\\\\.\\DISPLAY2',
+        deviceString: 'NVIDIA GeForce RTX 3070',
+        manufacturer: 'Dell Inc.',
+        model: 'UltraSharp U2412M',
+        resolution: '1920 x 1080 px',
+        width: 1920,
+        height: 1080,
+        currentHz: 60,
+        maxHz: 75,
+        availableHz: [50, 60, 75],
+        scaleFactor: 100,
+        orientation: 'Horizontal (0°)',
+        isLaptopInternal: false
       }
-    }
-  } catch (err) {
-    appLog('ERROR', `[Server/Tickets] Error leyendo carpeta de tickets: ${err.message}`);
-  }
-
-  // Si la lista está vacía, crear un ticket de demostración inicial
-  if (tickets.length === 0) {
-    const demoTicket = {
-      id: 'TK-1001',
-      title: 'Incidencia de prueba - Configuración de Impresora Red',
-      description: 'La impresora de administración no responde al intentar imprimir desde la estación de trabajo principal.',
-      category: 'Impresoras',
-      priority: 'Media',
-      status: 'En Proceso',
-      requester: os.userInfo().username || 'Usuario Demostración',
-      pcName: os.hostname(),
-      assignedTo: 'Soporte TI',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      notes: [
-        {
-          author: 'Sistema de Tickets (Módulo en Pruebas)',
-          date: new Date().toISOString(),
-          text: 'Ticket de bienvenida generado automáticamente. Todos los tickets se guardan localmente en la carpeta /tickets de la aplicación.'
-        }
-      ]
-    };
-    saveTicketFile(demoTicket);
-    tickets.push(demoTicket);
-  }
-
-  return tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-}
-
-app.get('/api/tickets', (req, res) => {
-  res.json({ success: true, tickets: getAllTickets(), ticketsDir: getTicketsDir() });
+    ]
+  });
 });
 
-app.post('/api/tickets/create', (req, res) => {
-  try {
-    const { title, description, category, priority, requester, pcName, assignedTo } = req.body;
-    const all = getAllTickets();
-    const nextNum = 1000 + all.length + Math.floor(Math.random() * 90);
-    const newTicket = {
-      id: `TK-${nextNum}`,
-      title: title || 'Sin título',
-      description: description || '',
-      category: category || 'General',
-      priority: priority || 'Media',
-      status: 'Abierto',
-      requester: requester || os.userInfo().username || 'Usuario',
-      pcName: pcName || os.hostname(),
-      assignedTo: assignedTo || 'Soporte TI',
-      attachments: Array.isArray(req.body.attachments) ? req.body.attachments : [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      notes: [
-        {
-          author: requester || os.userInfo().username || 'Usuario',
-          date: new Date().toISOString(),
-          text: 'Ticket registrado e ingresado en el sistema.'
-        }
-      ]
-    };
-    saveTicketFile(newTicket);
-    res.json({ success: true, ticket: newTicket });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
+app.post('/api/monitors/detect', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Re-detección completada exitosamente. Se han escaneado las salidas de vídeo y dispositivos PnP (2 pantallas encontradas).',
+    count: 2,
+    monitors: [
+      {
+        id: 1,
+        isPrimary: true,
+        deviceName: '\\\\.\\DISPLAY1',
+        deviceString: 'NVIDIA GeForce RTX 3070',
+        manufacturer: 'LG Electronics',
+        model: '27GL850 UltraGear',
+        resolution: '2560 x 1440 px',
+        width: 2560,
+        height: 1440,
+        currentHz: 144,
+        maxHz: 165,
+        availableHz: [60, 75, 100, 120, 144, 165],
+        scaleFactor: 100,
+        orientation: 'Horizontal (0°)',
+        isLaptopInternal: false
+      },
+      {
+        id: 2,
+        isPrimary: false,
+        deviceName: '\\\\.\\DISPLAY2',
+        deviceString: 'NVIDIA GeForce RTX 3070',
+        manufacturer: 'Dell Inc.',
+        model: 'UltraSharp U2412M',
+        resolution: '1920 x 1080 px',
+        width: 1920,
+        height: 1080,
+        currentHz: 60,
+        maxHz: 75,
+        availableHz: [50, 60, 75],
+        scaleFactor: 100,
+        orientation: 'Horizontal (0°)',
+        isLaptopInternal: false
+      }
+    ]
+  });
 });
 
-app.post('/api/tickets/update', (req, res) => {
-  try {
-    const { id, status, priority, category, requester, description, noteText, noteAuthor, assignedTo } = req.body;
-    const tickets = getAllTickets();
-    const ticket = tickets.find(t => t.id === id);
-    if (!ticket) {
-      return res.json({ success: false, error: 'Ticket no encontrado.' });
-    }
-
-    if (status) ticket.status = status;
-    if (priority) ticket.priority = priority;
-    if (category) ticket.category = category;
-    if (assignedTo) ticket.assignedTo = assignedTo;
-    if (requester) ticket.requester = requester;
-    if (description) ticket.description = description;
-    if (req.body.attachments) {
-      ticket.attachments = req.body.attachments;
-    } else if (req.body.newAttachments && Array.isArray(req.body.newAttachments)) {
-      if (!ticket.attachments) ticket.attachments = [];
-      ticket.attachments.push(...req.body.newAttachments);
-    }
-    ticket.updatedAt = new Date().toISOString();
-
-    if (noteText) {
-      if (!ticket.notes) ticket.notes = [];
-      ticket.notes.push({
-        author: noteAuthor || 'Soporte TI',
-        date: new Date().toISOString(),
-        text: noteText
-      });
-    }
-
-    saveTicketFile(ticket);
-    res.json({ success: true, ticket });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
+app.post('/api/monitors/set-hz', (req, res) => {
+  const { deviceName, targetHz } = req.body || {};
+  res.json({
+    success: true,
+    message: `Frecuencia cambiada con éxito a ${targetHz || 60} Hz en ${deviceName || 'la pantalla'}.`
+  });
 });
 
-app.post('/api/tickets/delete', (req, res) => {
-  try {
-    const { id } = req.body;
-    const deleted = deleteTicketFile(id);
-    res.json({ success: deleted });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
+app.get('/api/peripherals', (req, res) => {
+  res.json({
+    success: true,
+    keyboards: [
+      { name: 'Teclado Mecánico RGB USB (HID Standard Keyboard)', deviceId: 'kb-1' },
+      { name: 'Teclado Bluetooth / Teclado Secundario PnP', deviceId: 'kb-2' }
+    ],
+    mice: [
+      { name: 'Ratón Óptico Gaming USB 1000Hz (Logitech)', mfg: 'Logitech PnP', deviceId: 'mouse-1' },
+      { name: 'Touchpad / Ratón de Precisión Synaptics', mfg: 'Synaptics HID', deviceId: 'mouse-2' }
+    ],
+    microphones: [
+      { name: 'Micrófono Principal Realtek High Definition Audio', mfg: 'Realtek Semiconductor', deviceId: 'mic-1' },
+      { name: 'Micrófono USB Studio Condensador HD', mfg: 'USB Audio Device', deviceId: 'mic-2' }
+    ],
+    headphones: [
+      { name: 'Auriculares Estéreo HD (Realtek High Definition Audio)', mfg: 'Realtek Semiconductor', deviceId: 'hp-1' },
+      { name: 'Altavoces Integrados / Salida HDMI Audio', mfg: 'Realtek / High Definition', deviceId: 'hp-2' }
+    ],
+    webcams: [
+      { name: 'Cámara Web Integrated HD Camera (1080p 60fps)', mfg: 'SunplusIT / USB Video Device', deviceId: 'cam-1' },
+      { name: 'Cámara Secundaria USB FHD External Webcam', mfg: 'Generic USB Video Device', deviceId: 'cam-2' }
+    ]
+  });
 });
 
 // Static files from renderer

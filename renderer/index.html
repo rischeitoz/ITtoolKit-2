@@ -9,6 +9,67 @@
 </head>
 
 <body>
+  <!-- Overlay de Iniciar Sesión / Login de Seguridad -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card" id="login-card">
+      <div class="login-header">
+        <div class="login-badge-icon">🛡️</div>
+        <div class="login-title-box">
+          <h2 class="login-title">HCPToolKit</h2>
+          <span class="login-subtitle">Portal de Seguridad & Acceso Restringido</span>
+        </div>
+      </div>
+
+      <div class="login-alert-banner">
+        <span class="login-alert-icon">🔒</span>
+        <span>Acceso protegido. Ingrese sus credenciales de administrador para continuar.</span>
+      </div>
+
+      <form id="login-form" autocomplete="off" onsubmit="return false;">
+        <div class="login-field-group">
+          <label for="login-username" class="login-label">Usuario de Acceso</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">👤</span>
+            <input type="text" id="login-username" class="login-input" placeholder="Nombre de usuario" required autocomplete="username" value="admin" />
+          </div>
+        </div>
+
+        <div class="login-field-group">
+          <label for="login-password" class="login-label">Contraseña de Seguridad</label>
+          <div class="login-input-wrapper">
+            <span class="login-input-icon">🔑</span>
+            <input type="password" id="login-password" class="login-input" placeholder="Contraseña de administrador" required autocomplete="current-password" />
+            <button type="button" class="btn-toggle-password" id="btn-toggle-password" title="Mostrar u ocultar contraseña">👁️</button>
+          </div>
+        </div>
+
+        <!-- Indicador de Bloqueo de Mayúsculas (Caps Lock) -->
+        <div class="login-caps-warning" id="login-caps-warning" style="display:none;">
+          ⚠️ Bloqueo de Mayúsculas (Caps Lock) ACTIVADO
+        </div>
+
+        <div class="login-options-row">
+          <label class="login-checkbox-label">
+            <input type="checkbox" id="login-remember" checked />
+            <span>Mantener sesión iniciada en este equipo</span>
+          </label>
+        </div>
+
+        <!-- Mensajes de estado / error -->
+        <div class="login-status-msg" id="login-status-msg" style="display:none;"></div>
+
+        <button type="submit" class="btn-login-submit" id="btn-login-submit">
+          <span class="login-btn-icon">🔓</span>
+          <span id="btn-login-text">Iniciar Sesión</span>
+        </button>
+      </form>
+
+      <div class="login-footer-info">
+        <span>🛡️ HCPToolKit v1.0.0 • Control de Acceso de Administrador</span>
+      </div>
+    </div>
+  </div>
+
   <div class="topbar">
     <div class="topbar-left">
       <span class="topbar-icon">⚡</span>
@@ -30,6 +91,7 @@
     </div>
 
     <div class="topbar-right">
+      <button class="btn-lock-session" id="btn-lock-session" title="Bloquear aplicación y cerrar sesión">🔒 Cerrar Sesión</button>
       <button class="theme-toggle" id="btn-theme-toggle" title="Cambiar tema visual (Claro / Oscuro)">🌙 Tema</button>
 
       <!-- Controles de Ventana Personalizados (Custom TitleBar) -->
@@ -52,35 +114,35 @@
     <!-- Menú lateral con pestañas -->
     <div class="sidebar">
       <!-- Botón grande destacado Tutoriales (Ruta \\cielo\INFORMATICA\TUTORIALES) -->
-      <button class="btn-tutorials-featured" id="btn-open-tutorials" title="Explorar y visualizar tutoriales en PDF y Word (.docx)">
+      <button class="btn-tutorials-featured" id="btn-open-tutorials" title="Tutoriales creados y documentados por HCP">
         <div class="tut-icon-box">📚</div>
         <div class="tut-content">
           <span class="tut-title">Tutoriales</span>
-          <span class="tut-subtitle">Manuales (PDF y Word)</span>
         </div>
         <div class="tut-badge" id="tut-count-badge">DOCS</div>
       </button>
 
-      <!-- Botón grande destacado Tickets de Soporte (Módulo en Pruebas) -->
-      <button class="btn-tickets-featured" id="btn-open-tickets" title="Sistema de Gestión de Tickets e Incidencias (Módulo en Pruebas)">
-        <div class="tut-icon-box ticket-icon-box">🎫</div>
+      <!-- Botón grande destacado Software -->
+      <button class="btn-tutorials-featured btn-software-featured" id="btn-open-software" title="Catálogo de Software y Programas Descargables">
+        <div class="tut-icon-box soft-icon-box">💻</div>
         <div class="tut-content">
-          <span class="tut-title">Sistema de Tickets</span>
-          <span class="tut-subtitle">Gestión de Incidencias</span>
+          <span class="tut-title">Software</span>
+          <span class="tut-subtitle">Programas descargables</span>
         </div>
-        <div class="tut-badge ticket-badge">EN PRUEBAS</div>
+        <div class="tut-badge soft-badge" id="soft-count-badge">SOFT</div>
       </button>
 
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="utilidades">🔧 Utilidades</button>
-        <button class="tab-btn" data-tab="red">📡 Red</button>
-        <button class="tab-btn" data-tab="reparacion">🛡️ Reparación</button>
+        <button class="tab-btn active" data-tab="diagnostico" title="Diagnóstico e Información de Hardware">💻 PC</button>
+        <button class="tab-btn" data-tab="mantenimiento" title="Mantenimiento, Drivers y Limpieza">⚙️ Mantenimiento</button>
+        <button class="tab-btn" data-tab="red" title="Pruebas y Configuración de Red">📡 Red</button>
+        <button class="tab-btn" data-tab="reparacion" title="Herramientas de Reparación de Windows">🛡️ Reparación</button>
       </div>
 
-      <!-- Pestaña: Utilidades -->
-      <div class="tab-content active" id="tab-utilidades">
+      <!-- Pestaña: Diagnóstico & PC -->
+      <div class="tab-content active" id="tab-diagnostico">
         <button class="card" id="btn-info-equipo">
-          <span class="card-icon">💻</span>
+          <span class="card-icon">🏷️</span>
           <span class="card-text">
             <span class="card-title">Información del Equipo</span>
             <span class="card-sub">Nombre del equipo, Dominio / Grupo y Contraseña</span>
@@ -88,13 +150,48 @@
         </button>
 
         <button class="card" id="btn-diagnostico">
-          <span class="card-icon">🖥️</span>
+          <span class="card-icon">🩺</span>
           <span class="card-text">
             <span class="card-title">Diagnóstico del PC</span>
             <span class="card-sub">RAM, CPU, GPU y disco duro</span>
           </span>
         </button>
 
+        <button class="card" id="btn-monitores">
+          <span class="card-icon">🖥️</span>
+          <span class="card-text">
+            <span class="card-title">Monitores y Pantallas</span>
+            <span class="card-sub">Resolución, Hz (actual y máx), Fabricante, Modelo y Detección</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-perifericos">
+          <span class="card-icon">⌨️</span>
+          <span class="card-text">
+            <span class="card-title">Periféricos</span>
+            <span class="card-sub">Auriculares, Micrófono, Teclado, Ratón y Webcam</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-healthcheck">
+          <span class="card-icon">⭐</span>
+          <span class="card-text">
+            <span class="card-title">Evaluar Estado del Equipo</span>
+            <span class="card-sub">Puntuación global 1-10 y recomendaciones</span>
+          </span>
+        </button>
+
+        <button class="card" id="btn-highperf">
+          <span class="card-icon">⚡</span>
+          <span class="card-text">
+            <span class="card-title">Activar Alto Rendimiento</span>
+            <span class="card-sub">Configura el plan de energía de Windows</span>
+          </span>
+        </button>
+      </div>
+
+      <!-- Pestaña: Mantenimiento -->
+      <div class="tab-content" id="tab-mantenimiento">
         <button class="card" id="btn-gpudrivers">
           <span class="card-icon">🎮</span>
           <span class="card-text">
@@ -106,8 +203,8 @@
         <button class="card" id="btn-sysupdates">
           <span class="card-icon">🔄</span>
           <span class="card-text">
-            <span class="card-title">Comprobar Actualizaciones del Sistema</span>
-            <span class="card-sub">Windows Update, HP Support, historial y diagnóstico</span>
+            <span class="card-title">Actualizaciones del Sistema</span>
+            <span class="card-sub">Windows Update, HP Support y diagnóstico</span>
           </span>
         </button>
 
@@ -115,23 +212,15 @@
           <span class="card-icon">📋</span>
           <span class="card-text">
             <span class="card-title">Analizar Visor de Eventos</span>
-            <span class="card-sub">Apagados inesperados, errores críticos</span>
+            <span class="card-sub">Apagados inesperados y errores críticos</span>
           </span>
         </button>
 
-        <button class="card" id="btn-highperf">
-          <span class="card-icon">⚡</span>
+        <button class="card" id="btn-cleantemp">
+          <span class="card-icon">🧹</span>
           <span class="card-text">
-            <span class="card-title">Activar Alto Rendimiento</span>
-            <span class="card-sub">Configura el plan de energía de Windows</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-healthcheck">
-          <span class="card-icon">⭐</span>
-          <span class="card-text">
-            <span class="card-title">Evaluar Estado del Equipo</span>
-            <span class="card-sub">Puntuación global 1-10 y recomendaciones</span>
+            <span class="card-title">Limpiar Archivos Temporales</span>
+            <span class="card-sub">Escaneo y eliminación de temporales y caché</span>
           </span>
         </button>
       </div>
@@ -188,25 +277,15 @@
         <button class="card card-repair" id="btn-mdsched">
           <span class="card-icon">🧠</span>
           <span class="card-text">
-            <span class="card-title">Diagnóstico de Memoria de Windows</span>
-            <span class="card-sub">Comprobar problemas de RAM en el equipo (mdsched.exe)</span>
-          </span>
-        </button>
-
-        <button class="card card-repair" id="btn-cleantemp">
-          <span class="card-icon">🧹</span>
-          <span class="card-text">
-            <span class="card-title">Limpiar Archivos Temporales</span>
-            <span class="card-sub">Escaneo y eliminación de temporales, caché y prefetch</span>
+            <span class="card-title">Diagnóstico de Memoria</span>
+            <span class="card-sub">Comprobar problemas de RAM (mdsched.exe)</span>
           </span>
         </button>
 
         <div class="repair-note">
-          <b>SFC /SCANNOW</b> — Comprueba la integridad de los archivos protegidos del sistema y repara los
-          dañados (la consola no se cierra automáticamente).<br><br>
-          <b>DISM</b> — Repara la imagen de Windows descargando archivos oficiales desde Windows
-          Update (la consola no se cierra automáticamente).<br><br>
-          <b>Diagnóstico de Memoria</b> — Inicia la herramienta mdsched.exe para comprobar si la memoria RAM presenta errores físicos.
+          <b>SFC /SCANNOW</b> — Comprueba la integridad de los archivos protegidos del sistema y repara los dañados.<br><br>
+          <b>DISM</b> — Repara la imagen de Windows descargando archivos oficiales desde Windows Update.<br><br>
+          <b>Diagnóstico de Memoria</b> — Inicia mdsched.exe para comprobar si la memoria RAM presenta errores físicos.
         </div>
       </div>
     </div>
