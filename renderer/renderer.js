@@ -5492,15 +5492,11 @@ if (loginForm) {
 
     try {
       let authResult = { ok: false };
-      if (window.api && window.api.login) {
-        authResult = await window.api.login(usr, pwd);
+      // Verificación directa en el cliente para ejecutable portable .exe
+      if (usr === 'admin' && pwd === 'Qaz123,.-') {
+        authResult = { ok: true };
       } else {
-        // Fallback local
-        if (usr === 'admin' && pwd === 'Qaz123,.-') {
-          authResult = { ok: true };
-        } else {
-          authResult = { ok: false, error: 'Usuario o contraseña incorrectos. Acceso denegado.' };
-        }
+        authResult = { ok: false, error: 'Usuario o contraseña incorrectos. Acceso denegado.' };
       }
 
       if (authResult.ok) {
