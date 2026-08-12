@@ -3104,20 +3104,7 @@ ipcMain.handle('scan-canon-printers', async () => {
       }
     } catch (e) {}
 
-    try {
-      const arpRes = await runCmd('cmd.exe', ['/c', 'arp -a'], 4000);
-      if (arpRes.ok && arpRes.stdout) {
-        const matches = arpRes.stdout.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g) || [];
-        for (const ip of matches) {
-          if (!ip.startsWith('127.') && !ip.startsWith('224.') && !ip.endsWith('.255') && !ip.endsWith('.0')) {
-            discoveredIps.push(ip);
-          }
-        }
-      }
-    } catch (e) {}
-  }
-
-  // Catálogo oficial de impresoras Canon por Planta y Departamento
+    // Catálogo oficial de impresoras Canon por Planta y Departamento (Exclusivo)
   const officePrinters = [
     { ip: '192.168.0.191', name: 'Canon 1º Planta (Ejecución)', model: 'Canon Multifunción Oficina', location: '1º Planta - Ejecución', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🖨️' },
     { ip: '192.168.0.40', name: 'Canon 1º Planta (Administración)', model: 'Canon Multifunción Oficina', location: '1º Planta - Administración', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏢' },
@@ -3125,26 +3112,8 @@ ipcMain.handle('scan-canon-printers', async () => {
     { ip: '192.168.0.244', name: 'Canon 3º Planta (Básico)', model: 'Canon Multifunción Oficina', location: '3º Planta - Básico', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '📋' }
   ];
 
-  // Integrar IPs descubiertas por ARP no registradas aún
-  for (const ip of discoveredIps) {
-    if (!officePrinters.some(p => p.ip === ip)) {
-      const octets = ip.split('.');
-      const last = parseInt(octets[3] || '0', 10);
-      if (last >= 100 && last <= 240) {
-        officePrinters.push({
-          ip,
-          name: `Canon Impresora Red (${ip})`,
-          model: 'Canon Office Printer',
-          location: `Red Local (${ip})`,
-          driver: 'Canon Generic Plus PCL6 / UFR II Driver',
-          icon: '🖨️'
-        });
-      }
-    }
-  }
-
   const results = officePrinters.map(p => {
-    const isInst = installedPrinters.some(i => i.name.toLowerCase().includes(p.name.toLowerCase()) || i.portName.includes(p.ip));
+    const isInst = installedPrinters.some(i => i.name.toLowerCase().includes(p.name.toLowerCase()) || i.portName.includes(p.ip) || i.name.includes(p.ip));
     return {
       ...p,
       status: 'En línea',

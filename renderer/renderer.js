@@ -6139,9 +6139,13 @@ async function runImpresorasUtility() {
   }
 
   let officePrinters = [];
+  const allowedIPs = ['192.168.0.191', '192.168.0.40', '192.168.0.190', '192.168.0.244'];
   try {
     const scanRes = await window.api.scanCanonPrinters();
-    if (scanRes && scanRes.printers && scanRes.printers.length > 0) officePrinters = scanRes.printers;
+    if (scanRes && scanRes.printers && scanRes.printers.length > 0) {
+      const filtered = scanRes.printers.filter(p => allowedIPs.includes(p.ip));
+      if (filtered.length > 0) officePrinters = filtered;
+    }
   } catch (e) {
     console.warn('Error escaneando red de impresoras Canon:', e);
   }
@@ -6464,12 +6468,14 @@ function bindOfficePrinterEvents(container) {
       try {
         const res = await window.api.scanCanonPrinters();
         if (res && res.printers) {
+          const filtered = res.printers.filter(p => allowedIPs.includes(p.ip));
           const grid = document.getElementById('office-printers-grid');
-          if (grid) grid.innerHTML = renderOfficePrintersGridHTML(res.printers);
+          if (grid) grid.innerHTML = renderOfficePrintersGridHTML(filtered);
           const countEl = document.getElementById('canon-printer-count');
-          if (countEl) countEl.textContent = res.printers.length;
+          if (countEl) countEl.textContent = filtered.length;
           bindOfficePrinterEvents(container);
         }
+        await refreshInstalledPrintersList();
       } catch (e) {
         console.warn('Error escaneando impresoras:', e);
       }
