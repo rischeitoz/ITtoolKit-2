@@ -6167,16 +6167,8 @@ async function runImpresorasUtility() {
           <div class="printer-hero-icon-box">🖨️</div>
           <div class="printer-hero-text">
             <h2>Instalador de Impresoras Canon de Oficina</h2>
-            <p>Detección automática de impresoras Canon en la red de la oficina. Todas las impresoras utilizan el controlador oficial universal Canon (PCL6 / UFR II).</p>
+            <p>Catálogo de impresoras oficiales de la oficina. Todas las impresoras utilizan el controlador estándar Canon Universal (PCL6 / UFR II).</p>
           </div>
-        </div>
-        <div class="printer-hero-actions">
-          <button class="btn-printer-act primary" id="btn-scan-canon-net">
-            <span>🔍 Escanear Red de Oficina</span>
-          </button>
-          <button class="btn-printer-act secondary" id="btn-refresh-printers">
-            <span>🔄 Refrescar Lista</span>
-          </button>
         </div>
       </div>
 
@@ -6186,17 +6178,17 @@ async function runImpresorasUtility() {
           <strong>Impresoras en Windows:</strong> <span id="win-printer-count">${systemPrinters.length}</span>
         </span>
         <span class="printer-status-pill canon-badge-pill">
-          <strong>Canon Detectadas en Red:</strong> <span id="canon-printer-count">${officePrinters.length}</span>
+          <strong>Canon Configurada(s) en Oficina:</strong> <span id="canon-printer-count">${officePrinters.length}</span>
         </span>
         <span class="printer-status-pill info-pill">
-          ℹ️ Todas las impresoras de la oficina utilizan el controlador estándar Canon Universal PCL6 / UFR II
+          ℹ️ Controlador Estándar Canon Universal PCL6 / UFR II
         </span>
       </div>
 
       <!-- Impresoras Canon Detectadas en la Oficina -->
       <div class="printer-section-title">
-        <h3>1. Impresoras Canon Detectadas en la Oficina (Red e IP):</h3>
-        <p>Selecciona cualquiera de las impresoras encontradas para instalarla directamente con su driver Canon correspondiente.</p>
+        <h3>1. Impresoras Canon de la Oficina (Red e IP):</h3>
+        <p>Selecciona cualquiera de las impresoras oficiales para instalarla o reconfigurarla en tu equipo.</p>
       </div>
 
       <div class="printer-models-grid" id="office-printers-grid">
@@ -6301,6 +6293,8 @@ async function runImpresorasUtility() {
   `;
 
   bindOfficePrinterEvents(container);
+  const installedContainer = document.getElementById('installed-printers-list');
+  if (installedContainer) bindInstalledPrinterTestPageEvents(installedContainer);
 }
 
 function renderOfficePrintersGridHTML(printers = []) {
@@ -6458,45 +6452,6 @@ function bindOfficePrinterEvents(container) {
     });
   }
 
-  const btnScanNet = document.getElementById('btn-scan-canon-net');
-  if (btnScanNet) {
-    btnScanNet.addEventListener('click', async () => {
-      btnScanNet.disabled = true;
-      btnScanNet.innerHTML = '<span>⏳ Escaneando Red Local...</span>';
-      showToast('🔎 Escaneando subred y consulta ARP para impresoras Canon...', 'info');
-
-      try {
-        const res = await window.api.scanCanonPrinters();
-        if (res && res.printers) {
-          const filtered = res.printers.filter(p => allowedIPs.includes(p.ip));
-          const grid = document.getElementById('office-printers-grid');
-          if (grid) grid.innerHTML = renderOfficePrintersGridHTML(filtered);
-          const countEl = document.getElementById('canon-printer-count');
-          if (countEl) countEl.textContent = filtered.length;
-          bindOfficePrinterEvents(container);
-        }
-        await refreshInstalledPrintersList();
-      } catch (e) {
-        console.warn('Error escaneando impresoras:', e);
-      }
-
-      btnScanNet.disabled = false;
-      btnScanNet.innerHTML = '<span>🔍 Escanear Red de Oficina</span>';
-      showToast('✅ Escaneo de impresoras Canon completado.', 'success');
-    });
-  }
-
-  const btnRefresh = document.getElementById('btn-refresh-printers');
-  if (btnRefresh) {
-    btnRefresh.addEventListener('click', async () => {
-      btnRefresh.disabled = true;
-      btnRefresh.innerHTML = '<span>⏳ Refrescando...</span>';
-      await refreshInstalledPrintersList();
-      btnRefresh.disabled = false;
-      btnRefresh.innerHTML = '<span>🔄 Refrescar Lista</span>';
-    });
-  }
-
   const installForm = document.getElementById('printer-install-form');
   if (installForm) {
     installForm.addEventListener('submit', async (e) => {
@@ -6507,9 +6462,17 @@ function bindOfficePrinterEvents(container) {
 
   const btnPrintTest = document.getElementById('btn-print-test-page');
   if (btnPrintTest) {
-    btnPrintTest.addEventListener('click', () => {
+    btnPrintTest.addEventListener('click', async () => {
       const customName = document.getElementById('form-custom-name')?.value || 'Impresora Canon';
-      showToast(`📄 Enviando página de prueba a "${customName}"...`, 'success');
+      btnPrintTest.disabled = true;
+      showToast(`📄 Enviando página de prueba a "${customName}"...`, 'info');
+      try {
+        const res = await window.api.printTestPage(customName);
+        showToast(res.message || `✅ Página de prueba enviada a "${customName}"`, 'success');
+      } catch (err) {
+        showToast(`❌ Error al imprimir página de prueba: ${err.message}`, 'error');
+      }
+      btnPrintTest.disabled = false;
     });
   }
 
@@ -6643,6 +6606,33 @@ async function executePrinterInstallation() {
   await refreshInstalledPrintersList();
 }
 
+function bindInstalledPrinterTestPageEvents(container) {
+  if (!container) return;
+  const btns = container.querySelectorAll('.btn-test-print-installed');
+  btns.forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const printerName = btn.getAttribute('data-printer-name');
+      if (!printerName) return;
+
+      btn.disabled = true;
+      const origText = btn.innerHTML;
+      btn.innerHTML = '<span>⏳ Enviando...</span>';
+      showToast(`📄 Enviando página de prueba a "${printerName}"...`, 'info');
+
+      try {
+        const res = await window.api.printTestPage(printerName);
+        showToast(res.message || `✅ Página de prueba enviada a "${printerName}".`, 'success');
+      } catch (err) {
+        showToast(`❌ Error al imprimir página de prueba: ${err.message}`, 'error');
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    });
+  });
+}
+
 async function refreshInstalledPrintersList() {
   const container = document.getElementById('installed-printers-list');
   if (!container) return;
@@ -6655,6 +6645,7 @@ async function refreshInstalledPrintersList() {
     if (winCount) winCount.textContent = printers.length;
 
     container.innerHTML = renderInstalledPrintersListHTML(printers);
+    bindInstalledPrinterTestPageEvents(container);
   } catch (e) {
     console.warn('Error refrescando impresoras:', e);
   }
@@ -6685,6 +6676,11 @@ function renderInstalledPrintersListHTML(printers = []) {
           <div class="installed-card-bottom">
             <span class="printer-port-label">🔌 Puerto: <code>${p.portName}</code></span>
             <span class="printer-status-tag ${p.status === 'Listo' ? 'status-ready' : ''}">● ${p.status || 'Listo'}</span>
+          </div>
+          <div style="margin-top:12px; border-top:1px solid var(--border-color, rgba(226, 232, 240, 0.5)); padding-top:10px;">
+            <button class="btn-test-print-installed" data-printer-name="${p.name}" style="width:100%; padding:9px 12px; background:linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); color:#FFFFFF; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s ease; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
+              📄 Imprimir Página de Prueba
+            </button>
           </div>
         </div>
       `).join('')}

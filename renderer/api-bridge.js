@@ -125,6 +125,7 @@
     getPrinters: () => getJson('/api/printers'),
     scanCanonPrinters: () => getJson('/api/printers/scan'),
     installCanonPrinter: (data) => postJson('/api/printers/install', data),
+    printTestPage: (printerName) => postJson('/api/printers/test-page', { printerName }),
 
     getSystemUpdates: () => getJson('/api/system-updates'),
     runSystemUpdatesAction: (data) => postJson('/api/system-updates-action', data),

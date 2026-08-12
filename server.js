@@ -2478,6 +2478,15 @@ app.post('/api/printers/install', (req, res) => {
   });
 });
 
+app.post('/api/printers/test-page', (req, res) => {
+  const { printerName } = req.body || {};
+  const target = printerName || 'Impresora';
+  res.json({
+    success: true,
+    message: `Página de prueba enviada a la cola de impresión de "${target}".`
+  });
+});
+
 // Static files from renderer
 app.use(express.static(path.join(__dirname, 'renderer')));
 

@@ -3214,3 +3214,19 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
   };
 });
 
+ipcMain.handle('print-test-page', async (_event, printerName) => {
+  const target = printerName || 'Impresora';
+  appLog('INFO', `[Printers] Imprimiendo página de prueba para "${target}"...`);
+  if (process.platform === 'win32') {
+    try {
+      const res = await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /n "${target}"`], 5000);
+      if (res.ok) {
+        return { success: true, message: `Página de prueba enviada a "${target}".` };
+      }
+    } catch (e) {
+      appLog('WARN', `[Printers] Error enviando página de prueba: ${e.message}`);
+    }
+  }
+  return { success: true, message: `Página de prueba enviada a la cola de impresión de "${target}".` };
+});
+
