@@ -6126,8 +6126,9 @@ checkInitialAuth();
 async function runImpresorasUtility() {
   clearResults('🖨️ Gestor e Instalador de Impresoras Canon');
 
-  const container = document.getElementById('diagnostico-results');
-  if (!container) return;
+  const container = document.createElement('div');
+  container.className = 'printer-container panel-fade-in';
+  resultsEl.appendChild(container);
 
   const canonModels = [
     {
