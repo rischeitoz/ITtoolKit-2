@@ -2446,9 +2446,24 @@ app.get('/api/printers', (req, res) => {
   res.json({
     success: true,
     printers: [
-      { name: 'Canon imageRUNNER ADVANCE C3830i - Recepción', driverName: 'Canon UFR II Printer Driver v30.85', portName: '192.168.1.150', isDefault: true, isCanon: true, status: 'Listo' },
-      { name: 'Canon imageCLASS MF445dw - Despacho Directivo', driverName: 'Canon Generic Plus PCL6 Driver', portName: '192.168.1.155', isDefault: false, isCanon: true, status: 'Listo' },
+      { name: 'Canon 1º Planta (Ejecución)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.191', isDefault: true, isCanon: true, status: 'Listo' },
+      { name: 'Canon 1º Planta (Administración)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.40', isDefault: false, isCanon: true, status: 'Listo' },
+      { name: 'Canon 2º Planta (Urbanismo)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.190', isDefault: false, isCanon: true, status: 'Listo' },
+      { name: 'Canon 3º Planta (Básico)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.244', isDefault: false, isCanon: true, status: 'Listo' },
       { name: 'Microsoft Print to PDF', driverName: 'Microsoft Print To PDF', portName: 'PORTPROMPT:', isDefault: false, isCanon: false, status: 'Listo' }
+    ]
+  });
+});
+
+app.get('/api/printers/scan', (req, res) => {
+  res.json({
+    success: true,
+    count: 4,
+    printers: [
+      { ip: '192.168.0.191', name: 'Canon 1º Planta (Ejecución)', model: 'Canon Multifunción Oficina', location: '1º Planta - Ejecución', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🖨️', status: 'En línea', isInstalled: true },
+      { ip: '192.168.0.40', name: 'Canon 1º Planta (Administración)', model: 'Canon Multifunción Oficina', location: '1º Planta - Administración', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏢', status: 'En línea', isInstalled: false },
+      { ip: '192.168.0.190', name: 'Canon 2º Planta (Urbanismo)', model: 'Canon Multifunción Oficina', location: '2º Planta - Urbanismo', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏙️', status: 'En línea', isInstalled: false },
+      { ip: '192.168.0.244', name: 'Canon 3º Planta (Básico)', model: 'Canon Multifunción Oficina', location: '3º Planta - Básico', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '📋', status: 'En línea', isInstalled: false }
     ]
   });
 });

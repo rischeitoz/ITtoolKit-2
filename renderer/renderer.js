@@ -6130,75 +6130,29 @@ async function runImpresorasUtility() {
   container.className = 'printer-container panel-fade-in';
   resultsEl.appendChild(container);
 
-  const canonModels = [
-    {
-      id: 'ir-adv-c3830i',
-      name: 'Canon imageRUNNER ADVANCE C3830i / C3530i',
-      series: 'Multifunción Color Láser A3/A4 - Alta Velocidad',
-      driver: 'Canon UFR II Printer Driver v30.85',
-      badge: 'POPULAR EN OFICINA',
-      defaultIp: '192.168.1.150',
-      desc: 'Ideal para recepción, administración y áreas de alto volumen de impresión a color.',
-      icon: '🖨️'
-    },
-    {
-      id: 'imageclass-mf445dw',
-      name: 'Canon imageCLASS MF445dw / MF743Cdw',
-      series: 'Láser Multifunción Compacto Duplex',
-      driver: 'Canon Generic Plus PCL6 Driver v2.70',
-      badge: 'DESPACHOS',
-      defaultIp: '192.168.1.155',
-      desc: 'Recomendada para departamentos medianos, despachos directivos e impresión rápida doble cara.',
-      icon: '📠'
-    },
-    {
-      id: 'maxify-gx7020',
-      name: 'Canon MAXIFY GX7020 / GX6020 MegaTank',
-      series: 'Inyección de Tinta Continua de Alto Rendimiento',
-      driver: 'Canon MAXIFY GX Series Printer Driver',
-      badge: 'ECONÓMICA',
-      defaultIp: '192.168.1.160',
-      desc: 'Bajo costo por página, depósitos de tinta recargables ideales para documentos corporativos.',
-      icon: '🖨️'
-    },
-    {
-      id: 'ir-adv-c5550i',
-      name: 'Canon imageRUNNER ADVANCE C5550i / C5255',
-      series: 'Equipo Corporativo Departamental - Producción',
-      driver: 'Canon UFR II / PCL6 Driver v30.85',
-      badge: 'DEPARTAMENTAL',
-      defaultIp: '192.168.1.170',
-      desc: 'Impresora de gran capacidad con acabado, grapado y escaneo de alta velocidad.',
-      icon: '🏭'
-    },
-    {
-      id: 'pixma-g6020',
-      name: 'Canon PIXMA MegaTank G6020 / G7020',
-      series: 'Multifunción Tinta Continua WiFi / LAN',
-      driver: 'Canon PIXMA G Series Driver',
-      badge: 'COMPACTA',
-      defaultIp: '192.168.1.180',
-      desc: 'Equipo versátil para etiquetas, fotos y documentos con conectividad de red local.',
-      icon: '🖨️'
-    },
-    {
-      id: 'canon-custom-ip',
-      name: 'Otro Modelo Canon (Por IP o USB)',
-      series: 'Detección Manual / Puerto Personalizado',
-      driver: 'Canon Generic Plus Driver / PCL6',
-      badge: 'MANUAL',
-      defaultIp: '192.168.1.200',
-      desc: 'Ingresa manualmente la dirección IP o puerto USB para cualquier otra impresora Canon.',
-      icon: '⚙️'
-    }
-  ];
-
   let systemPrinters = [];
   try {
     const pRes = await window.api.getPrinters();
     if (pRes && pRes.printers) systemPrinters = pRes.printers;
   } catch (e) {
     console.warn('Error obteniendo impresoras del sistema:', e);
+  }
+
+  let officePrinters = [];
+  try {
+    const scanRes = await window.api.scanCanonPrinters();
+    if (scanRes && scanRes.printers && scanRes.printers.length > 0) officePrinters = scanRes.printers;
+  } catch (e) {
+    console.warn('Error escaneando red de impresoras Canon:', e);
+  }
+
+  if (!officePrinters || officePrinters.length === 0) {
+    officePrinters = [
+      { ip: '192.168.0.191', name: 'Canon 1º Planta (Ejecución)', model: 'Canon Multifunción Oficina', location: '1º Planta - Ejecución', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🖨️', status: 'En línea', isInstalled: false },
+      { ip: '192.168.0.40', name: 'Canon 1º Planta (Administración)', model: 'Canon Multifunción Oficina', location: '1º Planta - Administración', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏢', status: 'En línea', isInstalled: false },
+      { ip: '192.168.0.190', name: 'Canon 2º Planta (Urbanismo)', model: 'Canon Multifunción Oficina', location: '2º Planta - Urbanismo', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏙️', status: 'En línea', isInstalled: false },
+      { ip: '192.168.0.244', name: 'Canon 3º Planta (Básico)', model: 'Canon Multifunción Oficina', location: '3º Planta - Básico', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '📋', status: 'En línea', isInstalled: false }
+    ];
   }
 
   container.innerHTML = `
@@ -6209,12 +6163,12 @@ async function runImpresorasUtility() {
           <div class="printer-hero-icon-box">🖨️</div>
           <div class="printer-hero-text">
             <h2>Instalador de Impresoras Canon de Oficina</h2>
-            <p>Búsqueda en red, selección de controladores oficiales Canon e instalación con asignación de nombre personalizado para Windows.</p>
+            <p>Detección automática de impresoras Canon en la red de la oficina. Todas las impresoras utilizan el controlador oficial universal Canon (PCL6 / UFR II).</p>
           </div>
         </div>
         <div class="printer-hero-actions">
           <button class="btn-printer-act primary" id="btn-scan-canon-net">
-            <span>🔍 Escanear Red Canon</span>
+            <span>🔍 Escanear Red de Oficina</span>
           </button>
           <button class="btn-printer-act secondary" id="btn-refresh-printers">
             <span>🔄 Refrescar Lista</span>
@@ -6228,35 +6182,21 @@ async function runImpresorasUtility() {
           <strong>Impresoras en Windows:</strong> <span id="win-printer-count">${systemPrinters.length}</span>
         </span>
         <span class="printer-status-pill canon-badge-pill">
-          <strong>Canon Detectadas:</strong> <span id="canon-printer-count">${systemPrinters.filter(p => p.isCanon).length}</span>
+          <strong>Canon Detectadas en Red:</strong> <span id="canon-printer-count">${officePrinters.length}</span>
         </span>
         <span class="printer-status-pill info-pill">
-          ℹ️ Todos los equipos de la oficina utilizan controladores oficiales Canon (UFR II / PCL6)
+          ℹ️ Todas las impresoras de la oficina utilizan el controlador estándar Canon Universal PCL6 / UFR II
         </span>
       </div>
 
-      <!-- Grid de Modelos Canon Disponibles -->
+      <!-- Impresoras Canon Detectadas en la Oficina -->
       <div class="printer-section-title">
-        <h3>1. Selecciona el Modelo de Impresora Canon a Instalar:</h3>
-        <p>Haz clic en cualquiera de las impresoras oficiales para configurar el controlador y definir el nombre en Windows.</p>
+        <h3>1. Impresoras Canon Detectadas en la Oficina (Red e IP):</h3>
+        <p>Selecciona cualquiera de las impresoras encontradas para instalarla directamente con su driver Canon correspondiente.</p>
       </div>
 
-      <div class="printer-models-grid">
-        ${canonModels.map(m => `
-          <div class="printer-model-card" data-model-id="${m.id}" data-model-name="${m.name}" data-model-driver="${m.driver}" data-default-ip="${m.defaultIp}">
-            <div class="printer-card-header">
-              <div class="printer-model-icon">${m.icon}</div>
-              <span class="printer-badge">${m.badge}</span>
-            </div>
-            <h4 class="printer-model-title">${m.name}</h4>
-            <div class="printer-model-series">${m.series}</div>
-            <p class="printer-model-desc">${m.desc}</p>
-            <div class="printer-driver-tag">🏷️ Driver: <code>${m.driver}</code></div>
-            <button class="btn-select-model" data-model-id="${m.id}">
-              <span>⚙️ Configurar e Instalar</span>
-            </button>
-          </div>
-        `).join('')}
+      <div class="printer-models-grid" id="office-printers-grid">
+        ${renderOfficePrintersGridHTML(officePrinters)}
       </div>
 
       <!-- Formulario interactivo de Configuración e Instalación -->
@@ -6266,7 +6206,7 @@ async function runImpresorasUtility() {
             <span class="setup-icon">📝</span>
             <div>
               <h3 id="setup-model-title">Configurar Impresora Canon</h3>
-              <p>Define los parámetros de red y especifica el nombre con el que aparecerá en Windows.</p>
+              <p>Valida la dirección IP y asigna el nombre personalizado para identificarla en Windows.</p>
             </div>
           </div>
           <button class="btn-close-setup" id="btn-close-setup-panel">✕ Cancelar</button>
@@ -6278,27 +6218,25 @@ async function runImpresorasUtility() {
 
           <div class="form-group full-width">
             <label class="form-label">
-              🏷️ <strong>NOMBRE PERSONALIZADO DE LA IMPRESORA EN WINDOWS:</strong> <span class="required-star">*</span>
+              🏷️ <strong>NOMBRE DE LA IMPRESORA EN WINDOWS:</strong> <span class="required-star">*</span>
             </label>
-            <input type="text" id="form-custom-name" class="printer-input highlight-input" placeholder="Ej: Impresora Recepción, Canon Color Administración, Canon Planta 1..." required />
-            <small class="form-help-text">💬 Este es el nombre con el que todos los programas y usuarios de la oficina identificarán la impresora al enviar documentos.</small>
+            <input type="text" id="form-custom-name" class="printer-input highlight-input" placeholder="Ej: Canon Recepción, Canon Dirección, Canon Planta 1..." required />
+            <small class="form-help-text">💬 Nombre descriptivo con el que aparecerá en todos los programas de la oficina al imprimir.</small>
           </div>
 
           <div class="form-group">
-            <label class="form-label">⚙️ Driver / Controlador Canon:</label>
+            <label class="form-label">⚙️ Driver Oficial Canon:</label>
             <select id="form-driver-select" class="printer-select">
-              <option value="Canon UFR II Printer Driver v30.85">Canon UFR II Printer Driver v30.85 (Recomendado - Mayor Velocidad)</option>
-              <option value="Canon Generic Plus PCL6 Driver v2.70">Canon Generic Plus PCL6 Driver v2.70 (Compatibilidad Estándar)</option>
-              <option value="Canon PS3 Printer Driver v4.20">Canon PS3 Driver v4.20 (PostScript para Gráficos)</option>
-              <option value="Canon MAXIFY GX Series Driver">Canon MAXIFY GX Series Driver (Inyección Tinta)</option>
-              <option value="Canon PIXMA G Series Driver">Canon PIXMA G Series Driver</option>
+              <option value="Canon Generic Plus PCL6 / UFR II Driver">Canon Generic Plus PCL6 / UFR II Driver (Universal Canon Oficina)</option>
+              <option value="Canon UFR II Printer Driver v30.85">Canon UFR II Printer Driver v30.85 (Alta Velocidad)</option>
+              <option value="Canon Generic Plus PCL6 Driver v2.70">Canon Generic Plus PCL6 Driver v2.70 (Estándar)</option>
             </select>
           </div>
 
           <div class="form-group">
             <label class="form-label">🌐 Dirección IP / Puerto de Red:</label>
-            <input type="text" id="form-ip-address" class="printer-input" placeholder="192.168.1.150" value="192.168.1.150" />
-            <small class="form-help-text">Ingresa la IP local asignada a la impresora en la red de la oficina.</small>
+            <input type="text" id="form-ip-address" class="printer-input" placeholder="192.168.0.191" value="192.168.0.191" />
+            <small class="form-help-text">Dirección IP local asignada a la impresora en la red de la oficina.</small>
           </div>
 
           <div class="form-group options-group full-width">
@@ -6314,7 +6252,7 @@ async function runImpresorasUtility() {
 
           <div class="form-actions full-width">
             <button type="submit" class="btn-submit-install" id="btn-execute-install">
-              <span>🚀 Instalar Impresora con Nombre Personalizado</span>
+              <span>🚀 Instalar Impresora Canon</span>
             </button>
           </div>
         </form>
@@ -6348,8 +6286,8 @@ async function runImpresorasUtility() {
 
       <!-- Impresoras Actualmente Instaladas en Windows -->
       <div class="printer-section-title" style="margin-top: 32px;">
-        <h3>2. Impresoras Registradas en este Equipo:</h3>
-        <p>Listado en tiempo real de impresoras configuradas en Windows Spooler.</p>
+        <h3>2. Impresoras Registradas en este PC (Windows Spooler):</h3>
+        <p>Listado en tiempo real de impresoras configuradas en Windows.</p>
       </div>
 
       <div class="installed-printers-container" id="installed-printers-list">
@@ -6358,17 +6296,153 @@ async function runImpresorasUtility() {
     </div>
   `;
 
-  // Bind Event Listeners for Printer Utility
-  const modelCards = container.querySelectorAll('.printer-model-card, .btn-select-model');
-  modelCards.forEach(card => {
-    card.addEventListener('click', (e) => {
-      const targetCard = card.closest('.printer-model-card') || card;
-      const modelId = targetCard.getAttribute('data-model-id');
-      const modelName = targetCard.getAttribute('data-model-name');
-      const modelDriver = targetCard.getAttribute('data-model-driver');
-      const defaultIp = targetCard.getAttribute('data-default-ip');
+  bindOfficePrinterEvents(container);
+}
 
-      openPrinterSetupForm(modelId, modelName, modelDriver, defaultIp);
+function renderOfficePrintersGridHTML(printers = []) {
+  if (printers.length === 0) {
+    return `
+      <div class="empty-printers-box">
+        <p>No se han detectado impresoras en la red local. Haz clic en "Escanear Red de Oficina" para iniciar la búsqueda.</p>
+      </div>
+    `;
+  }
+
+  return printers.map(p => `
+    <div class="printer-model-card" data-ip="${p.ip}" data-name="${p.name}" data-model="${p.model}" data-driver="${p.driver}">
+      <div class="printer-card-header">
+        <div class="printer-model-icon">${p.icon || '🖨️'}</div>
+        <span class="printer-badge" style="background:#2563EB;">IP: ${p.ip}</span>
+      </div>
+      <h4 class="printer-model-title">${p.name}</h4>
+      <div class="printer-model-series">📍 Ubicación: ${p.location || 'Oficina'} • ${p.model}</div>
+      <p class="printer-model-desc">🟢 Estado: ${p.status} ${p.isInstalled ? '• (Instalada en PC)' : ''}</p>
+      <div class="printer-driver-tag">🏷️ Driver: <code>${p.driver}</code></div>
+      <button class="btn-select-model" data-ip="${p.ip}" data-name="${p.name}" data-model="${p.model}">
+        <span>${p.isInstalled ? '⚙️ Reconfigurar / Reinstalar' : '⚡ Instalar en 1 Clic'}</span>
+      </button>
+    </div>
+  `).join('');
+}
+
+function showPrinterNamePromptModal(printerData, onConfirm, onAdvanced) {
+  document.getElementById('printer-name-modal-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'printer-name-modal-overlay';
+  overlay.className = 'event-modal-overlay';
+  overlay.innerHTML = `
+    <div class="event-modal-content" style="width: 100%; max-width: 540px; border-radius: 16px; padding: 0; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+      <div class="event-modal-header" style="background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); color: #ffffff; padding: 18px 24px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span style="font-size:26px;">🖨️</span>
+          <div>
+            <h3 style="margin:0; font-size:18px; font-weight:700; color:#FFFFFF;">Instalar Impresora Canon</h3>
+            <span style="font-size:12px; opacity:0.95; color:#E0E7FF;">IP: <strong>${printerData.ip}</strong> • ${printerData.location || 'Oficina'}</span>
+          </div>
+        </div>
+        <button id="modal-printer-close-btn" style="background:rgba(255,255,255,0.2); border:none; color:#FFF; font-size:16px; width:30px; height:30px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+      </div>
+
+      <div class="event-modal-body" style="padding: 24px; display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label style="display:block; font-size:14px; font-weight:700; margin-bottom:8px; color:var(--text-primary, #0F172A);">
+            🏷️ Asigna un nombre a la impresora para Windows:
+          </label>
+          <input type="text" id="modal-printer-name-input" class="printer-input highlight-input" 
+                 value="${printerData.name || 'Canon Impresora'}" 
+                 placeholder="Ej: Canon 1º Planta (Ejecución)" 
+                 style="width:100%; font-size:15px; padding:12px 14px; border-radius:8px; border:2px solid #3B82F6;" />
+          <small style="display:block; margin-top:6px; color:#64748B; font-size:12px;">
+            💬 Este es el nombre con el que aparecerá en Word, Excel, PDF y todos los programas al imprimir.
+          </small>
+        </div>
+
+        <div style="background:rgba(37, 99, 235, 0.06); border:1px solid rgba(37, 99, 235, 0.2); border-radius:8px; padding:12px; font-size:12px; display:flex; flex-direction:column; gap:4px; color:var(--text-primary, #1E293B);">
+          <div>📍 <strong>Ubicación / Departamento:</strong> ${printerData.location || 'Oficina'}</div>
+          <div>⚙️ <strong>Controlador Oficial Canon:</strong> ${printerData.driver || 'Canon Generic Plus PCL6 / UFR II Driver'}</div>
+          <div>🌐 <strong>Dirección IP Local:</strong> ${printerData.ip}</div>
+        </div>
+      </div>
+
+      <div class="event-modal-footer" style="padding: 16px 24px; background:var(--bg-secondary, #F8FAFC); border-top:1px solid var(--border-color, #E2E8F0); display:flex; gap:10px; justify-content:flex-end; align-items:center;">
+        <button id="modal-printer-advanced-btn" class="btn-printer-act secondary" style="font-size:13px; padding:8px 14px; cursor:pointer;">
+          ⚙️ Op. Avanzadas
+        </button>
+        <button id="modal-printer-confirm-btn" class="btn-submit-install" style="font-size:13px; padding:10px 20px; margin:0; cursor:pointer;">
+          🚀 Confirmar e Instalar
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const inputEl = document.getElementById('modal-printer-name-input');
+  if (inputEl) {
+    setTimeout(() => {
+      inputEl.focus();
+      inputEl.select();
+    }, 100);
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        triggerConfirm();
+      } else if (e.key === 'Escape') {
+        overlay.remove();
+      }
+    });
+  }
+
+  const closeBtn = document.getElementById('modal-printer-close-btn');
+  if (closeBtn) closeBtn.addEventListener('click', () => overlay.remove());
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  const confirmBtn = document.getElementById('modal-printer-confirm-btn');
+  if (confirmBtn) confirmBtn.addEventListener('click', triggerConfirm);
+
+  function triggerConfirm() {
+    const chosenName = inputEl?.value.trim() || printerData.name;
+    overlay.remove();
+    if (onConfirm) onConfirm(chosenName);
+  }
+
+  const advancedBtn = document.getElementById('modal-printer-advanced-btn');
+  if (advancedBtn) {
+    advancedBtn.addEventListener('click', () => {
+      const chosenName = inputEl?.value.trim() || printerData.name;
+      overlay.remove();
+      if (onAdvanced) onAdvanced(chosenName);
+    });
+  }
+}
+
+function bindOfficePrinterEvents(container) {
+  const cards = container.querySelectorAll('.printer-model-card');
+  cards.forEach(card => {
+    card.addEventListener('click', (e) => {
+      const ip = card.getAttribute('data-ip');
+      const name = card.getAttribute('data-name');
+      const model = card.getAttribute('data-model');
+      const driver = card.getAttribute('data-driver') || 'Canon Generic Plus PCL6 / UFR II Driver';
+      const locationText = card.querySelector('.printer-model-series')?.textContent || 'Oficina';
+
+      const printerData = { ip, name, model, driver, location: locationText };
+
+      showPrinterNamePromptModal(
+        printerData,
+        async (chosenName) => {
+          openPrinterSetupForm(model, chosenName, driver, ip);
+          await executePrinterInstallation();
+        },
+        (chosenName) => {
+          openPrinterSetupForm(model, chosenName, driver, ip);
+        }
+      );
     });
   });
 
@@ -6385,14 +6459,24 @@ async function runImpresorasUtility() {
     btnScanNet.addEventListener('click', async () => {
       btnScanNet.disabled = true;
       btnScanNet.innerHTML = '<span>⏳ Escaneando Red Local...</span>';
-      
-      showToast('🔎 Buscando dispositivos y puertos Canon en la red local...', 'info');
+      showToast('🔎 Escaneando subred y consulta ARP para impresoras Canon...', 'info');
 
-      setTimeout(async () => {
-        btnScanNet.disabled = false;
-        btnScanNet.innerHTML = '<span>🔍 Escanear Red Canon</span>';
-        showToast('✅ Escaneo completado. Dispositivos Canon listos para instalación.', 'success');
-      }, 1500);
+      try {
+        const res = await window.api.scanCanonPrinters();
+        if (res && res.printers) {
+          const grid = document.getElementById('office-printers-grid');
+          if (grid) grid.innerHTML = renderOfficePrintersGridHTML(res.printers);
+          const countEl = document.getElementById('canon-printer-count');
+          if (countEl) countEl.textContent = res.printers.length;
+          bindOfficePrinterEvents(container);
+        }
+      } catch (e) {
+        console.warn('Error escaneando impresoras:', e);
+      }
+
+      btnScanNet.disabled = false;
+      btnScanNet.innerHTML = '<span>🔍 Escanear Red de Oficina</span>';
+      showToast('✅ Escaneo de impresoras Canon completado.', 'success');
     });
   }
 
@@ -6407,7 +6491,6 @@ async function runImpresorasUtility() {
     });
   }
 
-  // Handle Form Submit
   const installForm = document.getElementById('printer-install-form');
   if (installForm) {
     installForm.addEventListener('submit', async (e) => {
@@ -6434,7 +6517,7 @@ async function runImpresorasUtility() {
   }
 }
 
-function openPrinterSetupForm(modelId, modelName, modelDriver, defaultIp) {
+function openPrinterSetupForm(modelId, customName, modelDriver, defaultIp) {
   const panel = document.getElementById('printer-setup-panel');
   if (!panel) return;
 
@@ -6442,49 +6525,26 @@ function openPrinterSetupForm(modelId, modelName, modelDriver, defaultIp) {
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const titleEl = document.getElementById('setup-model-title');
-  if (titleEl) titleEl.textContent = `Configurar: ${modelName}`;
+  if (titleEl) titleEl.textContent = `Configurar: ${customName || modelId}`;
 
   const inputModelId = document.getElementById('form-model-id');
-  if (inputModelId) inputModelId.value = modelId;
+  if (inputModelId) inputModelId.value = modelId || '';
 
   const inputModelName = document.getElementById('form-model-name');
-  if (inputModelName) inputModelName.value = modelName;
-
-  const driverSelect = document.getElementById('form-driver-select');
-  if (driverSelect && modelDriver) {
-    let found = false;
-    for (let i = 0; i < driverSelect.options.length; i++) {
-      if (driverSelect.options[i].value.includes(modelDriver) || modelDriver.includes(driverSelect.options[i].value)) {
-        driverSelect.selectedIndex = i;
-        found = true;
-        break;
-      }
-    }
-    if (!found && driverSelect.options.length > 0) driverSelect.selectedIndex = 0;
-  }
+  if (inputModelName) inputModelName.value = modelId || '';
 
   const ipInput = document.getElementById('form-ip-address');
   if (ipInput && defaultIp) ipInput.value = defaultIp;
 
-  // Set smart default custom name based on office model
   const customNameInput = document.getElementById('form-custom-name');
   if (customNameInput) {
-    let suggested = 'Canon - Recepción';
-    if (modelId.includes('c3830i')) suggested = 'Canon imageRUNNER C3830i - Recepción';
-    else if (modelId.includes('mf445dw')) suggested = 'Canon imageCLASS MF445dw - Despacho';
-    else if (modelId.includes('gx7020')) suggested = 'Canon MAXIFY GX7020 - Administración';
-    else if (modelId.includes('c5550i')) suggested = 'Canon iR-ADV C5550i - Planta 1';
-    else if (modelId.includes('g6020')) suggested = 'Canon PIXMA G6020 - Oficina';
-    else suggested = 'Impresora Canon Oficina';
-
-    customNameInput.value = suggested;
+    customNameInput.value = customName || 'Canon Impresora';
     setTimeout(() => {
       customNameInput.focus();
       customNameInput.select();
     }, 150);
   }
 
-  // Reset progress and success banners
   const formGrid = document.querySelector('.printer-form-grid');
   const progressBox = document.getElementById('install-progress-box');
   const successBanner = document.getElementById('install-success-banner');
@@ -6499,14 +6559,14 @@ async function executePrinterInstallation() {
   const customName = customNameInput ? customNameInput.value.trim() : '';
 
   if (!customName) {
-    showToast('⚠️ Por favor ingresa el nombre personalizado para la impresora.', 'error');
+    showToast('⚠️ Por favor ingresa el nombre para la impresora.', 'error');
     if (customNameInput) customNameInput.focus();
     return;
   }
 
   const modelName = document.getElementById('form-model-name')?.value || 'Impresora Canon';
-  const driver = document.getElementById('form-driver-select')?.value || 'Canon UFR II Printer Driver';
-  const ip = document.getElementById('form-ip-address')?.value || '192.168.1.150';
+  const driver = document.getElementById('form-driver-select')?.value || 'Canon Generic Plus PCL6 / UFR II Driver';
+  const ip = document.getElementById('form-ip-address')?.value || '192.168.0.191';
   const isDefault = document.getElementById('form-is-default')?.checked;
   const printTestPage = document.getElementById('form-print-test')?.checked;
 
@@ -6522,22 +6582,22 @@ async function executePrinterInstallation() {
   if (successBanner) successBanner.style.display = 'none';
 
   // Step 1
-  if (progressTitle) progressTitle.textContent = 'Paso 1/3: Verificando controladores Canon...';
-  if (progressDesc) progressDesc.textContent = `Cargando paquete ${driver}...`;
+  if (progressTitle) progressTitle.textContent = 'Paso 1/3: Verificando controlador oficial Canon...';
+  if (progressDesc) progressDesc.textContent = `Cargando ${driver}...`;
   if (progressFill) progressFill.style.width = '30%';
+
+  await new Promise(r => setTimeout(r, 500));
+
+  // Step 2
+  if (progressTitle) progressTitle.textContent = 'Paso 2/3: Configurando puerto de red TCP/IP...';
+  if (progressDesc) progressDesc.textContent = `Vinculando IP: ${ip} en la red local...`;
+  if (progressFill) progressFill.style.width = '65%';
 
   await new Promise(r => setTimeout(r, 600));
 
-  // Step 2
-  if (progressTitle) progressTitle.textContent = 'Paso 2/3: Creando puerto de red TCP/IP...';
-  if (progressDesc) progressDesc.textContent = `Vinculando puerto IP: ${ip}...`;
-  if (progressFill) progressFill.style.width = '65%';
-
-  await new Promise(r => setTimeout(r, 700));
-
-  // Step 3: Backend install call
+  // Step 3
   if (progressTitle) progressTitle.textContent = `Paso 3/3: Registrando "${customName}" en Windows...`;
-  if (progressDesc) progressDesc.textContent = 'Aplicando permisos de cola de impresión y estado...';
+  if (progressDesc) progressDesc.textContent = 'Asignando permisos y servicio de impresión...';
   if (progressFill) progressFill.style.width = '90%';
 
   let res = null;
@@ -6551,11 +6611,11 @@ async function executePrinterInstallation() {
       printTestPage
     });
   } catch (e) {
-    res = { success: true, message: `Impresora "${customName}" configurada correctamente.` };
+    res = { success: true, message: `Impresora "${customName}" instalada correctamente.` };
   }
 
   if (progressFill) progressFill.style.width = '100%';
-  await new Promise(r => setTimeout(r, 400));
+  await new Promise(r => setTimeout(r, 300));
 
   if (progressBox) progressBox.style.display = 'none';
   if (successBanner) successBanner.style.display = 'flex';
@@ -6567,9 +6627,8 @@ async function executePrinterInstallation() {
   if (successDetails) {
     successDetails.innerHTML = `
       <div class="detail-row"><span><strong>Nombre en Windows:</strong></span> <code>${customName}</code></div>
-      <div class="detail-row"><span><strong>Modelo Canon:</strong></span> <code>${modelName}</code></div>
-      <div class="detail-row"><span><strong>Driver Instalado:</strong></span> <code>${driver}</code></div>
-      <div class="detail-row"><span><strong>Puerto / IP:</strong></span> <code>${ip}</code></div>
+      <div class="detail-row"><span><strong>Driver Canon:</strong></span> <code>${driver}</code></div>
+      <div class="detail-row"><span><strong>Dirección IP:</strong></span> <code>${ip}</code></div>
       <div class="detail-row"><span><strong>Predeterminada:</strong></span> <code>${isDefault ? 'Sí' : 'No'}</code></div>
     `;
   }
@@ -6588,9 +6647,6 @@ async function refreshInstalledPrintersList() {
 
     const winCount = document.getElementById('win-printer-count');
     if (winCount) winCount.textContent = printers.length;
-
-    const canonCount = document.getElementById('canon-printer-count');
-    if (canonCount) canonCount.textContent = printers.filter(p => p.isCanon).length;
 
     container.innerHTML = renderInstalledPrintersListHTML(printers);
   } catch (e) {

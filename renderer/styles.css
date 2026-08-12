@@ -5360,14 +5360,15 @@ body.dark-theme .tut-docx-tag {
   gap: 10px;
 }
 
-.info-pill {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+.info-equipo-header .info-pill,
+.info-hero-sub .info-pill {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
   border-radius: 8px;
   padding: 6px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: #F8FAFC !important;
+  color: #FFFFFF !important;
 }
 
 .info-section-card {
@@ -8009,13 +8010,13 @@ body.dark-theme .canon-badge-pill {
   border-color: rgba(220, 38, 38, 0.4);
 }
 
-.info-pill {
+.printer-status-pill.info-pill {
   background: #EFF6FF;
   color: #1D4ED8;
   border-color: #BFDBFE;
 }
 
-body.dark-theme .info-pill {
+body.dark-theme .printer-status-pill.info-pill {
   background: rgba(37, 99, 235, 0.2);
   color: #93C5FD;
   border-color: rgba(37, 99, 235, 0.4);

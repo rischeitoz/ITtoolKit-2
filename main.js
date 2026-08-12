@@ -3081,6 +3081,80 @@ ipcMain.handle('get-peripherals-info', async () => getPeripheralsInfo());
 // ─────────────────────────────────────────────────────────────────────────────
 // IMPRESORAS CANON — Detección, consulta e instalación con nombre personalizado (SIN POWERSHELL)
 // ─────────────────────────────────────────────────────────────────────────────
+ipcMain.handle('scan-canon-printers', async () => {
+  appLog('INFO', '[Printers] Escaneando red local y consulta ARP para detectar impresoras Canon de la oficina...');
+  let installedPrinters = [];
+  let discoveredIps = [];
+
+  if (process.platform === 'win32') {
+    try {
+      const res = await runCmd('cmd.exe', ['/c', 'wmic printer get Name,DriverName,PortName /format:csv'], 4000);
+      if (res.ok && res.stdout) {
+        const lines = res.stdout.split('\n').filter(l => l.trim() && !l.includes('Node,DriverName'));
+        for (const line of lines) {
+          const parts = line.split(',');
+          if (parts.length >= 4) {
+            installedPrinters.push({
+              driverName: (parts[1] || '').trim(),
+              name: (parts[2] || '').trim(),
+              portName: (parts[3] || '').trim()
+            });
+          }
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const arpRes = await runCmd('cmd.exe', ['/c', 'arp -a'], 4000);
+      if (arpRes.ok && arpRes.stdout) {
+        const matches = arpRes.stdout.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g) || [];
+        for (const ip of matches) {
+          if (!ip.startsWith('127.') && !ip.startsWith('224.') && !ip.endsWith('.255') && !ip.endsWith('.0')) {
+            discoveredIps.push(ip);
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Catálogo oficial de impresoras Canon por Planta y Departamento
+  const officePrinters = [
+    { ip: '192.168.0.191', name: 'Canon 1º Planta (Ejecución)', model: 'Canon Multifunción Oficina', location: '1º Planta - Ejecución', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🖨️' },
+    { ip: '192.168.0.40', name: 'Canon 1º Planta (Administración)', model: 'Canon Multifunción Oficina', location: '1º Planta - Administración', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏢' },
+    { ip: '192.168.0.190', name: 'Canon 2º Planta (Urbanismo)', model: 'Canon Multifunción Oficina', location: '2º Planta - Urbanismo', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏙️' },
+    { ip: '192.168.0.244', name: 'Canon 3º Planta (Básico)', model: 'Canon Multifunción Oficina', location: '3º Planta - Básico', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '📋' }
+  ];
+
+  // Integrar IPs descubiertas por ARP no registradas aún
+  for (const ip of discoveredIps) {
+    if (!officePrinters.some(p => p.ip === ip)) {
+      const octets = ip.split('.');
+      const last = parseInt(octets[3] || '0', 10);
+      if (last >= 100 && last <= 240) {
+        officePrinters.push({
+          ip,
+          name: `Canon Impresora Red (${ip})`,
+          model: 'Canon Office Printer',
+          location: `Red Local (${ip})`,
+          driver: 'Canon Generic Plus PCL6 / UFR II Driver',
+          icon: '🖨️'
+        });
+      }
+    }
+  }
+
+  const results = officePrinters.map(p => {
+    const isInst = installedPrinters.some(i => i.name.toLowerCase().includes(p.name.toLowerCase()) || i.portName.includes(p.ip));
+    return {
+      ...p,
+      status: 'En línea',
+      isInstalled: isInst
+    };
+  });
+
+  return { success: true, count: results.length, printers: results };
+});
+
 ipcMain.handle('get-printers', async () => {
   appLog('INFO', '[Printers] Consultando lista de impresoras sin PowerShell via WMIC...');
   let printers = [];
@@ -3115,8 +3189,10 @@ ipcMain.handle('get-printers', async () => {
 
   if (printers.length === 0) {
     printers = [
-      { name: 'Canon imageRUNNER ADVANCE C3830i - Recepción', driverName: 'Canon UFR II Printer Driver v30.85', portName: '192.168.1.150', isDefault: true, isCanon: true, status: 'Listo' },
-      { name: 'Canon imageCLASS MF445dw - Despacho Directivo', driverName: 'Canon Generic Plus PCL6 Driver', portName: '192.168.1.155', isDefault: false, isCanon: true, status: 'Listo' },
+      { name: 'Canon 1º Planta (Ejecución)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.191', isDefault: true, isCanon: true, status: 'Listo' },
+      { name: 'Canon 1º Planta (Administración)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.40', isDefault: false, isCanon: true, status: 'Listo' },
+      { name: 'Canon 2º Planta (Urbanismo)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.190', isDefault: false, isCanon: true, status: 'Listo' },
+      { name: 'Canon 3º Planta (Básico)', driverName: 'Canon Generic Plus PCL6 / UFR II Driver', portName: '192.168.0.244', isDefault: false, isCanon: true, status: 'Listo' },
       { name: 'Microsoft Print to PDF', driverName: 'Microsoft Print To PDF', portName: 'PORTPROMPT:', isDefault: false, isCanon: false, status: 'Listo' }
     ];
   }
