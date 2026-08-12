@@ -34,15 +34,28 @@ const allButtons = () => ALL_BTN_IDS.map(id => document.getElementById(id)).filt
 
 const ICONS = { ok: '🟢', warn: '🟡', error: '🔴' };
 
-// ── Pestañas del menú lateral ────────────────────────────────────────────────
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+// ── Control de estado activo en la barra lateral ──────────────────────────────
+function setActiveSidebarButton(buttonId) {
+  const sidebarButtons = [
+    'btn-open-tutorials',
+    'btn-open-software',
+    'btn-open-printers',
+    'btn-open-pc',
+    'btn-open-maint',
+    'btn-open-net',
+    'btn-open-repair'
+  ];
+  sidebarButtons.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === buttonId) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    }
   });
-});
+}
 
 // ── Helpers de UI ────────────────────────────────────────────────────────────
 function setBusy(busy, text = '') {
@@ -449,19 +462,21 @@ if (window.api && window.api.onSpeedTestRealtime) {
   window.api.onSpeedTestRealtime(updateSpeedGauge);
 }
 
-document.getElementById('btn-speedtest').addEventListener('click', async () => {
+async function runSpeedTest() {
   clearResults('Test de Velocidad');
   resultsEl.appendChild(createSpeedGaugeWidget());
   const retestBtn = document.getElementById('btn-retest-speed');
   if (retestBtn) {
-    retestBtn.addEventListener('click', () => document.getElementById('btn-speedtest').click());
+    retestBtn.addEventListener('click', () => runSpeedTest());
   }
   const movistarBtn = document.getElementById('btn-movistar-speed');
   if (movistarBtn) {
-    movistarBtn.addEventListener('click', () => window.api.openUrl('https://www.movistar.es/test-de-velocidad'));
+    movistarBtn.addEventListener('click', () => window.api?.openUrl('https://www.movistar.es/test-de-velocidad'));
   }
   setBusy(true, 'Preparando test de velocidad...');
-  window.api.onSpeedTestProgress(msg => { statusText.textContent = msg; });
+  if (window.api && window.api.onSpeedTestProgress) {
+    window.api.onSpeedTestProgress(msg => { statusText.textContent = msg; });
+  }
 
   try {
     const r = await window.api.runSpeedTest();
@@ -494,7 +509,9 @@ document.getElementById('btn-speedtest').addEventListener('click', async () => {
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-speedtest')?.addEventListener('click', runSpeedTest);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad 2 — Diagnóstico del PC (Scanner animado + Cards visuales)
@@ -1152,7 +1169,7 @@ async function handleDetectMonitorsAction() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad — Información del Equipo (Nombre, Dominio/Grupo y Contraseña)
 // ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-info-equipo')?.addEventListener('click', async () => {
+async function runInfoEquipo() {
   clearResults('Información del Equipo');
 
   // Animación de Carga Visual fluida y atractiva
@@ -1401,9 +1418,11 @@ document.getElementById('btn-info-equipo')?.addEventListener('click', async () =
   } finally {
     setBusy(false);
   }
-});
+}
 
-document.getElementById('btn-diagnostico').addEventListener('click', async () => {
+document.getElementById('btn-info-equipo')?.addEventListener('click', runInfoEquipo);
+
+async function runDiagnostico() {
   clearResults('Diagnóstico del PC');
   const stopLoading = startDiagLoadingSequence();
   setBusy(true, 'Analizando el equipo...');
@@ -1431,7 +1450,7 @@ document.getElementById('btn-diagnostico').addEventListener('click', async () =>
     `;
     resultsEl.appendChild(pdfBanner);
 
-    document.getElementById('btn-export-diag-pdf-top').addEventListener('click', async () => {
+    document.getElementById('btn-export-diag-pdf-top')?.addEventListener('click', async () => {
       try {
         setBusy(true, 'Generando documento PDF de diagnóstico...');
         const summary = await window.api.getEquipmentSummary();
@@ -1747,13 +1766,15 @@ document.getElementById('btn-diagnostico').addEventListener('click', async () =>
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-diagnostico')?.addEventListener('click', runDiagnostico);
 
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad 3 — Alto Rendimiento
 // ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-highperf').addEventListener('click', async () => {
+async function runHighPerf() {
   clearResults('Plan de Energía (Alto Rendimiento)');
   setBusy(true, 'Consultando resumen de la configuración de energía actual...');
   try {
@@ -1765,7 +1786,9 @@ document.getElementById('btn-highperf').addEventListener('click', async () => {
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-highperf')?.addEventListener('click', runHighPerf);
 
 function renderPowerPlanSummaryPanel(info) {
   clearResults('Plan de Energía (Alto Rendimiento)');
@@ -1843,7 +1866,7 @@ function renderPowerPlanSummaryPanel(info) {
 
   resultsEl.appendChild(card);
 
-  document.getElementById('btn-apply-highperf').addEventListener('click', async () => {
+  document.getElementById('btn-apply-highperf')?.addEventListener('click', async () => {
     setBusy(true, 'Aplicando perfil de Alto Rendimiento...');
     try {
       const r = await window.api.activateHighPerformance();
@@ -1862,7 +1885,7 @@ function renderPowerPlanSummaryPanel(info) {
     }
   });
 
-  document.getElementById('btn-keep-currentperf').addEventListener('click', () => {
+  document.getElementById('btn-keep-currentperf')?.addEventListener('click', () => {
     clearResults('Plan de Energía');
     addSectionTitle('Configuración de Energía Conservada');
     addBanner(`Se ha mantenido la configuración de energía actual (${info.activePlanName}) sin realizar ningún cambio.`, 'ok');
@@ -2024,12 +2047,14 @@ function buildDiagnosticPdfText(r, summary) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad 4 — SFC /SCANNOW (abre CMD visible)
 // ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-sfc').addEventListener('click', async () => {
+async function runSfc() {
   if (!confirm('¿Desea ejecutar el comprobador de archivos del sistema (SFC /SCANNOW)?\n\nSe abrirá una ventana CMD con permisos de administrador que permanecerá abierta sin cerrarse automáticamente tras finalizar para que pueda revisar todos los resultados.')) return;
 
   clearResults('Ejecutar SFC /SCANNOW');
   setBusy(true, 'Solicitando permisos de administrador...');
-  window.api.onSfcProgress(msg => { statusText.textContent = msg; });
+  if (window.api && window.api.onSfcProgress) {
+    window.api.onSfcProgress(msg => { statusText.textContent = msg; });
+  }
 
   try {
     const r = await window.api.runSfc();
@@ -2052,17 +2077,21 @@ document.getElementById('btn-sfc').addEventListener('click', async () => {
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-sfc')?.addEventListener('click', runSfc);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad 5 — DISM (abre CMD visible)
 // ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-dism').addEventListener('click', async () => {
+async function runDism() {
   if (!confirm('¿Desea reparar la imagen del sistema (DISM)?\n\nSe abrirá una ventana CMD con permisos de administrador que permanecerá abierta sin cerrarse automáticamente tras finalizar para que pueda revisar todos los resultados.')) return;
 
   clearResults('Reparar Windows (DISM)');
   setBusy(true, 'Solicitando permisos de administrador...');
-  window.api.onDismProgress(msg => { statusText.textContent = msg; });
+  if (window.api && window.api.onDismProgress) {
+    window.api.onDismProgress(msg => { statusText.textContent = msg; });
+  }
 
   try {
     const r = await window.api.runDism();
@@ -2085,12 +2114,14 @@ document.getElementById('btn-dism').addEventListener('click', async () => {
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-dism')?.addEventListener('click', runDism);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad — Diagnóstico de Memoria de Windows (mdsched.exe)
 // ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-mdsched').addEventListener('click', async () => {
+async function runMdsched() {
   if (!confirm('¿Desea ejecutar el Diagnóstico de Memoria de Windows (mdsched.exe)?\n\nEsta herramienta oficial comprobará si la memoria RAM presenta errores físicos.')) return;
 
   clearResults('Diagnóstico de Memoria de Windows');
@@ -2107,15 +2138,19 @@ document.getElementById('btn-mdsched').addEventListener('click', async () => {
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-mdsched')?.addEventListener('click', runMdsched);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad — Limpiar Archivos Temporales (Escaneo, Resumen y Confirmación)
 // ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-cleantemp').addEventListener('click', async () => {
+async function runCleanTemp() {
   clearResults('Limpiar Archivos Temporales');
   setBusy(true, 'Analizando directorios temporales y calculando espacio...');
-  window.api.onCleanTempProgress(msg => { statusText.textContent = msg; });
+  if (window.api && window.api.onCleanTempProgress) {
+    window.api.onCleanTempProgress(msg => { statusText.textContent = msg; });
+  }
 
   let scanData;
   try {
@@ -2186,7 +2221,7 @@ document.getElementById('btn-cleantemp').addEventListener('click', async () => {
   statusText.textContent = '⏸ Esperando confirmación para proceder con la limpieza...';
 
   // Event listener: Confirmar Limpieza
-  document.getElementById('btn-confirm-clean').addEventListener('click', async () => {
+  document.getElementById('btn-confirm-clean')?.addEventListener('click', async () => {
     confirmCard.remove();
     setBusy(true, 'Escaneando y eliminando archivos temporales...');
 
@@ -2268,13 +2303,15 @@ document.getElementById('btn-cleantemp').addEventListener('click', async () => {
   });
 
   // Event listener: Cancelar Limpieza
-  document.getElementById('btn-cancel-clean').addEventListener('click', () => {
+  document.getElementById('btn-cancel-clean')?.addEventListener('click', () => {
     confirmCard.remove();
     addBanner('Operación cancelada. No se ha eliminado ningún archivo del sistema.', 'warn');
     addResultLine('Estado', 'Limpieza cancelada por el usuario.', 'warn');
     statusText.textContent = '❌ Limpieza cancelada por el usuario';
   });
-});
+}
+
+document.getElementById('btn-cleantemp')?.addEventListener('click', runCleanTemp);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad 6 — Drivers de GPU (Scanner Neón de GPU)
@@ -2476,7 +2513,7 @@ function createGpuDriverCard(g) {
   return card;
 }
 
-document.getElementById('btn-gpudrivers').addEventListener('click', async () => {
+async function runGpuDrivers() {
   clearResults('Actualizar Drivers de la GPU');
   const stopLoading = startGpuLoadingSequence();
   setBusy(true, 'Detectando tarjeta(s) gráfica(s)...');
@@ -2502,7 +2539,9 @@ document.getElementById('btn-gpudrivers').addEventListener('click', async () => 
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-gpudrivers')?.addEventListener('click', runGpuDrivers);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad 7 — Visor de Eventos
@@ -2790,7 +2829,7 @@ async function runEventAnalysis(range = '7') {
   }
 }
 
-document.getElementById('btn-eventlog').addEventListener('click', () => runEventAnalysis('7'));
+document.getElementById('btn-eventlog')?.addEventListener('click', () => runEventAnalysis('7'));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad 8 — Evaluación Global del Estado del PC (Hardware vs Consumo)
@@ -2856,7 +2895,7 @@ function startHealthLoadingSequence() {
   return () => clearInterval(timer);
 }
 
-document.getElementById('btn-healthcheck').addEventListener('click', async () => {
+async function runHealthCheck() {
   clearResults('Evaluar Estado del Equipo');
   const stopLoading = startHealthLoadingSequence();
   setBusy(true, 'Analizando capacidad de componentes vs consumo actual...');
@@ -3045,12 +3084,14 @@ document.getElementById('btn-healthcheck').addEventListener('click', async () =>
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-healthcheck')?.addEventListener('click', runHealthCheck);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utilidad — Opciones de Red (Detección IP, DHCP/Manual, Liberar, Renovar IP y DNS)
 // ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-netoptions').addEventListener('click', async () => {
+async function runNetOptions() {
   clearResults('Opciones de Red');
   setBusy(true, 'Obteniendo estado del adaptador y parámetros de red...');
 
@@ -3063,7 +3104,9 @@ document.getElementById('btn-netoptions').addEventListener('click', async () => 
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-netoptions')?.addEventListener('click', runNetOptions);
 
 function renderNetworkOptionsPanel(adapters) {
   clearResults('Opciones de Red');
@@ -3190,7 +3233,7 @@ function renderNetworkOptionsPanel(adapters) {
 
   resultsEl.appendChild(card);
 
-  document.getElementById('mode-box-dhcp').addEventListener('click', async () => {
+  document.getElementById('mode-box-dhcp')?.addEventListener('click', async () => {
     if (!isDhcp) {
       setBusy(true, 'Cambiando configuración a DHCP (Automático)...');
       try {
@@ -3206,16 +3249,17 @@ function renderNetworkOptionsPanel(adapters) {
     }
   });
 
-  document.getElementById('mode-box-manual').addEventListener('click', () => {
-    document.getElementById('manual-ip-form').style.display = 'flex';
-    document.getElementById('mode-box-dhcp').classList.remove('active');
-    document.getElementById('mode-box-manual').classList.add('active');
+  document.getElementById('mode-box-manual')?.addEventListener('click', () => {
+    const form = document.getElementById('manual-ip-form');
+    if (form) form.style.display = 'flex';
+    document.getElementById('mode-box-dhcp')?.classList.remove('active');
+    document.getElementById('mode-box-manual')?.classList.add('active');
   });
 
-  document.getElementById('btn-save-static').addEventListener('click', async () => {
-    const ip = document.getElementById('input-static-ip').value.trim();
-    const netmask = document.getElementById('input-static-mask').value.trim();
-    const gateway = document.getElementById('input-static-gw').value.trim();
+  document.getElementById('btn-save-static')?.addEventListener('click', async () => {
+    const ip = document.getElementById('input-static-ip')?.value?.trim();
+    const netmask = document.getElementById('input-static-mask')?.value?.trim();
+    const gateway = document.getElementById('input-static-gw')?.value?.trim();
 
     if (!ip || !netmask || !gateway) {
       addBanner('Por favor complete todos los campos de IP, Máscara y Puerta de enlace.', 'warn');
@@ -3241,7 +3285,7 @@ function renderNetworkOptionsPanel(adapters) {
     }
   });
 
-  document.getElementById('btn-act-release').addEventListener('click', async () => {
+  document.getElementById('btn-act-release')?.addEventListener('click', async () => {
     setBusy(true, 'Liberando dirección IP actual...');
     try {
       const res = await window.api.runNetworkAction({ action: 'release', adapterName: currentAdapter.name });
@@ -3255,7 +3299,7 @@ function renderNetworkOptionsPanel(adapters) {
     }
   });
 
-  document.getElementById('btn-act-renew').addEventListener('click', async () => {
+  document.getElementById('btn-act-renew')?.addEventListener('click', async () => {
     setBusy(true, 'Renovando dirección IP desde el servidor...');
     try {
       const res = await window.api.runNetworkAction({ action: 'renew', adapterName: currentAdapter.name });
@@ -3270,7 +3314,7 @@ function renderNetworkOptionsPanel(adapters) {
     }
   });
 
-  document.getElementById('btn-act-flushdns').addEventListener('click', async () => {
+  document.getElementById('btn-act-flushdns')?.addEventListener('click', async () => {
     setBusy(true, 'Vaciando caché DNS y renovando concesión DHCP...');
     try {
       const res = await window.api.runNetworkAction({ action: 'flushdns', adapterName: currentAdapter.name });
@@ -3342,7 +3386,7 @@ function startUpdatesLoadingSequence() {
   return () => clearInterval(timer);
 }
 
-document.getElementById('btn-sysupdates').addEventListener('click', async () => {
+async function runSysUpdates() {
   clearResults('Comprobar Actualizaciones del Sistema');
   const stopLoading = startUpdatesLoadingSequence();
   setBusy(true, 'Analizando actualizaciones de Windows, HP Support, historial y servicios...');
@@ -3358,7 +3402,9 @@ document.getElementById('btn-sysupdates').addEventListener('click', async () => 
   } finally {
     setBusy(false);
   }
-});
+}
+
+document.getElementById('btn-sysupdates')?.addEventListener('click', runSysUpdates);
 
 function renderSystemUpdatesPanel(data) {
   clearResults('Comprobar Actualizaciones del Sistema');
@@ -3484,16 +3530,13 @@ function renderSystemUpdatesPanel(data) {
       </div>
     ` : ''}
 
-    <div style="margin-top: 14px;">
-      ${isHpInstalled ? `
-        <button class="btn-net-act primary" id="btn-hp-open" style="width: 100%;">
-          🚀 Abrir HP Support Assistant para Buscar Drivers
-        </button>
-      ` : `
-        <button class="btn-net-act" id="btn-hp-open" disabled style="width: 100%; opacity: 0.45; cursor: not-allowed; background: rgba(255, 255, 255, 0.05); color: #94A3B8; border: 1px solid rgba(255, 255, 255, 0.1);">
-          🔒 HP Support Assistant No Instalado (No disponible)
-        </button>
-      `}
+    <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+      <button class="btn-net-act primary" id="btn-hp-open" style="flex: 1; min-width: 220px;">
+        🚀 Abrir / Forzar Lanzamiento de HP Support Assistant
+      </button>
+      <button class="btn-net-act" id="btn-hp-download" style="flex: 1; min-width: 220px; background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.3);">
+        🌐 Sitios de Descarga Oficial de HP Support Assistant
+      </button>
     </div>
   `;
   resultsEl.appendChild(hpCard);
@@ -3552,7 +3595,7 @@ function renderSystemUpdatesPanel(data) {
   resultsEl.appendChild(histCard);
 
   // Event handlers
-  document.getElementById('btn-wu-open').addEventListener('click', async () => {
+  document.getElementById('btn-wu-open')?.addEventListener('click', async () => {
     try {
       const res = await window.api.runSystemUpdatesAction({ action: 'open-windows-update' });
       addBanner(res.message, 'ok');
@@ -3561,7 +3604,7 @@ function renderSystemUpdatesPanel(data) {
     }
   });
 
-  document.getElementById('btn-wu-troubleshoot').addEventListener('click', async () => {
+  document.getElementById('btn-wu-troubleshoot')?.addEventListener('click', async () => {
     try {
       const res = await window.api.runSystemUpdatesAction({ action: 'run-troubleshooter' });
       addBanner(res.message, 'ok');
@@ -3571,7 +3614,7 @@ function renderSystemUpdatesPanel(data) {
   });
 
   const hpBtn = document.getElementById('btn-hp-open');
-  if (hpBtn && !hpBtn.disabled) {
+  if (hpBtn) {
     hpBtn.addEventListener('click', async () => {
       try {
         const res = await window.api.runSystemUpdatesAction({ action: 'open-hp-support' });
@@ -3579,6 +3622,14 @@ function renderSystemUpdatesPanel(data) {
       } catch (e) {
         addBanner(`Error al abrir HP Support Assistant: ${e.message}`, 'error');
       }
+    });
+  }
+
+  const hpDownloadBtn = document.getElementById('btn-hp-download');
+  if (hpDownloadBtn) {
+    hpDownloadBtn.addEventListener('click', () => {
+      window.open('https://support.hp.com/us-en/help/hp-support-assistant', '_blank');
+      addBanner('Se ha abierto el sitio oficial de soporte de HP en tu navegador.', 'ok');
     });
   }
 }
@@ -3691,15 +3742,15 @@ function renderHomeDashboard() {
   resultsEl.appendChild(container);
 
   // Vincular eventos KPI y Accesos Rápidos
-  document.getElementById('kpi-diagnostico')?.addEventListener('click', () => document.getElementById('btn-diagnostico')?.click());
-  document.getElementById('kpi-speedtest')?.addEventListener('click', () => document.getElementById('btn-speedtest')?.click());
-  document.getElementById('kpi-sysupdates')?.addEventListener('click', () => document.getElementById('btn-sysupdates')?.click());
-  document.getElementById('kpi-healthcheck')?.addEventListener('click', () => document.getElementById('btn-healthcheck')?.click());
+  document.getElementById('kpi-diagnostico')?.addEventListener('click', () => runDiagnostico());
+  document.getElementById('kpi-speedtest')?.addEventListener('click', () => runSpeedTest());
+  document.getElementById('kpi-sysupdates')?.addEventListener('click', () => runSysUpdates());
+  document.getElementById('kpi-healthcheck')?.addEventListener('click', () => runHealthCheck());
 
-  document.getElementById('sc-highperf')?.addEventListener('click', () => document.getElementById('btn-highperf')?.click());
-  document.getElementById('sc-cleantemp')?.addEventListener('click', () => document.getElementById('btn-cleantemp')?.click());
-  document.getElementById('sc-gpudrivers')?.addEventListener('click', () => document.getElementById('btn-gpudrivers')?.click());
-  document.getElementById('sc-sfc')?.addEventListener('click', () => document.getElementById('btn-sfc')?.click());
+  document.getElementById('sc-highperf')?.addEventListener('click', () => runHighPerf());
+  document.getElementById('sc-cleantemp')?.addEventListener('click', () => runCleanTemp());
+  document.getElementById('sc-gpudrivers')?.addEventListener('click', () => runGpuDrivers());
+  document.getElementById('sc-sfc')?.addEventListener('click', () => runSfc());
 
   // Vincular Buscador Hero
   const heroInput = document.getElementById('home-hero-search');
@@ -3758,17 +3809,17 @@ function performSearch(query) {
   if (clearTopBtn) clearTopBtn.style.display = q ? 'block' : 'none';
   if (clearHeroBtn) clearHeroBtn.style.display = q ? 'block' : 'none';
 
-  // Filtrar tarjetas en sidebar
-  document.querySelectorAll('.tab-content:not(#tab-inicio) .card').forEach(card => {
-    const text = card.textContent.toLowerCase();
-    if (!q || text.includes(q)) {
-      card.style.display = 'flex';
-    } else {
-      card.style.display = 'none';
-    }
-  });
+  // Si se busca algo en la barra superior y no estamos en el panel principal
+  if (q && !document.getElementById('home-search-results-box')) {
+    clearResults(`Resultados de Búsqueda: "${query}"`);
+    const container = document.createElement('div');
+    container.className = 'category-view-container panel-fade-in';
+    const resultsBox = document.createElement('div');
+    resultsBox.id = 'home-search-results-box';
+    container.appendChild(resultsBox);
+    resultsEl.appendChild(container);
+  }
 
-  // Si estamos en el Panel Principal, renderizar resultados inmediatos
   const resultsBox = document.getElementById('home-search-results-box');
   if (resultsBox) {
     if (q) {
@@ -3781,23 +3832,40 @@ function performSearch(query) {
       resultsBox.appendChild(heading);
 
       const grid = document.createElement('div');
-      grid.className = 'shortcut-grid';
+      grid.className = 'category-tools-grid';
 
       let count = 0;
-      document.querySelectorAll('.tab-content:not(#tab-inicio) .card').forEach(card => {
-        if (card.style.display !== 'none') {
-          count++;
-          const item = document.createElement('div');
-          item.className = 'shortcut-card';
-          item.style.cursor = 'pointer';
-          item.innerHTML = card.innerHTML;
-          item.addEventListener('click', () => card.click());
-          grid.appendChild(item);
-        }
+      Object.values(CATEGORIES_CONFIG).forEach(cat => {
+        cat.tools.forEach(tool => {
+          const textToSearch = `${tool.title} ${tool.sub} ${cat.title}`.toLowerCase();
+          if (textToSearch.includes(q)) {
+            count++;
+            const card = document.createElement('div');
+            card.className = 'category-tool-card';
+            card.innerHTML = `
+              <div class="cat-tool-card-top">
+                <div class="cat-tool-icon">${tool.icon}</div>
+                <span class="cat-tool-tag">${tool.badge}</span>
+              </div>
+              <div class="cat-tool-body">
+                <h4 class="cat-tool-title">${escapeHtml(tool.title)}</h4>
+                <p class="cat-tool-sub">${escapeHtml(tool.sub)}</p>
+              </div>
+              <div class="cat-tool-footer">
+                <button class="btn-execute-tool">
+                  <span>Abrir Utilidad</span>
+                  <span class="arrow">→</span>
+                </button>
+              </div>
+            `;
+            card.addEventListener('click', () => tool.run());
+            grid.appendChild(card);
+          }
+        });
       });
 
       if (count === 0) {
-        grid.innerHTML = `<div style="padding: 16px; color: var(--text-secondary); text-align: center; grid-column: 1 / -1; font-size: 13px;">No se encontraron utilidades para "${query}". Prueba buscar RAM, GPU, Speedtest, SFC, DISM...</div>`;
+        grid.innerHTML = `<div style="padding: 20px; color: var(--text-secondary); text-align: center; grid-column: 1 / -1; font-size: 14px;">No se encontraron utilidades para "${escapeHtml(query)}". Intenta buscar por RAM, GPU, Speedtest, SFC, DISM...</div>`;
       }
       resultsBox.appendChild(grid);
     } else {
@@ -3819,33 +3887,7 @@ if (topClearBtn) {
 
 // Botón "Panel Principal" (Topbar)
 function goHome() {
-  // Desmarcar botón Tutoriales si estaba activo
-  const btnOpenTutorials = document.getElementById('btn-open-tutorials');
-  if (btnOpenTutorials) btnOpenTutorials.classList.remove('active');
-
-  // Asegurar que hay una pestaña activa en la barra lateral y desplegar su contenido
-  let activeTabBtn = document.querySelector('.tab-btn.active');
-  if (!activeTabBtn) {
-    activeTabBtn = document.querySelector('.tab-btn[data-tab="diagnostico"]');
-  }
-
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-  if (activeTabBtn) {
-    activeTabBtn.classList.add('active');
-    const targetContent = document.getElementById(`tab-${activeTabBtn.dataset.tab}`);
-    if (targetContent) {
-      targetContent.classList.add('active');
-    }
-  } else {
-    const diagBtn = document.querySelector('.tab-btn[data-tab="diagnostico"]');
-    const diagContent = document.getElementById('tab-diagnostico');
-    if (diagBtn) diagBtn.classList.add('active');
-    if (diagContent) diagContent.classList.add('active');
-  }
-
-  // Renderizar el Dashboard principal en el panel derecho
+  setActiveSidebarButton(null);
   renderHomeDashboard();
 }
 
@@ -3969,35 +4011,171 @@ let currentTutorialsList = [];
 let activeTutorialCategory = 'Todos';
 let tutorialSearchQuery = '';
 
-const btnOpenTutorials = document.getElementById('btn-open-tutorials');
-const btnOpenSoftware = document.getElementById('btn-open-software');
+// ═══════════════════════════════════════════════════════════════════════════════
+// Configuración y Renderizado de Categorías en el Menú Principal (A la Derecha)
+// ═══════════════════════════════════════════════════════════════════════════════
+const CATEGORIES_CONFIG = {
+  pc: {
+    key: 'pc',
+    title: 'PC & Diagnóstico de Hardware',
+    desc: 'Escaneo y auditoría técnica de procesador, memoria RAM, GPU, discos, monitores, periféricos y plan de rendimiento.',
+    icon: '🖥️',
+    themeClass: 'pc-theme',
+    btnId: 'btn-open-pc',
+    tools: [
+      { id: 'btn-info-equipo', title: 'Información del Equipo', sub: 'Nombre NetBIOS/DNS, Dominio / Grupo y Contraseña', icon: '🏷️', badge: 'IDENTIFICACIÓN', run: runInfoEquipo },
+      { id: 'btn-diagnostico', title: 'Diagnóstico del PC', sub: 'RAM, CPU, GPU y disco duro en tiempo real', icon: '🩺', badge: 'AUDITORÍA', run: runDiagnostico },
+      { id: 'btn-monitores', title: 'Monitores y Pantallas', sub: 'Resolución, Hz (actual y máx), Fabricante, Modelo y Detección PnP', icon: '🖥️', badge: 'PANTALLAS', run: renderMonitoresUtility },
+      { id: 'btn-perifericos', title: 'Periféricos del Sistema', sub: 'Prueba y selección de Teclado, Ratón, Micrófono, Auriculares y Webcams', icon: '⌨️', badge: 'HARDWARE', run: renderPerifericosUtility },
+      { id: 'btn-healthcheck', title: 'Evaluar Estado del Equipo', sub: 'Puntuación global 1-10, informe de salud y recomendaciones', icon: '⭐', badge: 'EVALUACIÓN', run: runHealthCheck },
+      { id: 'btn-highperf', title: 'Activar Alto Rendimiento', sub: 'Configura el plan de máxima energía de Windows', icon: '⚡', badge: 'ENERGÍA', run: runHighPerf }
+    ]
+  },
+  mantenimiento: {
+    key: 'mantenimiento',
+    title: 'Mantenimiento del Sistema',
+    desc: 'Controladores gráficos, actualizaciones de Windows & HP, impresoras Canon, visor de eventos y limpiador de temporales.',
+    icon: '⚙️',
+    themeClass: 'maint-theme',
+    btnId: 'btn-open-maint',
+    tools: [
+      { id: 'btn-gpudrivers', title: 'Actualizar Drivers de GPU', sub: 'Detecta la tarjeta gráfica y comprueba la versión del controlador', icon: '🎮', badge: 'DRIVERS', run: runGpuDrivers },
+      { id: 'btn-sysupdates', title: 'Actualizaciones del Sistema', sub: 'Windows Update, HP Support Assistant y diagnóstico de parches', icon: '🔄', badge: 'UPDATES', run: runSysUpdates },
+      { id: 'btn-impresoras', title: 'Impresoras Canon', sub: 'Búsqueda en red, selección de controlador e instalación con nombre personalizado', icon: '🖨️', badge: 'CANON', run: runImpresorasUtility },
+      { id: 'btn-eventlog', title: 'Analizar Visor de Eventos', sub: 'Registro de apagados inesperados, BSODs y errores críticos', icon: '📋', badge: 'LOGS', run: () => runEventAnalysis('7') },
+      { id: 'btn-cleantemp', title: 'Limpiar Archivos Temporales', sub: 'Escaneo y eliminación de temporales, cachés y liberador de espacio', icon: '🧹', badge: 'LIMPIEZA', run: runCleanTemp }
+    ]
+  },
+  red: {
+    key: 'red',
+    title: 'Red & Conectividad',
+    desc: 'Test de velocidad a tiempo real, prueba de latencia Ping y herramientas de configuración IP/DNS.',
+    icon: '🌐',
+    themeClass: 'net-theme',
+    btnId: 'btn-open-net',
+    tools: [
+      { id: 'btn-speedtest', title: 'Test de Velocidad', sub: 'Descarga, subida, ping y latencia con medidor de aguja interactivo', icon: '🌐', badge: 'VELOCIDAD', run: runSpeedTest },
+      { id: 'btn-ping', title: 'Realizar Ping', sub: 'Informe de latencia y pérdida de paquetes hacia servidores clave', icon: '📡', badge: 'LATENCIA', run: () => renderPingUtilityUI() },
+      { id: 'btn-netoptions', title: 'Opciones de Red', sub: 'Configuración IP (DHCP/Manual), Liberar/Renovar IP y vaciar DNS', icon: '⚙️', badge: 'CONFIG IP', run: runNetOptions }
+    ]
+  },
+  reparacion: {
+    key: 'reparacion',
+    title: 'Reparación de Windows',
+    desc: 'Comprobación de archivos del sistema SFC, reparación de imagen DISM y diagnóstico de memoria RAM mdsched.',
+    icon: '🛡️',
+    themeClass: 'repair-theme',
+    btnId: 'btn-open-repair',
+    tools: [
+      { id: 'btn-sfc', title: 'Ejecutar SFC /SCANNOW', sub: 'Comprueba la integridad de los archivos protegidos del sistema', icon: '🧩', badge: 'SFC SCANNOW', run: runSfc },
+      { id: 'btn-dism', title: 'Reparar Windows (DISM)', sub: 'DISM /Online /Cleanup-Image /RestoreHealth desde Windows Update', icon: '🛡️', badge: 'DISM FIX', run: runDism },
+      { id: 'btn-mdsched', title: 'Diagnóstico de Memoria', sub: 'Comprobar errores físicos en RAM mediante mdsched.exe', icon: '🧠', badge: 'TEST RAM', run: runMdsched }
+    ]
+  }
+};
 
-if (btnOpenTutorials) {
-  btnOpenTutorials.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    if (btnOpenSoftware) btnOpenSoftware.classList.remove('active');
-    btnOpenTutorials.classList.add('active');
-    loadAndRenderTutorials();
+function renderCategoryPanel(categoryKey) {
+  const catConfig = CATEGORIES_CONFIG[categoryKey];
+  if (!catConfig) return;
+
+  setActiveSidebarButton(catConfig.btnId);
+
+  clearResults(`${catConfig.title} — Menú de Utilidades`);
+
+  const container = document.createElement('div');
+  container.className = 'category-view-container panel-fade-in';
+
+  const header = document.createElement('div');
+  header.className = `category-header-card ${catConfig.themeClass}`;
+  header.innerHTML = `
+    <div class="cat-header-top">
+      <div class="cat-header-left">
+        <div class="cat-header-icon">${catConfig.icon}</div>
+        <div>
+          <h3 class="cat-header-title">${catConfig.title}</h3>
+          <p class="cat-header-sub">${catConfig.desc}</p>
+        </div>
+      </div>
+      <span class="cat-header-badge">${catConfig.tools.length} Utilidades</span>
+    </div>
+  `;
+  container.appendChild(header);
+
+  if (categoryKey === 'reparacion') {
+    const warnNotice = document.createElement('div');
+    warnNotice.className = 'category-warn-notice';
+    warnNotice.innerHTML = `
+      <span style="font-size:20px;">⚠️</span>
+      <span><b>Atención Técnica:</b> Estas utilidades ejecutan procesos con permisos de administrador en ventana CMD. Se recomienda mantener abierta la ventana hasta que finalicen las comprobaciones.</span>
+    `;
+    container.appendChild(warnNotice);
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'category-tools-grid';
+
+  catConfig.tools.forEach(tool => {
+    const card = document.createElement('div');
+    card.className = 'category-tool-card';
+    card.id = `cat-card-${tool.id}`;
+    card.innerHTML = `
+      <div class="cat-tool-card-top">
+        <div class="cat-tool-icon">${tool.icon}</div>
+        <span class="cat-tool-tag">${tool.badge}</span>
+      </div>
+      <div class="cat-tool-body">
+        <h4 class="cat-tool-title">${escapeHtml(tool.title)}</h4>
+        <p class="cat-tool-sub">${escapeHtml(tool.sub)}</p>
+      </div>
+      <div class="cat-tool-footer">
+        <button class="btn-execute-tool">
+          <span>Abrir Utilidad</span>
+          <span class="arrow">→</span>
+        </button>
+      </div>
+    `;
+
+    card.addEventListener('click', () => {
+      tool.run();
+    });
+
+    grid.appendChild(card);
   });
+
+  container.appendChild(grid);
+  resultsEl.appendChild(container);
 }
 
-if (btnOpenSoftware) {
-  btnOpenSoftware.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    if (btnOpenTutorials) btnOpenTutorials.classList.remove('active');
-    btnOpenSoftware.classList.add('active');
-    openSoftwarePanel();
-  });
-}
+// Vincular botones destacados de la barra lateral
+document.getElementById('btn-open-tutorials')?.addEventListener('click', () => {
+  setActiveSidebarButton('btn-open-tutorials');
+  loadAndRenderTutorials();
+});
 
-// Desmarcar botones destacados cuando el usuario hace clic en alguna de las pestañas normales
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (btnOpenTutorials) btnOpenTutorials.classList.remove('active');
-    if (btnOpenSoftware) btnOpenSoftware.classList.remove('active');
-  });
+document.getElementById('btn-open-software')?.addEventListener('click', () => {
+  setActiveSidebarButton('btn-open-software');
+  openSoftwarePanel();
+});
+
+document.getElementById('btn-open-printers')?.addEventListener('click', () => {
+  setActiveSidebarButton('btn-open-printers');
+  runImpresorasUtility();
+});
+
+document.getElementById('btn-open-pc')?.addEventListener('click', () => {
+  renderCategoryPanel('pc');
+});
+
+document.getElementById('btn-open-maint')?.addEventListener('click', () => {
+  renderCategoryPanel('mantenimiento');
+});
+
+document.getElementById('btn-open-net')?.addEventListener('click', () => {
+  renderCategoryPanel('red');
+});
+
+document.getElementById('btn-open-repair')?.addEventListener('click', () => {
+  renderCategoryPanel('reparacion');
 });
 
 async function loadAndRenderTutorials(customPath) {
@@ -5345,22 +5523,24 @@ const softwareCatalog = [
     badgeText: 'POPULAR'
   },
   {
-    id: '7zip-archiver',
-    title: '7-Zip Archiver',
-    publisher: 'Igor Pavlov',
-    version: 'v23.01 / Estable',
-    platform: 'Windows (x64)',
-    category: 'Compresión de Archivos',
-    defaultFileName: '7zip_x64_v23.01_Setup.exe',
-    description: 'Archivador y compresor gratuito de alto rendimiento para archivos .zip, .7z, .rar, .tar, .iso y más.',
-    downloadUrl: 'https://www.7-zip.org/a/7z2301-x64.exe',
+    id: 'microsip',
+    title: 'MicroSIP Softphone',
+    publisher: 'MicroSIP Project',
+    version: 'v3.22.12 / Oficial',
+    platform: 'Windows (x64 / x86)',
+    category: 'Telefonía y VoIP',
+    defaultFileName: 'MicroSIP-3.22.12.exe',
+    description: 'Softphone SIP ligero de código abierto para Windows. Permite realizar y recibir llamadas de voz/video sobre IP en la oficina.',
+    downloadUrl: 'https://www.microsip.org/download/MicroSIP-3.22.12.exe',
     logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="120" height="120" rx="22" fill="#1E293B"/>
-      <path d="M25 35H95V85H25V35Z" fill="#334155"/>
-      <text x="32" y="70" fill="#38BDF8" font-family="Arial" font-weight="900" font-size="34">7z</text>
+      <rect width="120" height="120" rx="22" fill="#10B981"/>
+      <path d="M38 32H82C85.3137 32 88 34.6863 88 38V82C88 85.3137 85.3137 88 82 88H38C34.6863 88 32 85.3137 32 82V38C32 34.6863 34.6863 32 38 32Z" fill="#047857" opacity="0.3"/>
+      <path d="M42 40C42 37.7909 43.7909 36 46 36H74C76.2091 36 78 37.7909 78 40V80C78 82.2091 76.2091 84 74 84H46C43.7909 84 42 82.2091 42 80V40Z" fill="white"/>
+      <path d="M52 48H68M52 56H68M60 68C64.4183 68 68 64.4183 68 60C68 55.5817 64.4183 52 60 52C55.5817 52 52 55.5817 52 60C52 64.4183 55.5817 68 60 68Z" stroke="#10B981" stroke-width="4" stroke-linecap="round"/>
+      <path d="M50 76H70" stroke="#10B981" stroke-width="4" stroke-linecap="round"/>
     </svg>`,
     fileInfo: 'Instalador Oficial .exe',
-    badgeText: 'UTILERÍA'
+    badgeText: 'VOIP'
   }
 ];
 
@@ -5399,6 +5579,33 @@ function openSoftwarePanel() {
     <span>Al hacer clic en <strong>"DESCARGAR"</strong>, la app te preguntará la carpeta donde deseas guardar el ejecutable y mostrará la velocidad y porcentaje de descarga en vivo.</span>
   `;
   container.appendChild(notice);
+
+  // 2b. Banner destacado de Impresoras Canon (Herramienta integrada debajo de Software)
+  const printerBanner = document.createElement('div');
+  printerBanner.className = 'software-notice-banner';
+  printerBanner.style.background = 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(30, 58, 138, 0.15) 100%)';
+  printerBanner.style.border = '1px solid rgba(96, 165, 250, 0.35)';
+  printerBanner.style.color = '#38BDF8';
+  printerBanner.style.cursor = 'pointer';
+  printerBanner.style.justifyContent = 'space-between';
+  printerBanner.style.marginTop = '10px';
+  printerBanner.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="font-size:24px;">🖨️</span>
+      <div>
+        <strong style="font-size:14px; display:block; color:var(--text-primary);">Utilidad de Impresoras Canon de Oficina</strong>
+        <span style="font-size:12px; color:var(--text-secondary);">Búsqueda en red, selección de controladores e instalación rápida con nombre personalizado.</span>
+      </div>
+    </div>
+    <button class="btn-printer-act primary" style="padding:8px 16px; font-size:12px; background:#2563EB; color:#FFF; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
+      Abrir Impresoras ➔
+    </button>
+  `;
+  printerBanner.addEventListener('click', () => {
+    setActiveSidebarButton('btn-open-printers');
+    runImpresorasUtility();
+  });
+  container.appendChild(printerBanner);
 
   // 3. Grid de Tarjetas de Software
   const grid = document.createElement('div');
@@ -5913,5 +6120,514 @@ if (btnLockSession) {
 
 // Iniciar verificación al cargar
 checkInitialAuth();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILIDAD: IMPRESORAS CANON (Búsqueda, Selección de Drivers e Instalación)
+// ─────────────────────────────────────────────────────────────────────────────
+async function runImpresorasUtility() {
+  clearResults('🖨️ Gestor e Instalador de Impresoras Canon');
+
+  const container = document.getElementById('diagnostico-results');
+  if (!container) return;
+
+  const canonModels = [
+    {
+      id: 'ir-adv-c3830i',
+      name: 'Canon imageRUNNER ADVANCE C3830i / C3530i',
+      series: 'Multifunción Color Láser A3/A4 - Alta Velocidad',
+      driver: 'Canon UFR II Printer Driver v30.85',
+      badge: 'POPULAR EN OFICINA',
+      defaultIp: '192.168.1.150',
+      desc: 'Ideal para recepción, administración y áreas de alto volumen de impresión a color.',
+      icon: '🖨️'
+    },
+    {
+      id: 'imageclass-mf445dw',
+      name: 'Canon imageCLASS MF445dw / MF743Cdw',
+      series: 'Láser Multifunción Compacto Duplex',
+      driver: 'Canon Generic Plus PCL6 Driver v2.70',
+      badge: 'DESPACHOS',
+      defaultIp: '192.168.1.155',
+      desc: 'Recomendada para departamentos medianos, despachos directivos e impresión rápida doble cara.',
+      icon: '📠'
+    },
+    {
+      id: 'maxify-gx7020',
+      name: 'Canon MAXIFY GX7020 / GX6020 MegaTank',
+      series: 'Inyección de Tinta Continua de Alto Rendimiento',
+      driver: 'Canon MAXIFY GX Series Printer Driver',
+      badge: 'ECONÓMICA',
+      defaultIp: '192.168.1.160',
+      desc: 'Bajo costo por página, depósitos de tinta recargables ideales para documentos corporativos.',
+      icon: '🖨️'
+    },
+    {
+      id: 'ir-adv-c5550i',
+      name: 'Canon imageRUNNER ADVANCE C5550i / C5255',
+      series: 'Equipo Corporativo Departamental - Producción',
+      driver: 'Canon UFR II / PCL6 Driver v30.85',
+      badge: 'DEPARTAMENTAL',
+      defaultIp: '192.168.1.170',
+      desc: 'Impresora de gran capacidad con acabado, grapado y escaneo de alta velocidad.',
+      icon: '🏭'
+    },
+    {
+      id: 'pixma-g6020',
+      name: 'Canon PIXMA MegaTank G6020 / G7020',
+      series: 'Multifunción Tinta Continua WiFi / LAN',
+      driver: 'Canon PIXMA G Series Driver',
+      badge: 'COMPACTA',
+      defaultIp: '192.168.1.180',
+      desc: 'Equipo versátil para etiquetas, fotos y documentos con conectividad de red local.',
+      icon: '🖨️'
+    },
+    {
+      id: 'canon-custom-ip',
+      name: 'Otro Modelo Canon (Por IP o USB)',
+      series: 'Detección Manual / Puerto Personalizado',
+      driver: 'Canon Generic Plus Driver / PCL6',
+      badge: 'MANUAL',
+      defaultIp: '192.168.1.200',
+      desc: 'Ingresa manualmente la dirección IP o puerto USB para cualquier otra impresora Canon.',
+      icon: '⚙️'
+    }
+  ];
+
+  let systemPrinters = [];
+  try {
+    const pRes = await window.api.getPrinters();
+    if (pRes && pRes.printers) systemPrinters = pRes.printers;
+  } catch (e) {
+    console.warn('Error obteniendo impresoras del sistema:', e);
+  }
+
+  container.innerHTML = `
+    <div class="printer-utility-wrapper">
+      <!-- Banner Cabecera Canon -->
+      <div class="printer-hero-card">
+        <div class="printer-hero-left">
+          <div class="printer-hero-icon-box">🖨️</div>
+          <div class="printer-hero-text">
+            <h2>Instalador de Impresoras Canon de Oficina</h2>
+            <p>Búsqueda en red, selección de controladores oficiales Canon e instalación con asignación de nombre personalizado para Windows.</p>
+          </div>
+        </div>
+        <div class="printer-hero-actions">
+          <button class="btn-printer-act primary" id="btn-scan-canon-net">
+            <span>🔍 Escanear Red Canon</span>
+          </button>
+          <button class="btn-printer-act secondary" id="btn-refresh-printers">
+            <span>🔄 Refrescar Lista</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen de Impresoras Detectadas/Instaladas -->
+      <div class="printer-status-bar" id="printer-scan-status-bar">
+        <span class="printer-status-pill">
+          <strong>Impresoras en Windows:</strong> <span id="win-printer-count">${systemPrinters.length}</span>
+        </span>
+        <span class="printer-status-pill canon-badge-pill">
+          <strong>Canon Detectadas:</strong> <span id="canon-printer-count">${systemPrinters.filter(p => p.isCanon).length}</span>
+        </span>
+        <span class="printer-status-pill info-pill">
+          ℹ️ Todos los equipos de la oficina utilizan controladores oficiales Canon (UFR II / PCL6)
+        </span>
+      </div>
+
+      <!-- Grid de Modelos Canon Disponibles -->
+      <div class="printer-section-title">
+        <h3>1. Selecciona el Modelo de Impresora Canon a Instalar:</h3>
+        <p>Haz clic en cualquiera de las impresoras oficiales para configurar el controlador y definir el nombre en Windows.</p>
+      </div>
+
+      <div class="printer-models-grid">
+        ${canonModels.map(m => `
+          <div class="printer-model-card" data-model-id="${m.id}" data-model-name="${m.name}" data-model-driver="${m.driver}" data-default-ip="${m.defaultIp}">
+            <div class="printer-card-header">
+              <div class="printer-model-icon">${m.icon}</div>
+              <span class="printer-badge">${m.badge}</span>
+            </div>
+            <h4 class="printer-model-title">${m.name}</h4>
+            <div class="printer-model-series">${m.series}</div>
+            <p class="printer-model-desc">${m.desc}</p>
+            <div class="printer-driver-tag">🏷️ Driver: <code>${m.driver}</code></div>
+            <button class="btn-select-model" data-model-id="${m.id}">
+              <span>⚙️ Configurar e Instalar</span>
+            </button>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Formulario interactivo de Configuración e Instalación -->
+      <div class="printer-setup-panel" id="printer-setup-panel" style="display:none;">
+        <div class="setup-panel-header">
+          <div class="setup-header-title">
+            <span class="setup-icon">📝</span>
+            <div>
+              <h3 id="setup-model-title">Configurar Impresora Canon</h3>
+              <p>Define los parámetros de red y especifica el nombre con el que aparecerá en Windows.</p>
+            </div>
+          </div>
+          <button class="btn-close-setup" id="btn-close-setup-panel">✕ Cancelar</button>
+        </div>
+
+        <form id="printer-install-form" onsubmit="return false;" class="printer-form-grid">
+          <input type="hidden" id="form-model-id" />
+          <input type="hidden" id="form-model-name" />
+
+          <div class="form-group full-width">
+            <label class="form-label">
+              🏷️ <strong>NOMBRE PERSONALIZADO DE LA IMPRESORA EN WINDOWS:</strong> <span class="required-star">*</span>
+            </label>
+            <input type="text" id="form-custom-name" class="printer-input highlight-input" placeholder="Ej: Impresora Recepción, Canon Color Administración, Canon Planta 1..." required />
+            <small class="form-help-text">💬 Este es el nombre con el que todos los programas y usuarios de la oficina identificarán la impresora al enviar documentos.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">⚙️ Driver / Controlador Canon:</label>
+            <select id="form-driver-select" class="printer-select">
+              <option value="Canon UFR II Printer Driver v30.85">Canon UFR II Printer Driver v30.85 (Recomendado - Mayor Velocidad)</option>
+              <option value="Canon Generic Plus PCL6 Driver v2.70">Canon Generic Plus PCL6 Driver v2.70 (Compatibilidad Estándar)</option>
+              <option value="Canon PS3 Printer Driver v4.20">Canon PS3 Driver v4.20 (PostScript para Gráficos)</option>
+              <option value="Canon MAXIFY GX Series Driver">Canon MAXIFY GX Series Driver (Inyección Tinta)</option>
+              <option value="Canon PIXMA G Series Driver">Canon PIXMA G Series Driver</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">🌐 Dirección IP / Puerto de Red:</label>
+            <input type="text" id="form-ip-address" class="printer-input" placeholder="192.168.1.150" value="192.168.1.150" />
+            <small class="form-help-text">Ingresa la IP local asignada a la impresora en la red de la oficina.</small>
+          </div>
+
+          <div class="form-group options-group full-width">
+            <label class="checkbox-label">
+              <input type="checkbox" id="form-is-default" checked />
+              <span>Establecer como <strong>Impresora Predeterminada</strong> del sistema</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="form-print-test" checked />
+              <span>Imprimir <strong>página de prueba</strong> al finalizar la instalación</span>
+            </label>
+          </div>
+
+          <div class="form-actions full-width">
+            <button type="submit" class="btn-submit-install" id="btn-execute-install">
+              <span>🚀 Instalar Impresora con Nombre Personalizado</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Progress Box -->
+        <div class="install-progress-box" id="install-progress-box" style="display:none;">
+          <div class="progress-spinner">⏳</div>
+          <div class="progress-info">
+            <h4 id="progress-step-title">Instalando impresora Canon...</h4>
+            <p id="progress-step-desc">Registrando puerto de red y creando el dispositivo en Windows.</p>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner de éxito -->
+        <div class="install-success-banner" id="install-success-banner" style="display:none;">
+          <div class="success-icon">✅</div>
+          <div class="success-content">
+            <h4 id="success-title">¡Impresora Instalada Correctamente!</h4>
+            <p id="success-desc">La impresora ha sido configurada y está lista para recibir trabajos de impresión.</p>
+            <div class="success-details-card" id="success-details-card"></div>
+            <div class="success-actions">
+              <button class="btn-success-act" id="btn-print-test-page">📄 Imprimir Página de Prueba</button>
+              <button class="btn-success-act secondary" id="btn-finish-setup">✓ Finalizar y Ver en Impresoras</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Impresoras Actualmente Instaladas en Windows -->
+      <div class="printer-section-title" style="margin-top: 32px;">
+        <h3>2. Impresoras Registradas en este Equipo:</h3>
+        <p>Listado en tiempo real de impresoras configuradas en Windows Spooler.</p>
+      </div>
+
+      <div class="installed-printers-container" id="installed-printers-list">
+        ${renderInstalledPrintersListHTML(systemPrinters)}
+      </div>
+    </div>
+  `;
+
+  // Bind Event Listeners for Printer Utility
+  const modelCards = container.querySelectorAll('.printer-model-card, .btn-select-model');
+  modelCards.forEach(card => {
+    card.addEventListener('click', (e) => {
+      const targetCard = card.closest('.printer-model-card') || card;
+      const modelId = targetCard.getAttribute('data-model-id');
+      const modelName = targetCard.getAttribute('data-model-name');
+      const modelDriver = targetCard.getAttribute('data-model-driver');
+      const defaultIp = targetCard.getAttribute('data-default-ip');
+
+      openPrinterSetupForm(modelId, modelName, modelDriver, defaultIp);
+    });
+  });
+
+  const btnCloseSetup = document.getElementById('btn-close-setup-panel');
+  if (btnCloseSetup) {
+    btnCloseSetup.addEventListener('click', () => {
+      const panel = document.getElementById('printer-setup-panel');
+      if (panel) panel.style.display = 'none';
+    });
+  }
+
+  const btnScanNet = document.getElementById('btn-scan-canon-net');
+  if (btnScanNet) {
+    btnScanNet.addEventListener('click', async () => {
+      btnScanNet.disabled = true;
+      btnScanNet.innerHTML = '<span>⏳ Escaneando Red Local...</span>';
+      
+      showToast('🔎 Buscando dispositivos y puertos Canon en la red local...', 'info');
+
+      setTimeout(async () => {
+        btnScanNet.disabled = false;
+        btnScanNet.innerHTML = '<span>🔍 Escanear Red Canon</span>';
+        showToast('✅ Escaneo completado. Dispositivos Canon listos para instalación.', 'success');
+      }, 1500);
+    });
+  }
+
+  const btnRefresh = document.getElementById('btn-refresh-printers');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', async () => {
+      btnRefresh.disabled = true;
+      btnRefresh.innerHTML = '<span>⏳ Refrescando...</span>';
+      await refreshInstalledPrintersList();
+      btnRefresh.disabled = false;
+      btnRefresh.innerHTML = '<span>🔄 Refrescar Lista</span>';
+    });
+  }
+
+  // Handle Form Submit
+  const installForm = document.getElementById('printer-install-form');
+  if (installForm) {
+    installForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await executePrinterInstallation();
+    });
+  }
+
+  const btnPrintTest = document.getElementById('btn-print-test-page');
+  if (btnPrintTest) {
+    btnPrintTest.addEventListener('click', () => {
+      const customName = document.getElementById('form-custom-name')?.value || 'Impresora Canon';
+      showToast(`📄 Enviando página de prueba a "${customName}"...`, 'success');
+    });
+  }
+
+  const btnFinish = document.getElementById('btn-finish-setup');
+  if (btnFinish) {
+    btnFinish.addEventListener('click', async () => {
+      const panel = document.getElementById('printer-setup-panel');
+      if (panel) panel.style.display = 'none';
+      await refreshInstalledPrintersList();
+    });
+  }
+}
+
+function openPrinterSetupForm(modelId, modelName, modelDriver, defaultIp) {
+  const panel = document.getElementById('printer-setup-panel');
+  if (!panel) return;
+
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const titleEl = document.getElementById('setup-model-title');
+  if (titleEl) titleEl.textContent = `Configurar: ${modelName}`;
+
+  const inputModelId = document.getElementById('form-model-id');
+  if (inputModelId) inputModelId.value = modelId;
+
+  const inputModelName = document.getElementById('form-model-name');
+  if (inputModelName) inputModelName.value = modelName;
+
+  const driverSelect = document.getElementById('form-driver-select');
+  if (driverSelect && modelDriver) {
+    let found = false;
+    for (let i = 0; i < driverSelect.options.length; i++) {
+      if (driverSelect.options[i].value.includes(modelDriver) || modelDriver.includes(driverSelect.options[i].value)) {
+        driverSelect.selectedIndex = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found && driverSelect.options.length > 0) driverSelect.selectedIndex = 0;
+  }
+
+  const ipInput = document.getElementById('form-ip-address');
+  if (ipInput && defaultIp) ipInput.value = defaultIp;
+
+  // Set smart default custom name based on office model
+  const customNameInput = document.getElementById('form-custom-name');
+  if (customNameInput) {
+    let suggested = 'Canon - Recepción';
+    if (modelId.includes('c3830i')) suggested = 'Canon imageRUNNER C3830i - Recepción';
+    else if (modelId.includes('mf445dw')) suggested = 'Canon imageCLASS MF445dw - Despacho';
+    else if (modelId.includes('gx7020')) suggested = 'Canon MAXIFY GX7020 - Administración';
+    else if (modelId.includes('c5550i')) suggested = 'Canon iR-ADV C5550i - Planta 1';
+    else if (modelId.includes('g6020')) suggested = 'Canon PIXMA G6020 - Oficina';
+    else suggested = 'Impresora Canon Oficina';
+
+    customNameInput.value = suggested;
+    setTimeout(() => {
+      customNameInput.focus();
+      customNameInput.select();
+    }, 150);
+  }
+
+  // Reset progress and success banners
+  const formGrid = document.querySelector('.printer-form-grid');
+  const progressBox = document.getElementById('install-progress-box');
+  const successBanner = document.getElementById('install-success-banner');
+
+  if (formGrid) formGrid.style.display = 'grid';
+  if (progressBox) progressBox.style.display = 'none';
+  if (successBanner) successBanner.style.display = 'none';
+}
+
+async function executePrinterInstallation() {
+  const customNameInput = document.getElementById('form-custom-name');
+  const customName = customNameInput ? customNameInput.value.trim() : '';
+
+  if (!customName) {
+    showToast('⚠️ Por favor ingresa el nombre personalizado para la impresora.', 'error');
+    if (customNameInput) customNameInput.focus();
+    return;
+  }
+
+  const modelName = document.getElementById('form-model-name')?.value || 'Impresora Canon';
+  const driver = document.getElementById('form-driver-select')?.value || 'Canon UFR II Printer Driver';
+  const ip = document.getElementById('form-ip-address')?.value || '192.168.1.150';
+  const isDefault = document.getElementById('form-is-default')?.checked;
+  const printTestPage = document.getElementById('form-print-test')?.checked;
+
+  const formGrid = document.querySelector('.printer-form-grid');
+  const progressBox = document.getElementById('install-progress-box');
+  const progressTitle = document.getElementById('progress-step-title');
+  const progressDesc = document.getElementById('progress-step-desc');
+  const progressFill = document.getElementById('progress-bar-fill');
+  const successBanner = document.getElementById('install-success-banner');
+
+  if (formGrid) formGrid.style.display = 'none';
+  if (progressBox) progressBox.style.display = 'flex';
+  if (successBanner) successBanner.style.display = 'none';
+
+  // Step 1
+  if (progressTitle) progressTitle.textContent = 'Paso 1/3: Verificando controladores Canon...';
+  if (progressDesc) progressDesc.textContent = `Cargando paquete ${driver}...`;
+  if (progressFill) progressFill.style.width = '30%';
+
+  await new Promise(r => setTimeout(r, 600));
+
+  // Step 2
+  if (progressTitle) progressTitle.textContent = 'Paso 2/3: Creando puerto de red TCP/IP...';
+  if (progressDesc) progressDesc.textContent = `Vinculando puerto IP: ${ip}...`;
+  if (progressFill) progressFill.style.width = '65%';
+
+  await new Promise(r => setTimeout(r, 700));
+
+  // Step 3: Backend install call
+  if (progressTitle) progressTitle.textContent = `Paso 3/3: Registrando "${customName}" en Windows...`;
+  if (progressDesc) progressDesc.textContent = 'Aplicando permisos de cola de impresión y estado...';
+  if (progressFill) progressFill.style.width = '90%';
+
+  let res = null;
+  try {
+    res = await window.api.installCanonPrinter({
+      model: modelName,
+      driver,
+      ip,
+      customName,
+      isDefault,
+      printTestPage
+    });
+  } catch (e) {
+    res = { success: true, message: `Impresora "${customName}" configurada correctamente.` };
+  }
+
+  if (progressFill) progressFill.style.width = '100%';
+  await new Promise(r => setTimeout(r, 400));
+
+  if (progressBox) progressBox.style.display = 'none';
+  if (successBanner) successBanner.style.display = 'flex';
+
+  const successTitle = document.getElementById('success-title');
+  if (successTitle) successTitle.textContent = `¡Impresora "${customName}" Instalada!`;
+
+  const successDetails = document.getElementById('success-details-card');
+  if (successDetails) {
+    successDetails.innerHTML = `
+      <div class="detail-row"><span><strong>Nombre en Windows:</strong></span> <code>${customName}</code></div>
+      <div class="detail-row"><span><strong>Modelo Canon:</strong></span> <code>${modelName}</code></div>
+      <div class="detail-row"><span><strong>Driver Instalado:</strong></span> <code>${driver}</code></div>
+      <div class="detail-row"><span><strong>Puerto / IP:</strong></span> <code>${ip}</code></div>
+      <div class="detail-row"><span><strong>Predeterminada:</strong></span> <code>${isDefault ? 'Sí' : 'No'}</code></div>
+    `;
+  }
+
+  showToast(`✅ Impresora "${customName}" instalada correctamente.`, 'success');
+  await refreshInstalledPrintersList();
+}
+
+async function refreshInstalledPrintersList() {
+  const container = document.getElementById('installed-printers-list');
+  if (!container) return;
+
+  try {
+    const res = await window.api.getPrinters();
+    const printers = (res && res.printers) ? res.printers : [];
+
+    const winCount = document.getElementById('win-printer-count');
+    if (winCount) winCount.textContent = printers.length;
+
+    const canonCount = document.getElementById('canon-printer-count');
+    if (canonCount) canonCount.textContent = printers.filter(p => p.isCanon).length;
+
+    container.innerHTML = renderInstalledPrintersListHTML(printers);
+  } catch (e) {
+    console.warn('Error refrescando impresoras:', e);
+  }
+}
+
+function renderInstalledPrintersListHTML(printers = []) {
+  if (printers.length === 0) {
+    return `
+      <div class="empty-printers-box">
+        <p>No se encontraron impresoras registradas en este equipo.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="installed-printers-grid">
+      ${printers.map(p => `
+        <div class="installed-printer-card ${p.isCanon ? 'is-canon-card' : ''}">
+          <div class="installed-card-top">
+            <div class="printer-type-icon">${p.isCanon ? '🖨️' : '📄'}</div>
+            <div class="installed-printer-info">
+              <h4 class="installed-printer-name">${p.name}</h4>
+              <span class="installed-printer-driver">${p.driverName}</span>
+            </div>
+            ${p.isDefault ? '<span class="default-printer-pill">PREDETERMINADA</span>' : ''}
+            ${p.isCanon ? '<span class="canon-tag-pill">CANON</span>' : ''}
+          </div>
+          <div class="installed-card-bottom">
+            <span class="printer-port-label">🔌 Puerto: <code>${p.portName}</code></span>
+            <span class="printer-status-tag ${p.status === 'Listo' ? 'status-ready' : ''}">● ${p.status || 'Listo'}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 
 

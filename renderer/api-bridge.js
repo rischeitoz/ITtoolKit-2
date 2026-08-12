@@ -122,6 +122,9 @@
 
     getPeripheralsInfo: () => getJson('/api/peripherals'),
 
+    getPrinters: () => getJson('/api/printers'),
+    installCanonPrinter: (data) => postJson('/api/printers/install', data),
+
     getSystemUpdates: () => getJson('/api/system-updates'),
     runSystemUpdatesAction: (data) => postJson('/api/system-updates-action', data),
 

@@ -1918,25 +1918,137 @@ app.get('/api/system-updates', async (req, res) => {
           }
         }
 
-        // Detect HP Support Assistant via native file paths, registry, or service status
+        // Detection of HP Support Assistant via PowerShell + paths + registry + AppX + Services + Uninstall keys
         let isInstalled = false;
-        const hpPaths = [
-          'C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe',
-          'C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe',
-          'C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe',
-          'C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe'
-        ];
-        for (const p of hpPaths) {
-          if (fs.existsSync(p)) {
-            isInstalled = true;
-            break;
+        let hpVersion = 'Detectado en el sistema';
+
+        const psDetectHpScript = `
+          $installed = $false
+          $ver = "Detectado"
+
+          # 1. Check Win32 file paths
+          $paths = @(
+            "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe",
+            "C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe",
+            "C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe",
+            "C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe",
+            "C:\\Program Files\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
+            "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
+            "C:\\Program Files\\HP\\HP Support Assistant\\HP.SupportAssistant.exe",
+            "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HP.SupportAssistant.exe",
+            "C:\\Program Files\\Hewlett-Packard\\HP Support Assistant\\HPSupportAssistant.exe",
+            "C:\\Program Files (x86)\\Hewlett-Packard\\HP Support Assistant\\HPSupportAssistant.exe"
+          )
+          foreach ($p in $paths) {
+            if (Test-Path $p) {
+              $installed = $true
+              break
+            }
+          }
+
+          # 2. Check Start Menu Shortcuts
+          if (-not $installed) {
+            $shortcuts = @(
+              "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HP\\HP Support Assistant.lnk",
+              "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HP Support Assistant.lnk",
+              "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Hewlett-Packard\\HP Support Assistant.lnk",
+              "C:\\Users\\Public\\Desktop\\HP Support Assistant.lnk"
+            )
+            foreach ($s in $shortcuts) {
+              if (Test-Path $s) {
+                $installed = $true
+                break
+              }
+            }
+          }
+
+          # 3. Check AppX / Windows Store packages (modern UWP app)
+          if (-not $installed) {
+            try {
+              $appx = Get-AppxPackage -Name "*HPSupportAssistant*" -ErrorAction SilentlyContinue
+              if (-not $appx) { $appx = Get-AppxPackage -Name "*HP.SupportAssistant*" -ErrorAction SilentlyContinue }
+              if (-not $appx) { $appx = Get-AppxPackage -Name "*HPSupport*" -ErrorAction SilentlyContinue }
+              if ($appx) {
+                $installed = $true
+                if ($appx.Version) { $ver = $appx.Version }
+              }
+            } catch {}
+          }
+
+          # 4. Check Registry Uninstall entries
+          if (-not $installed) {
+            try {
+              $uninst = Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*HP Support Assistant*" -or $_.DisplayName -like "*HP Support Framework*" -or $_.DisplayName -like "*HP Support*" }
+              if ($uninst) {
+                $installed = $true
+                if ($uninst.DisplayVersion) { $ver = $uninst.DisplayVersion[0] }
+              }
+            } catch {}
+          }
+
+          # 5. Check Registry Software Keys
+          if (-not $installed) {
+            if ((Test-Path "HKLM:\\SOFTWARE\\HP\\HP Support Framework") -or (Test-Path "HKLM:\\SOFTWARE\\WOW6432Node\\HP\\HP Support Framework") -or (Test-Path "HKLM:\\SOFTWARE\\HP\\HP Support Assistant") -or (Test-Path "HKLM:\\SOFTWARE\\WOW6432Node\\HP\\HP Support Assistant")) {
+              $installed = $true
+            }
+          }
+
+          # 6. Check HP Services
+          if (-not $installed) {
+            try {
+              $svcs = Get-Service -Name "HPAppHelperService", "HPFrameworkService", "HPSupportSolutionsFrameworkService", "HPUWMService", "HpTouchpointAnalyticsService" -ErrorAction SilentlyContinue
+              if ($svcs) { $installed = $true }
+            } catch {}
+          }
+
+          # 7. Check Running Processes
+          if (-not $installed) {
+            try {
+              $procs = Get-Process | Where-Object { $_.ProcessName -like "*HPSupport*" -or $_.ProcessName -like "*HP.Support*" }
+              if ($procs) { $installed = $true }
+            } catch {}
+          }
+
+          Write-Output "RESULT:$installed|$ver"
+        `;
+
+        try {
+          const psRes = await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psDetectHpScript], 4000);
+          if (psRes.ok && psRes.stdout && psRes.stdout.includes('RESULT:')) {
+            const match = psRes.stdout.match(/RESULT:([^|]+)\|(.*)/);
+            if (match) {
+              isInstalled = match[1].trim().toLowerCase() === 'true';
+              if (match[2] && match[2].trim()) hpVersion = match[2].trim();
+            }
+          }
+        } catch (e) {}
+
+        // Fallback if PowerShell failed
+        if (!isInstalled) {
+          const hpPaths = [
+            'C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe',
+            'C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe',
+            'C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe',
+            'C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe',
+            'C:\\Program Files\\HP\\HP Support Assistant\\HPSupportAssistant.exe',
+            'C:\\Program Files (x86)\\HP\\HP Support Assistant\\HPSupportAssistant.exe',
+            'C:\\Program Files\\HP\\HP Support Assistant\\HP.SupportAssistant.exe',
+            'C:\\Program Files (x86)\\HP\\HP Support Assistant\\HP.SupportAssistant.exe'
+          ];
+          for (const p of hpPaths) {
+            if (fs.existsSync(p)) {
+              isInstalled = true;
+              break;
+            }
           }
         }
 
         if (!isInstalled) {
           const reg1 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\HP\\HP Support Framework'], 2000);
           const reg2 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\WOW6432Node\\HP\\HP Support Framework'], 2000);
-          if (reg1.ok || reg2.ok) {
+          const reg3 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\HP\\HP Support Assistant'], 2000);
+          const reg4 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\WOW6432Node\\HP\\HP Support Assistant'], 2000);
+          if (reg1.ok || reg2.ok || reg3.ok || reg4.ok) {
             isInstalled = true;
           }
         }
@@ -1951,12 +2063,12 @@ app.get('/api/system-updates', async (req, res) => {
 
         hpSupport.isInstalled = isInstalled;
         hpSupport.status = isInstalled ? 'Instalado y Operativo' : 'No Instalado';
-        hpSupport.version = isInstalled ? 'Detectado en el sistema' : 'No disponible';
+        hpSupport.version = isInstalled ? hpVersion : 'No disponible';
         hpSupport.notes = isInstalled
           ? (hpSupport.isHpDevice 
               ? 'HP Support Assistant está activo en el sistema para actualizaciones de drivers y firmware de HP.' 
-              : 'HP Support Framework detectado en el equipo.')
-          : 'HP Support Assistant no está instalado en este sistema. Los controladores se gestionan mediante Windows Update.';
+              : 'HP Support Framework / Assistant detectado en el equipo.')
+          : 'HP Support Assistant no fue detectado por escaneo automático. Puedes abrirlo manualmente o descargarlo desde HP.';
       } catch (e) {
         appLog('WARN', `[SystemUpdates] Error al verificar HP Support: ${e.message}`);
       }
@@ -2113,12 +2225,47 @@ app.post('/api/system-updates-action', async (req, res) => {
     } else if (action === 'open-hp-support') {
       if (process.platform === 'win32') {
         try {
-          await runCmd('cmd.exe', ['/c', 'start hpsupportassistant:'], 3000);
+          await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `
+            $launched = $false
+            try {
+              $appx = Get-AppxPackage -Name "*HPSupportAssistant*" -ErrorAction SilentlyContinue
+              if (-not $appx) { $appx = Get-AppxPackage -Name "*HP.SupportAssistant*" -ErrorAction SilentlyContinue }
+              if ($appx) {
+                explorer.exe "shell:AppsFolder\\$($appx.PackageFamilyName)!App"
+                $launched = $true
+              }
+            } catch {}
+
+            if (-not $launched) {
+              $paths = @(
+                "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe",
+                "C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe",
+                "C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe",
+                "C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe",
+                "C:\\Program Files\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
+                "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
+                "C:\\Program Files\\HP\\HP Support Assistant\\HP.SupportAssistant.exe",
+                "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HP.SupportAssistant.exe"
+              )
+              foreach ($p in $paths) {
+                if (Test-Path $p) {
+                  Start-Process $p
+                  $launched = $true
+                  break
+                }
+              }
+            }
+
+            if (-not $launched) {
+              Start-Process "hpsupportassistant:" -ErrorAction SilentlyContinue
+              Start-Process "hp-support-assistant:" -ErrorAction SilentlyContinue
+            }
+          `], 3000);
         } catch {
-          await runCmd('cmd.exe', ['/c', 'start "" "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe"'], 3000);
+          await runCmd('cmd.exe', ['/c', 'start hpsupportassistant:'], 3000);
         }
       }
-      message = 'Se ha iniciado la aplicación HP Support Assistant en el sistema.';
+      message = 'Se ha iniciado la solicitud de apertura de HP Support Assistant.';
     } else if (action === 'run-troubleshooter') {
       if (process.platform === 'win32') {
         await runCmd('cmd.exe', ['/c', 'msdt.exe /id WindowsUpdateDiagnostic'], 3000);
@@ -2260,13 +2407,298 @@ app.post('/api/tutorials/read-pdf', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MONITORES Y PANTALLAS (API DEV / FALLBACK)
+// MONITORES Y PANTALLAS (API REAL / DEV FALLBACK)
 // ─────────────────────────────────────────────────────────────────────────────
-app.get('/api/monitors', (req, res) => {
-  res.json({
-    success: true,
-    count: 2,
-    monitors: [
+async function getMonitorsInfoServer() {
+  const results = [];
+  let wmiDetailedList = [];
+
+  if (process.platform === 'win32') {
+    try {
+      const psScript = `
+        $Output = @()
+        function Decode-Bytes($uintArray) {
+          if (-not $uintArray) { return "" }
+          [byte[]]$bytes = @()
+          foreach ($val in $uintArray) {
+            if ($val -gt 0 -and $val -le 255) { $bytes += [byte]$val }
+          }
+          if ($bytes.Length -gt 0) {
+            return [System.Text.Encoding]::ASCII.GetString($bytes).Trim()
+          }
+          return ""
+        }
+
+        $mfgDict = @{
+          'GSM' = 'LG Electronics'; 'LGD' = 'LG Display'; 'DEL' = 'Dell Inc.'; 'SAM' = 'Samsung';
+          'SEC' = 'Samsung Electronics'; 'ACI' = 'ASUS'; 'ASU' = 'ASUS'; 'AOC' = 'AOC';
+          'HWP' = 'HP'; 'HEW' = 'Hewlett-Packard'; 'HPQ' = 'HP'; 'HPN' = 'HP'; 'BEN' = 'BenQ';
+          'MSI' = 'MSI'; 'ACR' = 'Acer'; 'PHL' = 'Philips'; 'LEN' = 'Lenovo'; 'SNY' = 'Sony';
+          'NEC' = 'NEC'; 'GVT' = 'Gigabyte'; 'GIGA' = 'Gigabyte'; 'VIEW' = 'ViewSonic';
+          'VSC' = 'ViewSonic'; 'EIZ' = 'EIZO'; 'AUO' = 'AU Optronics'; 'CMN' = 'Chimei Innolux';
+          'BOE' = 'BOE Technology'
+        }
+
+        $wmiMonData = @()
+        try {
+          $wmiMon = Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorID -ErrorAction SilentlyContinue
+          foreach ($m in $wmiMon) {
+            $mfg = Decode-Bytes $m.ManufacturerName
+            $name = Decode-Bytes $m.UserFriendlyName
+            $serial = Decode-Bytes $m.SerialNumberID
+            $wmiMonData += [PSCustomObject]@{
+              InstanceName = $m.InstanceName
+              MfgCode = $mfg
+              ModelName = $name
+              Serial = $serial
+            }
+          }
+        } catch {}
+
+        $pnpMonData = @()
+        try {
+          $pnpList = Get-CimInstance Win32_PnPEntity -Filter "PNPClass = 'Monitor' or Service = 'monitor'" -ErrorAction SilentlyContinue
+          foreach ($p in $pnpList) {
+            $pnpMonData += [PSCustomObject]@{
+              Name = if ($p.Name) { $p.Name } else { $p.Caption }
+              Manufacturer = $p.Manufacturer
+              DeviceID = $p.DeviceID
+            }
+          }
+        } catch {}
+
+        Add-Type -TypeDefinition @"
+        using System;
+        using System.Runtime.InteropServices;
+        public class DisplayHelper {
+            [DllImport("user32.dll")]
+            public static extern bool EnumDisplaySettings(string lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
+            [DllImport("user32.dll")]
+            public static extern bool EnumDisplayDevices(string lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct DISPLAY_DEVICE {
+                public int cb;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceString;
+                public int StateFlags;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceID;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            public struct DEVMODE {
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                public short dmSpecVersion;
+                public short dmDriverVersion;
+                public short dmSize;
+                public short dmDriverExtra;
+                public int dmFields;
+                public int dmPositionX;
+                public int dmPositionY;
+                public int dmDisplayOrientation;
+                public int dmDisplayFixedOutput;
+                public short dmColor;
+                public short dmDuplex;
+                public short dmYResolution;
+                public short dmTTOption;
+                public short dmCollate;
+                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                public short dmLogPixels;
+                public int dmBitsPerPel;
+                public int dmPelsWidth;
+                public int dmPelsHeight;
+                public int dmDisplayFlags;
+                public int dmDisplayFrequency;
+                public int dmICMMethod;
+                public int dmICMIntent;
+                public int dmMediaType;
+                public int dmDitherType;
+                public int dmReserved1;
+                public int dmReserved2;
+                public int dmPanningWidth;
+                public int dmPanningHeight;
+            }
+        }
+"@ -ErrorAction SilentlyContinue
+
+        $devIndex = 0
+        while ($true) {
+          $d = New-Object DisplayHelper+DISPLAY_DEVICE
+          $d.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($d)
+          if (-not [DisplayHelper]::EnumDisplayDevices($null, $devIndex, [ref]$d, 1)) { break }
+
+          if (($d.StateFlags -band 1) -ne 0) {
+            $monDev = New-Object DisplayHelper+DISPLAY_DEVICE
+            $monDev.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($monDev)
+            $hasMonDev = [DisplayHelper]::EnumDisplayDevices($d.DeviceName, 0, [ref]$monDev, 0)
+
+            $dmCurrent = New-Object DisplayHelper+DEVMODE
+            $dmCurrent.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dmCurrent)
+            $hasCurrent = [DisplayHelper]::EnumDisplaySettings($d.DeviceName, -1, [ref]$dmCurrent)
+
+            $maxHz = 60
+            $hzList = @()
+            if ($hasCurrent) {
+              $maxHz = $dmCurrent.dmDisplayFrequency
+              if ($dmCurrent.dmDisplayFrequency -gt 0) { $hzList += $dmCurrent.dmDisplayFrequency }
+              $modeIdx = 0
+              while ($true) {
+                $dmMode = New-Object DisplayHelper+DEVMODE
+                $dmMode.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dmMode)
+                if (-not [DisplayHelper]::EnumDisplaySettings($d.DeviceName, $modeIdx, [ref]$dmMode)) { break }
+                if ($dmMode.dmPelsWidth -eq $dmCurrent.dmPelsWidth -and $dmMode.dmPelsHeight -eq $dmCurrent.dmPelsHeight) {
+                  if ($dmMode.dmDisplayFrequency -gt $maxHz) { $maxHz = $dmMode.dmDisplayFrequency }
+                  if ($dmMode.dmDisplayFrequency -ge 30 -and $hzList -notcontains $dmMode.dmDisplayFrequency) {
+                    $hzList += $dmMode.dmDisplayFrequency
+                  }
+                }
+                $modeIdx++
+                if ($modeIdx -gt 250) { break }
+              }
+            }
+
+            $monDeviceId = if ($hasMonDev -and $monDev.DeviceID) { $monDev.DeviceID } else { $d.DeviceID }
+            $monDeviceString = if ($hasMonDev -and $monDev.DeviceString) { $monDev.DeviceString } else { $d.DeviceString }
+
+            $matchedWmi = $null
+            foreach ($wm in $wmiMonData) {
+              if ($monDeviceId -and $wm.InstanceName -and $monDeviceId.Contains($wm.InstanceName.Substring(0, [Math]::Min(15, $wm.InstanceName.Length)))) {
+                $matchedWmi = $wm
+                break
+              }
+            }
+            if (-not $matchedWmi -and $wmiMonData.Count -gt $Output.Count) {
+              $matchedWmi = $wmiMonData[$Output.Count]
+            }
+
+            $matchedPnp = $null
+            foreach ($p in $pnpMonData) {
+              if ($monDeviceId -and $p.DeviceID -and $monDeviceId.Split('\\')[1] -eq $p.DeviceID.Split('\\')[1]) {
+                $matchedPnp = $p
+                break
+              }
+            }
+            if (-not $matchedPnp -and $pnpMonData.Count -gt $Output.Count) {
+              $matchedPnp = $pnpMonData[$Output.Count]
+            }
+
+            $pnpCode = ""
+            if ($monDeviceId) {
+              $parts = $monDeviceId.Split('\\')
+              if ($parts.Count -gt 1 -and $parts[1].Length -ge 3) {
+                $pnpCode = $parts[1].Substring(0, 3).ToUpper()
+              }
+            }
+
+            $mfg = ""
+            if ($matchedWmi -and $matchedWmi.MfgCode) {
+              $codeUpper = $matchedWmi.MfgCode.ToUpper()
+              $mfg = if ($mfgDict.ContainsKey($codeUpper)) { $mfgDict[$codeUpper] } else { $matchedWmi.MfgCode }
+            }
+            if ((-not $mfg -or $mfg -eq "Genérico PnP") -and $pnpCode -and $mfgDict.ContainsKey($pnpCode)) {
+              $mfg = $mfgDict[$pnpCode]
+            }
+            if ((-not $mfg -or $mfg -eq "Genérico PnP") -and $matchedPnp -and $matchedPnp.Manufacturer -and $matchedPnp.Manufacturer -ne "(Standard monitor types)") {
+              $mfg = $matchedPnp.Manufacturer
+            }
+            if (-not $mfg) { $mfg = "Genérico PnP" }
+
+            $model = ""
+            if ($matchedWmi -and $matchedWmi.ModelName) { $model = $matchedWmi.ModelName }
+            if ((-not $model -or $model -like "Monitor *" -or $model -eq "Genérico PnP") -and $matchedPnp -and $matchedPnp.Name -and $matchedPnp.Name -notlike "*Generic*" -and $matchedPnp.Name -notlike "*Genérico*") {
+              $model = $matchedPnp.Name
+            }
+            if ((-not $model -or $model -like "Monitor *") -and $monDeviceString -and $monDeviceString -ne "Adaptador de Pantalla" -and $monDeviceString -ne "Generic PnP Monitor" -and $monDeviceString -ne "Monitor PnP Genérico") {
+              $model = $monDeviceString
+            }
+            if (-not $model) { $model = "Monitor " + ($Output.Count + 1) }
+
+            if ($mfg -and $mfg -ne "Genérico PnP") {
+              $shortMfg = $mfg.Split(' ')[0]
+              if ($model.StartsWith($mfg)) { $model = $model.Substring($mfg.Length).Trim() }
+              else if ($model.StartsWith($shortMfg)) { $model = $model.Substring($shortMfg.Length).Trim() }
+            }
+
+            $Output += [PSCustomObject]@{
+              DeviceName = $d.DeviceName
+              DeviceString = $d.DeviceString
+              IsPrimary = (($d.StateFlags -band 4) -ne 0)
+              Width = if ($hasCurrent) { $dmCurrent.dmPelsWidth } else { 0 }
+              Height = if ($hasCurrent) { $dmCurrent.dmPelsHeight } else { 0 }
+              CurrentHz = if ($hasCurrent) { $dmCurrent.dmDisplayFrequency } else { 60 }
+              MaxHz = $maxHz
+              AvailableHz = ($hzList | Sort-Object -Unique)
+              MfgCode = $pnpCode
+              Manufacturer = $mfg
+              ModelName = $model
+              Serial = if ($matchedWmi) { $matchedWmi.Serial } else { "" }
+            }
+          }
+          $devIndex++
+          if ($devIndex -gt 16) { break }
+        }
+        $Output | ConvertTo-Json -Compress
+      `;
+
+      const psRes = await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], 7000);
+      if (psRes.ok && psRes.stdout) {
+        try {
+          const parsed = JSON.parse(psRes.stdout);
+          wmiDetailedList = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {}
+      }
+    } catch (e) {
+      appLog('WARN', `[Monitores Server] Error ejecutando PowerShell: ${e.message}`);
+    }
+  }
+
+  if (wmiDetailedList.length > 0) {
+    wmiDetailedList.forEach((item, idx) => {
+      const manufacturer = item.Manufacturer || 'Genérico PnP';
+      let model = item.ModelName || `Monitor ${idx + 1}`;
+      if (manufacturer && manufacturer !== 'Genérico PnP' && model) {
+        const shortMfg = manufacturer.split(' ')[0];
+        if (model.startsWith(manufacturer)) {
+          model = model.substring(manufacturer.length).trim();
+        } else if (model.startsWith(shortMfg)) {
+          model = model.substring(shortMfg.length).trim();
+        }
+      }
+      const resText = item.Width && item.Height ? `${item.Width} x ${item.Height} px` : '1920 x 1080 px';
+      const currentHz = item.CurrentHz || 60;
+      const maxHz = Math.max(currentHz, item.MaxHz || 60);
+
+      let availableHz = Array.isArray(item.AvailableHz) ? item.AvailableHz : [];
+      if (!availableHz.length) {
+        const std = [50, 60, 75, 90, 100, 120, 144, 165, 180, 240, 360];
+        availableHz = std.filter(h => h <= maxHz);
+        if (!availableHz.includes(currentHz)) availableHz.push(currentHz);
+        if (!availableHz.includes(maxHz)) availableHz.push(maxHz);
+        availableHz.sort((a, b) => a - b);
+      }
+
+      results.push({
+        id: idx + 1,
+        isPrimary: !!item.IsPrimary,
+        deviceName: item.DeviceName || `Display ${idx + 1}`,
+        deviceString: item.DeviceString || 'Adaptador de Pantalla',
+        manufacturer: manufacturer || 'Genérico PnP',
+        model: model || `Monitor ${idx + 1}`,
+        resolution: resText,
+        width: item.Width || 1920,
+        height: item.Height || 1080,
+        currentHz,
+        maxHz,
+        availableHz,
+        scaleFactor: 100,
+        orientation: 'Horizontal (0°)',
+        isLaptopInternal: false
+      });
+    });
+  } else {
+    // Fallback para entornos web o plataformas distintas a Windows
+    results.push(
       {
         id: 1,
         isPrimary: true,
@@ -2301,51 +2733,30 @@ app.get('/api/monitors', (req, res) => {
         orientation: 'Horizontal (0°)',
         isLaptopInternal: false
       }
-    ]
-  });
+    );
+  }
+
+  return {
+    success: true,
+    count: results.length,
+    monitors: results
+  };
+}
+
+app.get('/api/monitors', async (req, res) => {
+  const data = await getMonitorsInfoServer();
+  res.json(data);
 });
 
-app.post('/api/monitors/detect', (req, res) => {
+app.post('/api/monitors/detect', async (req, res) => {
+  if (process.platform === 'win32') {
+    try { await runCmd('pnputil', ['/scan-devices'], 3000); } catch {}
+    try { await runCmd('displayswitch.exe', ['/extend'], 2000); } catch {}
+  }
+  const data = await getMonitorsInfoServer();
   res.json({
-    success: true,
-    message: 'Re-detección completada exitosamente. Se han escaneado las salidas de vídeo y dispositivos PnP (2 pantallas encontradas).',
-    count: 2,
-    monitors: [
-      {
-        id: 1,
-        isPrimary: true,
-        deviceName: '\\\\.\\DISPLAY1',
-        deviceString: 'NVIDIA GeForce RTX 3070',
-        manufacturer: 'LG Electronics',
-        model: '27GL850 UltraGear',
-        resolution: '2560 x 1440 px',
-        width: 2560,
-        height: 1440,
-        currentHz: 144,
-        maxHz: 165,
-        availableHz: [60, 75, 100, 120, 144, 165],
-        scaleFactor: 100,
-        orientation: 'Horizontal (0°)',
-        isLaptopInternal: false
-      },
-      {
-        id: 2,
-        isPrimary: false,
-        deviceName: '\\\\.\\DISPLAY2',
-        deviceString: 'NVIDIA GeForce RTX 3070',
-        manufacturer: 'Dell Inc.',
-        model: 'UltraSharp U2412M',
-        resolution: '1920 x 1080 px',
-        width: 1920,
-        height: 1080,
-        currentHz: 60,
-        maxHz: 75,
-        availableHz: [50, 60, 75],
-        scaleFactor: 100,
-        orientation: 'Horizontal (0°)',
-        isLaptopInternal: false
-      }
-    ]
+    ...data,
+    message: `Re-detección completada exitosamente. Se han escaneado las salidas de vídeo y dispositivos PnP (${data.count} pantalla(s) encontradas).`
   });
 });
 
@@ -2380,6 +2791,28 @@ app.get('/api/peripherals', (req, res) => {
       { name: 'Cámara Web Integrated HD Camera (1080p 60fps)', mfg: 'SunplusIT / USB Video Device', deviceId: 'cam-1' },
       { name: 'Cámara Secundaria USB FHD External Webcam', mfg: 'Generic USB Video Device', deviceId: 'cam-2' }
     ]
+  });
+});
+
+// Impresoras Canon API
+app.get('/api/printers', (req, res) => {
+  res.json({
+    success: true,
+    printers: [
+      { name: 'Canon imageRUNNER ADVANCE C3830i - Recepción', driverName: 'Canon UFR II Printer Driver v30.85', portName: '192.168.1.150', isDefault: true, isCanon: true, status: 'Listo' },
+      { name: 'Canon imageCLASS MF445dw - Despacho Directivo', driverName: 'Canon Generic Plus PCL6 Driver', portName: '192.168.1.155', isDefault: false, isCanon: true, status: 'Listo' },
+      { name: 'Microsoft Print to PDF', driverName: 'Microsoft Print To PDF', portName: 'PORTPROMPT:', isDefault: false, isCanon: false, status: 'Listo' }
+    ]
+  });
+});
+
+app.post('/api/printers/install', (req, res) => {
+  const { model, driver, ip, customName, isDefault } = req.body || {};
+  const targetName = (customName && customName.trim()) ? customName.trim() : (model || 'Impresora Canon Oficina');
+  res.json({
+    success: true,
+    message: `Impresora Canon "${targetName}" instalada y registrada correctamente en el sistema.`,
+    printer: { name: targetName, model, driver, ip, isDefault: !!isDefault }
   });
 });
 

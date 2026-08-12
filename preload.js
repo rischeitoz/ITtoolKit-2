@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('api', {
 
   getPeripheralsInfo: () => ipcRenderer.invoke('get-peripherals-info'),
 
+  getPrinters: () => ipcRenderer.invoke('get-printers'),
+  installCanonPrinter: (data) => ipcRenderer.invoke('install-canon-printer', data),
+
   getSystemUpdates: () => ipcRenderer.invoke('get-system-updates'),
   runSystemUpdatesAction: (data) => ipcRenderer.invoke('run-system-updates-action', data),
 

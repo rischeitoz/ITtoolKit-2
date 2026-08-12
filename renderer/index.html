@@ -106,16 +106,17 @@
   <div class="main">
     <!-- Menú lateral con pestañas -->
     <div class="sidebar">
-      <!-- Botón grande destacado Tutoriales (Ruta \\cielo\INFORMATICA\TUTORIALES) -->
+      <!-- 1. Botón grande destacado Tutoriales -->
       <button class="btn-tutorials-featured" id="btn-open-tutorials" title="Tutoriales creados y documentados por HCP">
         <div class="tut-icon-box">📚</div>
         <div class="tut-content">
           <span class="tut-title">Tutoriales</span>
+          <span class="tut-subtitle">Documentación y guías HCP</span>
         </div>
         <div class="tut-badge" id="tut-count-badge">DOCS</div>
       </button>
 
-      <!-- Botón grande destacado Software -->
+      <!-- 2. Botón grande destacado Software -->
       <button class="btn-tutorials-featured btn-software-featured" id="btn-open-software" title="Catálogo de Software y Programas Descargables">
         <div class="tut-icon-box soft-icon-box">💻</div>
         <div class="tut-content">
@@ -125,162 +126,55 @@
         <div class="tut-badge soft-badge" id="soft-count-badge">SOFT</div>
       </button>
 
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="diagnostico" title="Diagnóstico e Información de Hardware">💻 PC</button>
-        <button class="tab-btn" data-tab="mantenimiento" title="Mantenimiento, Drivers y Limpieza">⚙️ Mantenimiento</button>
-        <button class="tab-btn" data-tab="red" title="Pruebas y Configuración de Red">📡 Red</button>
-        <button class="tab-btn" data-tab="reparacion" title="Herramientas de Reparación de Windows">🛡️ Reparación</button>
-      </div>
-
-      <!-- Pestaña: Diagnóstico & PC -->
-      <div class="tab-content active" id="tab-diagnostico">
-        <button class="card" id="btn-info-equipo">
-          <span class="card-icon">🏷️</span>
-          <span class="card-text">
-            <span class="card-title">Información del Equipo</span>
-            <span class="card-sub">Nombre del equipo, Dominio / Grupo y Contraseña</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-diagnostico">
-          <span class="card-icon">🩺</span>
-          <span class="card-text">
-            <span class="card-title">Diagnóstico del PC</span>
-            <span class="card-sub">RAM, CPU, GPU y disco duro</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-monitores">
-          <span class="card-icon">🖥️</span>
-          <span class="card-text">
-            <span class="card-title">Monitores y Pantallas</span>
-            <span class="card-sub">Resolución, Hz (actual y máx), Fabricante, Modelo y Detección</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-perifericos">
-          <span class="card-icon">⌨️</span>
-          <span class="card-text">
-            <span class="card-title">Periféricos</span>
-            <span class="card-sub">Auriculares, Micrófono, Teclado, Ratón y Webcam</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-healthcheck">
-          <span class="card-icon">⭐</span>
-          <span class="card-text">
-            <span class="card-title">Evaluar Estado del Equipo</span>
-            <span class="card-sub">Puntuación global 1-10 y recomendaciones</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-highperf">
-          <span class="card-icon">⚡</span>
-          <span class="card-text">
-            <span class="card-title">Activar Alto Rendimiento</span>
-            <span class="card-sub">Configura el plan de energía de Windows</span>
-          </span>
-        </button>
-      </div>
-
-      <!-- Pestaña: Mantenimiento -->
-      <div class="tab-content" id="tab-mantenimiento">
-        <button class="card" id="btn-gpudrivers">
-          <span class="card-icon">🎮</span>
-          <span class="card-text">
-            <span class="card-title">Actualizar Drivers de la GPU</span>
-            <span class="card-sub">Detecta la tarjeta gráfica y su controlador</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-sysupdates">
-          <span class="card-icon">🔄</span>
-          <span class="card-text">
-            <span class="card-title">Actualizaciones del Sistema</span>
-            <span class="card-sub">Windows Update, HP Support y diagnóstico</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-eventlog">
-          <span class="card-icon">📋</span>
-          <span class="card-text">
-            <span class="card-title">Analizar Visor de Eventos</span>
-            <span class="card-sub">Apagados inesperados y errores críticos</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-cleantemp">
-          <span class="card-icon">🧹</span>
-          <span class="card-text">
-            <span class="card-title">Limpiar Archivos Temporales</span>
-            <span class="card-sub">Escaneo y eliminación de temporales y caché</span>
-          </span>
-        </button>
-      </div>
-
-      <!-- Pestaña: Red -->
-      <div class="tab-content" id="tab-red">
-        <button class="card" id="btn-speedtest">
-          <span class="card-icon">🌐</span>
-          <span class="card-text">
-            <span class="card-title">Test de Velocidad</span>
-            <span class="card-sub">Descarga, subida, ping y latencia</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-ping">
-          <span class="card-icon">📡</span>
-          <span class="card-text">
-            <span class="card-title">Realizar Ping</span>
-            <span class="card-sub">Informe y resumen de estadísticas de conectividad</span>
-          </span>
-        </button>
-
-        <button class="card" id="btn-netoptions">
-          <span class="card-icon">⚙️</span>
-          <span class="card-text">
-            <span class="card-title">Opciones de Red</span>
-            <span class="card-sub">IP, DHCP/Manual, Liberar, Renovar IP y DNS</span>
-          </span>
-        </button>
-      </div>
-
-      <!-- Pestaña: Reparación -->
-      <div class="tab-content" id="tab-reparacion">
-        <div class="repair-info">
-          <span>⚠️</span> Estas utilidades requieren permisos de administrador. Se abrirá una ventana CMD visible.
+      <!-- 2b. Botón grande destacado Impresoras Canon (debajo de Software) -->
+      <button class="btn-tutorials-featured btn-printers-featured" id="btn-open-printers" title="Gestor e Instalador de Impresoras Canon">
+        <div class="tut-icon-box printer-icon-box">🖨️</div>
+        <div class="tut-content">
+          <span class="tut-title">Impresoras Canon</span>
+          <span class="tut-subtitle">Búsqueda y controladores</span>
         </div>
+        <div class="tut-badge printer-badge-tag" id="printer-count-badge">CANON</div>
+      </button>
 
-        <button class="card card-repair" id="btn-sfc">
-          <span class="card-icon">🧩</span>
-          <span class="card-text">
-            <span class="card-title">Ejecutar SFC /SCANNOW</span>
-            <span class="card-sub">Comprobador de archivos del sistema</span>
-          </span>
-        </button>
-
-        <button class="card card-repair" id="btn-dism">
-          <span class="card-icon">🛡️</span>
-          <span class="card-text">
-            <span class="card-title">Reparar Windows (DISM)</span>
-            <span class="card-sub">DISM /Online /Cleanup-Image /RestoreHealth</span>
-          </span>
-        </button>
-
-        <button class="card card-repair" id="btn-mdsched">
-          <span class="card-icon">🧠</span>
-          <span class="card-text">
-            <span class="card-title">Diagnóstico de Memoria</span>
-            <span class="card-sub">Comprobar problemas de RAM (mdsched.exe)</span>
-          </span>
-        </button>
-
-        <div class="repair-note">
-          <b>SFC /SCANNOW</b> — Comprueba la integridad de los archivos protegidos del sistema y repara los dañados.<br><br>
-          <b>DISM</b> — Repara la imagen de Windows descargando archivos oficiales desde Windows Update.<br><br>
-          <b>Diagnóstico de Memoria</b> — Inicia mdsched.exe para comprobar si la memoria RAM presenta errores físicos.
+      <!-- 3. Botón grande destacado PC & Diagnóstico -->
+      <button class="btn-tutorials-featured btn-pc-featured" id="btn-open-pc" title="Diagnóstico de Hardware, RAM, CPU, Monitores y Periféricos">
+        <div class="tut-icon-box pc-icon-box">🖥️</div>
+        <div class="tut-content">
+          <span class="tut-title">PC & Diagnóstico</span>
+          <span class="tut-subtitle">Hardware, RAM, GPU y pantallas</span>
         </div>
-      </div>
+        <div class="tut-badge pc-badge" id="pc-count-badge">PC</div>
+      </button>
+
+      <!-- 4. Botón grande destacado Mantenimiento -->
+      <button class="btn-tutorials-featured btn-maint-featured" id="btn-open-maint" title="Mantenimiento del Sistema, Drivers, Updates y Limpieza">
+        <div class="tut-icon-box maint-icon-box">⚙️</div>
+        <div class="tut-content">
+          <span class="tut-title">Mantenimiento</span>
+          <span class="tut-subtitle">Drivers, updates y limpieza</span>
+        </div>
+        <div class="tut-badge maint-badge" id="maint-count-badge">MAINT</div>
+      </button>
+
+      <!-- 5. Botón grande destacado Red & Conectividad -->
+      <button class="btn-tutorials-featured btn-net-featured" id="btn-open-net" title="Herramientas de Red, Speedtest, Ping y Configuración IP/DNS">
+        <div class="tut-icon-box net-icon-box">🌐</div>
+        <div class="tut-content">
+          <span class="tut-title">Red & Conectividad</span>
+          <span class="tut-subtitle">Speedtest, ping y DNS/IP</span>
+        </div>
+        <div class="tut-badge net-badge" id="net-count-badge">RED</div>
+      </button>
+
+      <!-- 6. Botón grande destacado Reparación -->
+      <button class="btn-tutorials-featured btn-repair-featured" id="btn-open-repair" title="Herramientas de Reparación de Windows, SFC, DISM y Memoria">
+        <div class="tut-icon-box repair-icon-box">🛡️</div>
+        <div class="tut-content">
+          <span class="tut-title">Reparación</span>
+          <span class="tut-subtitle">SFC, DISM y Memoria RAM</span>
+        </div>
+        <div class="tut-badge repair-badge" id="repair-count-badge">FIX</div>
+      </button>
     </div>
 
     <!-- Panel de resultados -->
@@ -326,7 +220,7 @@
           </div>
         </div>
         <div class="welcome-feature-card">
-          <span class="wf-icon">📡</span>
+          <span class="wf-icon">🌐</span>
           <div class="wf-text">
             <strong>Test & Control de Red</strong>
             <span>Speedtest, prueba de latencia, liberación de IP y limpieza DNS</span>

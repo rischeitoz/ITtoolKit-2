@@ -736,6 +736,522 @@ body.dark-theme .btn-software-featured.active {
   border-color: #34D399;
 }
 
+/* Accent específico para el botón destacado de Impresoras Canon */
+.btn-printers-featured {
+  margin-bottom: 12px;
+  border-color: #BFDBFE;
+  background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
+  color: #1E3A8A;
+}
+
+.btn-printers-featured:hover {
+  border-color: #2563EB;
+  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.22);
+}
+
+.btn-printers-featured.active {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  border-color: #60A5FA;
+  box-shadow: 0 6px 22px rgba(37, 99, 235, 0.4);
+}
+
+.printer-icon-box {
+  background: rgba(37, 99, 235, 0.15);
+  color: #2563EB;
+}
+
+.btn-printers-featured.active .printer-icon-box {
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+}
+
+.printer-badge-tag {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+body.dark-theme .btn-printers-featured {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.45) 0%, rgba(37, 99, 235, 0.25) 100%);
+  color: #F1F5F9;
+}
+
+body.dark-theme .btn-printers-featured:hover {
+  border-color: rgba(96, 165, 250, 0.6);
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.65) 0%, rgba(37, 99, 235, 0.4) 100%);
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.35);
+}
+
+body.dark-theme .btn-printers-featured.active {
+  background: linear-gradient(135deg, #2563EB 0%, #1E3A8A 100%);
+  color: #FFFFFF;
+  border-color: #60A5FA;
+}
+
+/* Accent específico para PC & Diagnóstico */
+.btn-pc-featured {
+  margin-bottom: 12px;
+  border-color: #C7D2FE;
+  background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+  color: #312E81;
+}
+
+.btn-pc-featured:hover {
+  border-color: #6366F1;
+  background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.22);
+}
+
+.btn-pc-featured.active {
+  background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
+  color: #FFFFFF;
+  border-color: #818CF8;
+  box-shadow: 0 6px 22px rgba(79, 70, 229, 0.4);
+}
+
+.pc-icon-box {
+  background: rgba(79, 70, 229, 0.15);
+  color: #4F46E5;
+}
+
+.btn-pc-featured.active .pc-icon-box {
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+}
+
+.pc-badge {
+  background: #4F46E5;
+  color: #FFFFFF;
+}
+
+body.dark-theme .btn-pc-featured {
+  border-color: rgba(129, 140, 248, 0.35);
+  background: linear-gradient(135deg, rgba(49, 46, 129, 0.45) 0%, rgba(79, 70, 229, 0.25) 100%);
+  color: #F1F5F9;
+}
+
+body.dark-theme .btn-pc-featured:hover {
+  border-color: rgba(129, 140, 248, 0.6);
+  background: linear-gradient(135deg, rgba(49, 46, 129, 0.65) 0%, rgba(79, 70, 229, 0.4) 100%);
+  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.35);
+}
+
+body.dark-theme .btn-pc-featured.active {
+  background: linear-gradient(135deg, #4F46E5 0%, #312E81 100%);
+  color: #FFFFFF;
+  border-color: #818CF8;
+}
+
+/* Accent específico para Mantenimiento */
+.btn-maint-featured {
+  margin-bottom: 12px;
+  border-color: #FDE68A;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  color: #78350F;
+}
+
+.btn-maint-featured:hover {
+  border-color: #F59E0B;
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  box-shadow: 0 6px 20px rgba(217, 119, 6, 0.22);
+}
+
+.btn-maint-featured.active {
+  background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
+  color: #FFFFFF;
+  border-color: #FBBF24;
+  box-shadow: 0 6px 22px rgba(217, 119, 6, 0.4);
+}
+
+.maint-icon-box {
+  background: rgba(217, 119, 6, 0.15);
+  color: #D97706;
+}
+
+.btn-maint-featured.active .maint-icon-box {
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+}
+
+.maint-badge {
+  background: #D97706;
+  color: #FFFFFF;
+}
+
+body.dark-theme .btn-maint-featured {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.45) 0%, rgba(217, 119, 6, 0.25) 100%);
+  color: #F1F5F9;
+}
+
+body.dark-theme .btn-maint-featured:hover {
+  border-color: rgba(251, 191, 36, 0.6);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.65) 0%, rgba(217, 119, 6, 0.4) 100%);
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.35);
+}
+
+body.dark-theme .btn-maint-featured.active {
+  background: linear-gradient(135deg, #D97706 0%, #78350F 100%);
+  color: #FFFFFF;
+  border-color: #FBBF24;
+}
+
+/* Accent específico para Red */
+.btn-net-featured {
+  margin-bottom: 12px;
+  border-color: #DDD6FE;
+  background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);
+  color: #4C1D95;
+}
+
+.btn-net-featured:hover {
+  border-color: #8B5CF6;
+  background: linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.22);
+}
+
+.btn-net-featured.active {
+  background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
+  color: #FFFFFF;
+  border-color: #A78BFA;
+  box-shadow: 0 6px 22px rgba(124, 58, 237, 0.4);
+}
+
+.net-icon-box {
+  background: #7C3AED;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+  font-size: 20px;
+}
+
+.btn-net-featured.active .net-icon-box {
+  background: #FFFFFF;
+  color: #7C3AED;
+}
+
+.net-badge {
+  background: #7C3AED;
+  color: #FFFFFF;
+  font-weight: 800;
+}
+
+body.dark-theme .btn-net-featured {
+  border-color: rgba(167, 139, 250, 0.35);
+  background: linear-gradient(135deg, rgba(76, 29, 149, 0.45) 0%, rgba(124, 58, 237, 0.25) 100%);
+  color: #F1F5F9;
+}
+
+body.dark-theme .btn-net-featured:hover {
+  border-color: rgba(167, 139, 250, 0.6);
+  background: linear-gradient(135deg, rgba(76, 29, 149, 0.65) 0%, rgba(124, 58, 237, 0.4) 100%);
+  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.35);
+}
+
+body.dark-theme .btn-net-featured.active {
+  background: linear-gradient(135deg, #7C3AED 0%, #4C1D95 100%);
+  color: #FFFFFF;
+  border-color: #A78BFA;
+}
+
+/* Accent específico para Reparación */
+.btn-repair-featured {
+  margin-bottom: 12px;
+  border-color: #FECDD3;
+  background: linear-gradient(135deg, #FFF1F2 0%, #FFE4E6 100%);
+  color: #881337;
+}
+
+.btn-repair-featured:hover {
+  border-color: #F43F5E;
+  background: linear-gradient(135deg, #FFE4E6 0%, #FECDD3 100%);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.22);
+}
+
+.btn-repair-featured.active {
+  background: linear-gradient(135deg, #E11D48 0%, #9F1239 100%);
+  color: #FFFFFF;
+  border-color: #FB7185;
+  box-shadow: 0 6px 22px rgba(225, 29, 72, 0.4);
+}
+
+.repair-icon-box {
+  background: rgba(225, 29, 72, 0.15);
+  color: #E11D48;
+}
+
+.btn-repair-featured.active .repair-icon-box {
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+}
+
+.repair-badge {
+  background: #E11D48;
+  color: #FFFFFF;
+}
+
+body.dark-theme .btn-repair-featured {
+  border-color: rgba(251, 113, 133, 0.35);
+  background: linear-gradient(135deg, rgba(136, 19, 55, 0.45) 0%, rgba(225, 29, 72, 0.25) 100%);
+  color: #F1F5F9;
+}
+
+body.dark-theme .btn-repair-featured:hover {
+  border-color: rgba(251, 113, 133, 0.6);
+  background: linear-gradient(135deg, rgba(136, 19, 55, 0.65) 0%, rgba(225, 29, 72, 0.4) 100%);
+  box-shadow: 0 6px 24px rgba(244, 63, 94, 0.35);
+}
+
+body.dark-theme .btn-repair-featured.active {
+  background: linear-gradient(135deg, #E11D48 0%, #881337 100%);
+  color: #FFFFFF;
+  border-color: #FB7185;
+}
+
+/* ─── UI de Vista de Categoría Desplegada en Menú Principal ─── */
+.category-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.category-header-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.category-header-card.pc-theme {
+  border-left: 6px solid #4F46E5;
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.6) 0%, var(--card) 100%);
+}
+.category-header-card.maint-theme {
+  border-left: 6px solid #D97706;
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.6) 0%, var(--card) 100%);
+}
+.category-header-card.net-theme {
+  border-left: 6px solid #7C3AED;
+  background: linear-gradient(135deg, rgba(237, 233, 254, 0.6) 0%, var(--card) 100%);
+}
+.category-header-card.repair-theme {
+  border-left: 6px solid #E11D48;
+  background: linear-gradient(135deg, rgba(254, 226, 226, 0.6) 0%, var(--card) 100%);
+}
+
+body.dark-theme .category-header-card.pc-theme {
+  background: linear-gradient(135deg, rgba(49, 46, 129, 0.3) 0%, var(--card) 100%);
+}
+body.dark-theme .category-header-card.maint-theme {
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.3) 0%, var(--card) 100%);
+}
+body.dark-theme .category-header-card.net-theme {
+  background: linear-gradient(135deg, rgba(76, 29, 149, 0.3) 0%, var(--card) 100%);
+}
+body.dark-theme .category-header-card.repair-theme {
+  background: linear-gradient(135deg, rgba(136, 19, 55, 0.3) 0%, var(--card) 100%);
+}
+
+.cat-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cat-header-icon {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.cat-header-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.cat-header-sub {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.cat-header-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.category-warn-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: rgba(225, 29, 72, 0.08);
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  border-radius: 12px;
+  color: #BE123C;
+  font-size: 13.5px;
+}
+
+body.dark-theme .category-warn-notice {
+  background: rgba(225, 29, 72, 0.15);
+  color: #FDA4AF;
+}
+
+.category-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 16px;
+}
+
+.category-tool-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.category-tool-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+  background: var(--card-hover);
+}
+
+.cat-tool-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cat-tool-icon {
+  font-size: 28px;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cat-tool-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.cat-tool-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cat-tool-title {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+.cat-tool-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.cat-tool-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--card-border);
+}
+
+.btn-execute-tool {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 13.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: gap 0.2s ease;
+}
+
+.category-tool-card:hover .btn-execute-tool {
+  gap: 12px;
+}
+
+.tool-breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.btn-breadcrumb-back, .btn-breadcrumb-home {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-breadcrumb-back:hover, .btn-breadcrumb-home:hover {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+}
+
 /* ─── UI del Catálogo de Software ─── */
 .software-container {
   display: flex;
@@ -7363,6 +7879,702 @@ body.dark-theme .btn-lock-session:hover {
   font-size: 11.5px;
   color: #64748B;
   margin-top: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ESTILOS UTILIDAD IMPRESORAS CANON
+   ───────────────────────────────────────────────────────────────────────────── */
+.printer-utility-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-primary, #0F172A);
+}
+
+.printer-hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: linear-gradient(135deg, #1E3A8A 0%, #1E293B 100%);
+  color: #FFFFFF;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(30, 58, 138, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.printer-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.printer-hero-icon-box {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.printer-hero-text h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  color: #FFFFFF;
+}
+
+.printer-hero-text p {
+  font-size: 13.5px;
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.5;
+  max-width: 650px;
+}
+
+.printer-hero-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-printer-act {
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-printer-act.primary {
+  background: #2563EB;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.btn-printer-act.primary:hover {
+  background: #1D4ED8;
+  transform: translateY(-2px);
+}
+
+.btn-printer-act.secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.btn-printer-act.secondary:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.printer-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.printer-status-pill {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+}
+
+body.dark-theme .printer-status-pill {
+  background: #1E293B;
+  color: #CBD5E1;
+  border-color: #334155;
+}
+
+.canon-badge-pill {
+  background: #FEF2F2;
+  color: #DC2626;
+  border-color: #FCA5A5;
+}
+
+body.dark-theme .canon-badge-pill {
+  background: rgba(220, 38, 38, 0.2);
+  color: #FCA5A5;
+  border-color: rgba(220, 38, 38, 0.4);
+}
+
+.info-pill {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border-color: #BFDBFE;
+}
+
+body.dark-theme .info-pill {
+  background: rgba(37, 99, 235, 0.2);
+  color: #93C5FD;
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.printer-section-title {
+  margin-top: 10px;
+}
+
+.printer-section-title h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.printer-section-title p {
+  font-size: 13px;
+  color: #64748B;
+  margin: 0;
+}
+
+.printer-models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 16px;
+}
+
+.printer-model-card {
+  background: var(--card-bg, #FFFFFF);
+  border: 1px solid var(--border-color, #E2E8F0);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.printer-model-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+  border-color: #2563EB;
+}
+
+body.dark-theme .printer-model-card {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+.printer-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.printer-model-icon {
+  font-size: 28px;
+}
+
+.printer-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #DC2626;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
+}
+
+.printer-model-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary, #0F172A);
+}
+
+body.dark-theme .printer-model-title {
+  color: #F8FAFC;
+}
+
+.printer-model-series {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563EB;
+}
+
+body.dark-theme .printer-model-series {
+  color: #60A5FA;
+}
+
+.printer-model-desc {
+  font-size: 12.5px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.4;
+  flex-grow: 1;
+}
+
+body.dark-theme .printer-model-desc {
+  color: #94A3B8;
+}
+
+.printer-driver-tag {
+  font-size: 11.5px;
+  color: #475569;
+  background: #F8FAFC;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #E2E8F0;
+}
+
+body.dark-theme .printer-driver-tag {
+  background: #0F172A;
+  color: #CBD5E1;
+  border-color: #334155;
+}
+
+.btn-select-model {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 6px;
+}
+
+.btn-select-model:hover {
+  background: #2563EB;
+  color: #FFFFFF;
+  border-color: #2563EB;
+}
+
+/* Panel de Formulario de Instalación */
+.printer-setup-panel {
+  background: #FFFFFF;
+  border: 2px solid #2563EB;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.18);
+  margin-top: 10px;
+}
+
+body.dark-theme .printer-setup-panel {
+  background: #0F172A;
+  border-color: #3B82F6;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.setup-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+body.dark-theme .setup-panel-header {
+  border-color: #334155;
+}
+
+.setup-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setup-icon {
+  font-size: 26px;
+}
+
+.setup-header-title h3 {
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0 0 2px 0;
+  color: #1E293B;
+}
+
+body.dark-theme .setup-header-title h3 {
+  color: #F8FAFC;
+}
+
+.setup-header-title p {
+  font-size: 12.5px;
+  margin: 0;
+  color: #64748B;
+}
+
+.btn-close-setup {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-close-setup:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.printer-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #1E293B;
+}
+
+body.dark-theme .form-label {
+  color: #E2E8F0;
+}
+
+.required-star {
+  color: #DC2626;
+  font-size: 14px;
+}
+
+.printer-input, .printer-select {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  font-size: 13.5px;
+  font-family: inherit;
+  background: #FFFFFF;
+  color: #0F172A;
+  box-sizing: border-box;
+}
+
+body.dark-theme .printer-input, body.dark-theme .printer-select {
+  background: #1E293B;
+  border-color: #475569;
+  color: #F8FAFC;
+}
+
+.printer-input.highlight-input {
+  border: 2px solid #2563EB;
+  background: #F0F6FF;
+  font-weight: 700;
+  font-size: 14.5px;
+  color: #1E3A8A;
+}
+
+body.dark-theme .printer-input.highlight-input {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #60A5FA;
+  color: #EFF6FF;
+}
+
+.printer-input:focus, .printer-select:focus {
+  outline: none;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.form-help-text {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: #64748B;
+}
+
+body.dark-theme .form-help-text {
+  color: #94A3B8;
+}
+
+.options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #F8FAFC;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+}
+
+body.dark-theme .options-group {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-submit-install {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  color: #FFFFFF;
+  border: none;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-submit-install:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(37, 99, 235, 0.45);
+}
+
+.install-progress-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: #EFF6FF;
+  border-radius: 12px;
+  border: 1px solid #BFDBFE;
+}
+
+body.dark-theme .install-progress-box {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+.progress-spinner {
+  font-size: 32px;
+  animation: spin 1.5s linear infinite;
+}
+
+.progress-info {
+  flex-grow: 1;
+}
+
+.progress-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  color: #1E3A8A;
+}
+
+body.dark-theme .progress-info h4 {
+  color: #93C5FD;
+}
+
+.progress-info p {
+  margin: 0 0 8px 0;
+  font-size: 12.5px;
+  color: #3B82F6;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: #DBEAFE;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: #2563EB;
+  transition: width 0.3s ease;
+}
+
+.install-success-banner {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: 12px;
+}
+
+body.dark-theme .install-success-banner {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.success-icon {
+  font-size: 32px;
+}
+
+.success-content {
+  flex-grow: 1;
+}
+
+.success-content h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: #15803D;
+}
+
+body.dark-theme .success-content h4 {
+  color: #4ADE80;
+}
+
+.success-content p {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #166534;
+}
+
+body.dark-theme .success-content p {
+  color: #86EFAC;
+}
+
+.success-details-card {
+  background: #FFFFFF;
+  border: 1px solid #DCFCE7;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+body.dark-theme .success-details-card {
+  background: #0F172A;
+  border-color: #166534;
+}
+
+.success-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-success-act {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #16A34A;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-success-act.secondary {
+  background: #E2E8F0;
+  color: #334155;
+}
+
+body.dark-theme .btn-success-act.secondary {
+  background: #334155;
+  color: #F8FAFC;
+}
+
+/* Grid de Impresoras Instaladas en el Sistema */
+.installed-printers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.installed-printer-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body.dark-theme .installed-printer-card {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+.installed-printer-card.is-canon-card {
+  border-left: 5px solid #DC2626;
+}
+
+.installed-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.printer-type-icon {
+  font-size: 22px;
+}
+
+.installed-printer-info {
+  flex-grow: 1;
+}
+
+.installed-printer-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+}
+
+.installed-printer-driver {
+  font-size: 11px;
+  color: #64748B;
+  display: block;
+}
+
+.default-printer-pill {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #16A34A;
+  color: #FFFFFF;
+}
+
+.canon-tag-pill {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+.installed-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #64748B;
+  border-top: 1px solid #F1F5F9;
+  padding-top: 8px;
+}
+
+body.dark-theme .installed-card-bottom {
+  border-color: #334155;
+}
+
+.printer-status-tag {
+  color: #64748B;
+  font-weight: 600;
+}
+
+.printer-status-tag.status-ready {
+  color: #16A34A;
 }
 
 
