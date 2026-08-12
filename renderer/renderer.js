@@ -4034,14 +4034,13 @@ const CATEGORIES_CONFIG = {
   mantenimiento: {
     key: 'mantenimiento',
     title: 'Mantenimiento del Sistema',
-    desc: 'Controladores gráficos, actualizaciones de Windows & HP, impresoras Canon, visor de eventos y limpiador de temporales.',
+    desc: 'Controladores gráficos, actualizaciones de Windows & HP, visor de eventos y limpiador de temporales.',
     icon: '⚙️',
     themeClass: 'maint-theme',
     btnId: 'btn-open-maint',
     tools: [
       { id: 'btn-gpudrivers', title: 'Actualizar Drivers de GPU', sub: 'Detecta la tarjeta gráfica y comprueba la versión del controlador', icon: '🎮', badge: 'DRIVERS', run: runGpuDrivers },
       { id: 'btn-sysupdates', title: 'Actualizaciones del Sistema', sub: 'Windows Update, HP Support Assistant y diagnóstico de parches', icon: '🔄', badge: 'UPDATES', run: runSysUpdates },
-      { id: 'btn-impresoras', title: 'Impresoras Canon', sub: 'Búsqueda en red, selección de controlador e instalación con nombre personalizado', icon: '🖨️', badge: 'CANON', run: runImpresorasUtility },
       { id: 'btn-eventlog', title: 'Analizar Visor de Eventos', sub: 'Registro de apagados inesperados, BSODs y errores críticos', icon: '📋', badge: 'LOGS', run: () => runEventAnalysis('7') },
       { id: 'btn-cleantemp', title: 'Limpiar Archivos Temporales', sub: 'Escaneo y eliminación de temporales, cachés y liberador de espacio', icon: '🧹', badge: 'LIMPIEZA', run: runCleanTemp }
     ]

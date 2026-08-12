@@ -1918,132 +1918,32 @@ app.get('/api/system-updates', async (req, res) => {
           }
         }
 
-        // Detection of HP Support Assistant via PowerShell + paths + registry + AppX + Services + Uninstall keys
+        // Detection of HP Support Assistant via native file paths, registry, and services (NO POWERSHELL)
         let isInstalled = false;
         let hpVersion = 'Detectado en el sistema';
 
-        const psDetectHpScript = `
-          $installed = $false
-          $ver = "Detectado"
-
-          # 1. Check Win32 file paths
-          $paths = @(
-            "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe",
-            "C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe",
-            "C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe",
-            "C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe",
-            "C:\\Program Files\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
-            "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
-            "C:\\Program Files\\HP\\HP Support Assistant\\HP.SupportAssistant.exe",
-            "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HP.SupportAssistant.exe",
-            "C:\\Program Files\\Hewlett-Packard\\HP Support Assistant\\HPSupportAssistant.exe",
-            "C:\\Program Files (x86)\\Hewlett-Packard\\HP Support Assistant\\HPSupportAssistant.exe"
-          )
-          foreach ($p in $paths) {
-            if (Test-Path $p) {
-              $installed = $true
-              break
-            }
-          }
-
-          # 2. Check Start Menu Shortcuts
-          if (-not $installed) {
-            $shortcuts = @(
-              "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HP\\HP Support Assistant.lnk",
-              "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HP Support Assistant.lnk",
-              "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Hewlett-Packard\\HP Support Assistant.lnk",
-              "C:\\Users\\Public\\Desktop\\HP Support Assistant.lnk"
-            )
-            foreach ($s in $shortcuts) {
-              if (Test-Path $s) {
-                $installed = $true
-                break
-              }
-            }
-          }
-
-          # 3. Check AppX / Windows Store packages (modern UWP app)
-          if (-not $installed) {
-            try {
-              $appx = Get-AppxPackage -Name "*HPSupportAssistant*" -ErrorAction SilentlyContinue
-              if (-not $appx) { $appx = Get-AppxPackage -Name "*HP.SupportAssistant*" -ErrorAction SilentlyContinue }
-              if (-not $appx) { $appx = Get-AppxPackage -Name "*HPSupport*" -ErrorAction SilentlyContinue }
-              if ($appx) {
-                $installed = $true
-                if ($appx.Version) { $ver = $appx.Version }
-              }
-            } catch {}
-          }
-
-          # 4. Check Registry Uninstall entries
-          if (-not $installed) {
-            try {
-              $uninst = Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKLM:\\Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*, HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*HP Support Assistant*" -or $_.DisplayName -like "*HP Support Framework*" -or $_.DisplayName -like "*HP Support*" }
-              if ($uninst) {
-                $installed = $true
-                if ($uninst.DisplayVersion) { $ver = $uninst.DisplayVersion[0] }
-              }
-            } catch {}
-          }
-
-          # 5. Check Registry Software Keys
-          if (-not $installed) {
-            if ((Test-Path "HKLM:\\SOFTWARE\\HP\\HP Support Framework") -or (Test-Path "HKLM:\\SOFTWARE\\WOW6432Node\\HP\\HP Support Framework") -or (Test-Path "HKLM:\\SOFTWARE\\HP\\HP Support Assistant") -or (Test-Path "HKLM:\\SOFTWARE\\WOW6432Node\\HP\\HP Support Assistant")) {
-              $installed = $true
-            }
-          }
-
-          # 6. Check HP Services
-          if (-not $installed) {
-            try {
-              $svcs = Get-Service -Name "HPAppHelperService", "HPFrameworkService", "HPSupportSolutionsFrameworkService", "HPUWMService", "HpTouchpointAnalyticsService" -ErrorAction SilentlyContinue
-              if ($svcs) { $installed = $true }
-            } catch {}
-          }
-
-          # 7. Check Running Processes
-          if (-not $installed) {
-            try {
-              $procs = Get-Process | Where-Object { $_.ProcessName -like "*HPSupport*" -or $_.ProcessName -like "*HP.Support*" }
-              if ($procs) { $installed = $true }
-            } catch {}
-          }
-
-          Write-Output "RESULT:$installed|$ver"
-        `;
-
-        try {
-          const psRes = await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psDetectHpScript], 4000);
-          if (psRes.ok && psRes.stdout && psRes.stdout.includes('RESULT:')) {
-            const match = psRes.stdout.match(/RESULT:([^|]+)\|(.*)/);
-            if (match) {
-              isInstalled = match[1].trim().toLowerCase() === 'true';
-              if (match[2] && match[2].trim()) hpVersion = match[2].trim();
-            }
-          }
-        } catch (e) {}
-
-        // Fallback if PowerShell failed
-        if (!isInstalled) {
-          const hpPaths = [
-            'C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe',
-            'C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe',
-            'C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe',
-            'C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe',
-            'C:\\Program Files\\HP\\HP Support Assistant\\HPSupportAssistant.exe',
-            'C:\\Program Files (x86)\\HP\\HP Support Assistant\\HPSupportAssistant.exe',
-            'C:\\Program Files\\HP\\HP Support Assistant\\HP.SupportAssistant.exe',
-            'C:\\Program Files (x86)\\HP\\HP Support Assistant\\HP.SupportAssistant.exe'
-          ];
-          for (const p of hpPaths) {
-            if (fs.existsSync(p)) {
-              isInstalled = true;
-              break;
-            }
+        const hpPaths = [
+          'C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe',
+          'C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe',
+          'C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe',
+          'C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe',
+          'C:\\Program Files\\HP\\HP Support Assistant\\HPSupportAssistant.exe',
+          'C:\\Program Files (x86)\\HP\\HP Support Assistant\\HPSupportAssistant.exe',
+          'C:\\Program Files\\HP\\HP Support Assistant\\HP.SupportAssistant.exe',
+          'C:\\Program Files (x86)\\HP\\HP Support Assistant\\HP.SupportAssistant.exe',
+          'C:\\Program Files\\Hewlett-Packard\\HP Support Assistant\\HPSupportAssistant.exe',
+          'C:\\Program Files (x86)\\Hewlett-Packard\\HP Support Assistant\\HPSupportAssistant.exe',
+          'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HP\\HP Support Assistant.lnk',
+          'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\HP Support Assistant.lnk'
+        ];
+        for (const p of hpPaths) {
+          if (fs.existsSync(p)) {
+            isInstalled = true;
+            break;
           }
         }
 
-        if (!isInstalled) {
+        if (!isInstalled && process.platform === 'win32') {
           const reg1 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\HP\\HP Support Framework'], 2000);
           const reg2 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\WOW6432Node\\HP\\HP Support Framework'], 2000);
           const reg3 = await runCmd('reg', ['query', 'HKLM\\SOFTWARE\\HP\\HP Support Assistant'], 2000);
@@ -2053,7 +1953,7 @@ app.get('/api/system-updates', async (req, res) => {
           }
         }
 
-        if (!isInstalled) {
+        if (!isInstalled && process.platform === 'win32') {
           const svcHp = await runCmd('sc', ['query', 'HPAppHelperService'], 2000);
           const svcHp2 = await runCmd('sc', ['query', 'HPFrameworkService'], 2000);
           if ((svcHp.ok && !/1060/i.test(svcHp.stdout)) || (svcHp2.ok && !/1060/i.test(svcHp2.stdout))) {
@@ -2225,42 +2125,7 @@ app.post('/api/system-updates-action', async (req, res) => {
     } else if (action === 'open-hp-support') {
       if (process.platform === 'win32') {
         try {
-          await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `
-            $launched = $false
-            try {
-              $appx = Get-AppxPackage -Name "*HPSupportAssistant*" -ErrorAction SilentlyContinue
-              if (-not $appx) { $appx = Get-AppxPackage -Name "*HP.SupportAssistant*" -ErrorAction SilentlyContinue }
-              if ($appx) {
-                explorer.exe "shell:AppsFolder\\$($appx.PackageFamilyName)!App"
-                $launched = $true
-              }
-            } catch {}
-
-            if (-not $launched) {
-              $paths = @(
-                "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe",
-                "C:\\Program Files (x86)\\HP\\HP Support Framework\\HPSupportAssistant.exe",
-                "C:\\Program Files\\HP\\HP Support Application\\HPSupportAssistant.exe",
-                "C:\\Program Files (x86)\\HP\\HP Support Application\\HPSupportAssistant.exe",
-                "C:\\Program Files\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
-                "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HPSupportAssistant.exe",
-                "C:\\Program Files\\HP\\HP Support Assistant\\HP.SupportAssistant.exe",
-                "C:\\Program Files (x86)\\HP\\HP Support Assistant\\HP.SupportAssistant.exe"
-              )
-              foreach ($p in $paths) {
-                if (Test-Path $p) {
-                  Start-Process $p
-                  $launched = $true
-                  break
-                }
-              }
-            }
-
-            if (-not $launched) {
-              Start-Process "hpsupportassistant:" -ErrorAction SilentlyContinue
-              Start-Process "hp-support-assistant:" -ErrorAction SilentlyContinue
-            }
-          `], 3000);
+          await runCmd('cmd.exe', ['/c', 'start hpsupportassistant: || start hp-support-assistant: || start "" "C:\\Program Files\\HP\\HP Support Framework\\HPSupportAssistant.exe"'], 3000);
         } catch {
           await runCmd('cmd.exe', ['/c', 'start hpsupportassistant:'], 3000);
         }
@@ -2415,241 +2280,23 @@ async function getMonitorsInfoServer() {
 
   if (process.platform === 'win32') {
     try {
-      const psScript = `
-        $Output = @()
-        function Decode-Bytes($uintArray) {
-          if (-not $uintArray) { return "" }
-          [byte[]]$bytes = @()
-          foreach ($val in $uintArray) {
-            if ($val -gt 0 -and $val -le 255) { $bytes += [byte]$val }
+
+      const wmiRes = await runCmd('cmd.exe', ['/c', 'wmic path Win32_PnPEntity where "PNPClass=\'Monitor\' or Service=\'monitor\'" get Caption,Manufacturer,DeviceID /format:csv'], 4000);
+      if (wmiRes.ok && wmiRes.stdout) {
+        const lines = wmiRes.stdout.split('\n').filter(l => l.trim() && !l.includes('Node,Caption'));
+        for (const line of lines) {
+          const parts = line.split(',');
+          if (parts.length >= 3) {
+            wmiDetailedList.push({
+              ModelName: parts[1] ? parts[1].trim() : '',
+              Manufacturer: parts[2] ? parts[2].trim() : '',
+              DeviceName: parts[3] ? parts[3].trim() : ''
+            });
           }
-          if ($bytes.Length -gt 0) {
-            return [System.Text.Encoding]::ASCII.GetString($bytes).Trim()
-          }
-          return ""
         }
-
-        $mfgDict = @{
-          'GSM' = 'LG Electronics'; 'LGD' = 'LG Display'; 'DEL' = 'Dell Inc.'; 'SAM' = 'Samsung';
-          'SEC' = 'Samsung Electronics'; 'ACI' = 'ASUS'; 'ASU' = 'ASUS'; 'AOC' = 'AOC';
-          'HWP' = 'HP'; 'HEW' = 'Hewlett-Packard'; 'HPQ' = 'HP'; 'HPN' = 'HP'; 'BEN' = 'BenQ';
-          'MSI' = 'MSI'; 'ACR' = 'Acer'; 'PHL' = 'Philips'; 'LEN' = 'Lenovo'; 'SNY' = 'Sony';
-          'NEC' = 'NEC'; 'GVT' = 'Gigabyte'; 'GIGA' = 'Gigabyte'; 'VIEW' = 'ViewSonic';
-          'VSC' = 'ViewSonic'; 'EIZ' = 'EIZO'; 'AUO' = 'AU Optronics'; 'CMN' = 'Chimei Innolux';
-          'BOE' = 'BOE Technology'
-        }
-
-        $wmiMonData = @()
-        try {
-          $wmiMon = Get-CimInstance -Namespace root\\wmi -ClassName WmiMonitorID -ErrorAction SilentlyContinue
-          foreach ($m in $wmiMon) {
-            $mfg = Decode-Bytes $m.ManufacturerName
-            $name = Decode-Bytes $m.UserFriendlyName
-            $serial = Decode-Bytes $m.SerialNumberID
-            $wmiMonData += [PSCustomObject]@{
-              InstanceName = $m.InstanceName
-              MfgCode = $mfg
-              ModelName = $name
-              Serial = $serial
-            }
-          }
-        } catch {}
-
-        $pnpMonData = @()
-        try {
-          $pnpList = Get-CimInstance Win32_PnPEntity -Filter "PNPClass = 'Monitor' or Service = 'monitor'" -ErrorAction SilentlyContinue
-          foreach ($p in $pnpList) {
-            $pnpMonData += [PSCustomObject]@{
-              Name = if ($p.Name) { $p.Name } else { $p.Caption }
-              Manufacturer = $p.Manufacturer
-              DeviceID = $p.DeviceID
-            }
-          }
-        } catch {}
-
-        Add-Type -TypeDefinition @"
-        using System;
-        using System.Runtime.InteropServices;
-        public class DisplayHelper {
-            [DllImport("user32.dll")]
-            public static extern bool EnumDisplaySettings(string lpszDeviceName, int iModeNum, ref DEVMODE lpDevMode);
-            [DllImport("user32.dll")]
-            public static extern bool EnumDisplayDevices(string lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
-
-            [StructLayout(LayoutKind.Sequential)]
-            public struct DISPLAY_DEVICE {
-                public int cb;
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string DeviceName;
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceString;
-                public int StateFlags;
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceID;
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string DeviceKey;
-            }
-
-            [StructLayout(LayoutKind.Sequential)]
-            public struct DEVMODE {
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
-                public short dmSpecVersion;
-                public short dmDriverVersion;
-                public short dmSize;
-                public short dmDriverExtra;
-                public int dmFields;
-                public int dmPositionX;
-                public int dmPositionY;
-                public int dmDisplayOrientation;
-                public int dmDisplayFixedOutput;
-                public short dmColor;
-                public short dmDuplex;
-                public short dmYResolution;
-                public short dmTTOption;
-                public short dmCollate;
-                [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
-                public short dmLogPixels;
-                public int dmBitsPerPel;
-                public int dmPelsWidth;
-                public int dmPelsHeight;
-                public int dmDisplayFlags;
-                public int dmDisplayFrequency;
-                public int dmICMMethod;
-                public int dmICMIntent;
-                public int dmMediaType;
-                public int dmDitherType;
-                public int dmReserved1;
-                public int dmReserved2;
-                public int dmPanningWidth;
-                public int dmPanningHeight;
-            }
-        }
-"@ -ErrorAction SilentlyContinue
-
-        $devIndex = 0
-        while ($true) {
-          $d = New-Object DisplayHelper+DISPLAY_DEVICE
-          $d.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($d)
-          if (-not [DisplayHelper]::EnumDisplayDevices($null, $devIndex, [ref]$d, 1)) { break }
-
-          if (($d.StateFlags -band 1) -ne 0) {
-            $monDev = New-Object DisplayHelper+DISPLAY_DEVICE
-            $monDev.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($monDev)
-            $hasMonDev = [DisplayHelper]::EnumDisplayDevices($d.DeviceName, 0, [ref]$monDev, 0)
-
-            $dmCurrent = New-Object DisplayHelper+DEVMODE
-            $dmCurrent.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dmCurrent)
-            $hasCurrent = [DisplayHelper]::EnumDisplaySettings($d.DeviceName, -1, [ref]$dmCurrent)
-
-            $maxHz = 60
-            $hzList = @()
-            if ($hasCurrent) {
-              $maxHz = $dmCurrent.dmDisplayFrequency
-              if ($dmCurrent.dmDisplayFrequency -gt 0) { $hzList += $dmCurrent.dmDisplayFrequency }
-              $modeIdx = 0
-              while ($true) {
-                $dmMode = New-Object DisplayHelper+DEVMODE
-                $dmMode.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dmMode)
-                if (-not [DisplayHelper]::EnumDisplaySettings($d.DeviceName, $modeIdx, [ref]$dmMode)) { break }
-                if ($dmMode.dmPelsWidth -eq $dmCurrent.dmPelsWidth -and $dmMode.dmPelsHeight -eq $dmCurrent.dmPelsHeight) {
-                  if ($dmMode.dmDisplayFrequency -gt $maxHz) { $maxHz = $dmMode.dmDisplayFrequency }
-                  if ($dmMode.dmDisplayFrequency -ge 30 -and $hzList -notcontains $dmMode.dmDisplayFrequency) {
-                    $hzList += $dmMode.dmDisplayFrequency
-                  }
-                }
-                $modeIdx++
-                if ($modeIdx -gt 250) { break }
-              }
-            }
-
-            $monDeviceId = if ($hasMonDev -and $monDev.DeviceID) { $monDev.DeviceID } else { $d.DeviceID }
-            $monDeviceString = if ($hasMonDev -and $monDev.DeviceString) { $monDev.DeviceString } else { $d.DeviceString }
-
-            $matchedWmi = $null
-            foreach ($wm in $wmiMonData) {
-              if ($monDeviceId -and $wm.InstanceName -and $monDeviceId.Contains($wm.InstanceName.Substring(0, [Math]::Min(15, $wm.InstanceName.Length)))) {
-                $matchedWmi = $wm
-                break
-              }
-            }
-            if (-not $matchedWmi -and $wmiMonData.Count -gt $Output.Count) {
-              $matchedWmi = $wmiMonData[$Output.Count]
-            }
-
-            $matchedPnp = $null
-            foreach ($p in $pnpMonData) {
-              if ($monDeviceId -and $p.DeviceID -and $monDeviceId.Split('\\')[1] -eq $p.DeviceID.Split('\\')[1]) {
-                $matchedPnp = $p
-                break
-              }
-            }
-            if (-not $matchedPnp -and $pnpMonData.Count -gt $Output.Count) {
-              $matchedPnp = $pnpMonData[$Output.Count]
-            }
-
-            $pnpCode = ""
-            if ($monDeviceId) {
-              $parts = $monDeviceId.Split('\\')
-              if ($parts.Count -gt 1 -and $parts[1].Length -ge 3) {
-                $pnpCode = $parts[1].Substring(0, 3).ToUpper()
-              }
-            }
-
-            $mfg = ""
-            if ($matchedWmi -and $matchedWmi.MfgCode) {
-              $codeUpper = $matchedWmi.MfgCode.ToUpper()
-              $mfg = if ($mfgDict.ContainsKey($codeUpper)) { $mfgDict[$codeUpper] } else { $matchedWmi.MfgCode }
-            }
-            if ((-not $mfg -or $mfg -eq "Genérico PnP") -and $pnpCode -and $mfgDict.ContainsKey($pnpCode)) {
-              $mfg = $mfgDict[$pnpCode]
-            }
-            if ((-not $mfg -or $mfg -eq "Genérico PnP") -and $matchedPnp -and $matchedPnp.Manufacturer -and $matchedPnp.Manufacturer -ne "(Standard monitor types)") {
-              $mfg = $matchedPnp.Manufacturer
-            }
-            if (-not $mfg) { $mfg = "Genérico PnP" }
-
-            $model = ""
-            if ($matchedWmi -and $matchedWmi.ModelName) { $model = $matchedWmi.ModelName }
-            if ((-not $model -or $model -like "Monitor *" -or $model -eq "Genérico PnP") -and $matchedPnp -and $matchedPnp.Name -and $matchedPnp.Name -notlike "*Generic*" -and $matchedPnp.Name -notlike "*Genérico*") {
-              $model = $matchedPnp.Name
-            }
-            if ((-not $model -or $model -like "Monitor *") -and $monDeviceString -and $monDeviceString -ne "Adaptador de Pantalla" -and $monDeviceString -ne "Generic PnP Monitor" -and $monDeviceString -ne "Monitor PnP Genérico") {
-              $model = $monDeviceString
-            }
-            if (-not $model) { $model = "Monitor " + ($Output.Count + 1) }
-
-            if ($mfg -and $mfg -ne "Genérico PnP") {
-              $shortMfg = $mfg.Split(' ')[0]
-              if ($model.StartsWith($mfg)) { $model = $model.Substring($mfg.Length).Trim() }
-              else if ($model.StartsWith($shortMfg)) { $model = $model.Substring($shortMfg.Length).Trim() }
-            }
-
-            $Output += [PSCustomObject]@{
-              DeviceName = $d.DeviceName
-              DeviceString = $d.DeviceString
-              IsPrimary = (($d.StateFlags -band 4) -ne 0)
-              Width = if ($hasCurrent) { $dmCurrent.dmPelsWidth } else { 0 }
-              Height = if ($hasCurrent) { $dmCurrent.dmPelsHeight } else { 0 }
-              CurrentHz = if ($hasCurrent) { $dmCurrent.dmDisplayFrequency } else { 60 }
-              MaxHz = $maxHz
-              AvailableHz = ($hzList | Sort-Object -Unique)
-              MfgCode = $pnpCode
-              Manufacturer = $mfg
-              ModelName = $model
-              Serial = if ($matchedWmi) { $matchedWmi.Serial } else { "" }
-            }
-          }
-          $devIndex++
-          if ($devIndex -gt 16) { break }
-        }
-        $Output | ConvertTo-Json -Compress
-      `;
-
-      const psRes = await runCmd('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], 7000);
-      if (psRes.ok && psRes.stdout) {
-        try {
-          const parsed = JSON.parse(psRes.stdout);
-          wmiDetailedList = Array.isArray(parsed) ? parsed : [parsed];
-        } catch {}
       }
     } catch (e) {
-      appLog('WARN', `[Monitores Server] Error ejecutando PowerShell: ${e.message}`);
+      appLog('WARN', `[Monitores Server] Error consultando WMIC monitores: ${e.message}`);
     }
   }
 
