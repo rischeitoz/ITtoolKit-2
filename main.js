@@ -3103,8 +3103,9 @@ ipcMain.handle('scan-canon-printers', async () => {
         }
       }
     } catch (e) {}
+  }
 
-    // Catálogo oficial de impresoras Canon por Planta y Departamento (Exclusivo)
+  // Catálogo oficial de impresoras Canon por Planta y Departamento (Exclusivo)
   const officePrinters = [
     { ip: '192.168.0.191', name: 'Canon 1º Planta (Ejecución)', model: 'Canon Multifunción Oficina', location: '1º Planta - Ejecución', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🖨️' },
     { ip: '192.168.0.40', name: 'Canon 1º Planta (Administración)', model: 'Canon Multifunción Oficina', location: '1º Planta - Administración', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏢' },
