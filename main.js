@@ -3218,7 +3218,7 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
   const targetName = (customName && customName.trim()) ? customName.trim() : (model || 'Impresora Canon Oficina');
   appLog('INFO', `[Printers] Instalando/Reconfigurando impresora Canon "${targetName}" (IP: ${ip || 'USB'}, Driver: ${driver}) sin PowerShell...`);
 
-  let logMsg = `Impresora "${targetName}" reconfigurada e instalada correctamente en Windows.`;
+  let logMsg = `Impresora "${targetName}" reconfigurada e instalada correctamente.`;
 
   if (process.platform === 'win32') {
     try {
@@ -3230,24 +3230,29 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
         await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\en-US\\prnport.vbs', '-a', '-r', portName, '-h', ip, '-o', 'raw', '-n', '9100'], 4000).catch(() => {});
       }
 
-      const printUiCmd = `rundll32 printui.dll,PrintUIEntry /if /b "${targetName}" /r "${portName}" /m "${drvName}"`;
-      const res = await runCmd('cmd.exe', ['/c', printUiCmd], 8000);
-      if (res.ok) {
-        logMsg = `Impresora "${targetName}" instalada y reconfigurada en Windows (Puerto: ${portName}).`;
-      }
+      await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\es-ES\\prnmngr.vbs', '-a', '-p', targetName, '-m', drvName, '-r', portName], 5000).catch(() => {});
+      await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\en-US\\prnmngr.vbs', '-a', '-p', targetName, '-m', drvName, '-r', portName], 5000).catch(() => {});
+
+      const printUiCmd = `rundll32 printui.dll,PrintUIEntry /if /q /b "${targetName}" /f "%windir%\\inf\\ntprint.inf" /r "${portName}" /m "${drvName}"`;
+      await runCmd('cmd.exe', ['/c', printUiCmd], 5000).catch(() => {});
+
+      const printUiGeneric = `rundll32 printui.dll,PrintUIEntry /if /q /b "${targetName}" /f "%windir%\\inf\\ntprint.inf" /r "${portName}" /m "Generic / Text Only"`;
+      await runCmd('cmd.exe', ['/c', printUiGeneric], 3000).catch(() => {});
 
       if (isDefault) {
-        await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /y /n "${targetName}"`], 3000).catch(() => {});
+        await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\es-ES\\prnmngr.vbs', '-t', '-p', targetName], 3000).catch(() => {});
+        await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\en-US\\prnmngr.vbs', '-t', '-p', targetName], 3000).catch(() => {});
+        await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /y /q /n "${targetName}"`], 3000).catch(() => {});
       }
     } catch (e) {
-      appLog('WARN', `[Printers] Error reconfigurando impresora via PrintUI: ${e.message}`);
+      appLog('WARN', `[Printers] Error reconfigurando impresora: ${e.message}`);
     }
 
     if (printTestPage) {
       if (ip) {
         sendRawTestPageToIP(ip, targetName).catch(() => {});
       }
-      runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /n "${targetName}"`], 4000).catch(() => {});
+      runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /q /n "${targetName}"`], 4000).catch(() => {});
     }
   }
 
@@ -3289,7 +3294,7 @@ ipcMain.handle('print-test-page', async (_event, printerName) => {
 
   if (process.platform === 'win32') {
     try {
-      await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /n "${target}"`], 5000);
+      await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /q /n "${target}"`], 5000);
     } catch (e) {
       appLog('WARN', `[Printers] Error enviando página de prueba con printui.dll: ${e.message}`);
     }
