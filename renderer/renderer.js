@@ -6511,13 +6511,13 @@ function openPrinterSetupForm(modelId, customName, modelDriver, defaultIp) {
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const titleEl = document.getElementById('setup-model-title');
-  if (titleEl) titleEl.textContent = `Configurar: ${customName || modelId}`;
+  if (titleEl) titleEl.textContent = `Configurar / Reinstalar: ${customName || modelId}`;
 
   const inputModelId = document.getElementById('form-model-id');
   if (inputModelId) inputModelId.value = modelId || '';
 
   const inputModelName = document.getElementById('form-model-name');
-  if (inputModelName) inputModelName.value = modelId || '';
+  if (inputModelName) inputModelName.value = modelId || 'Canon Multifunción Oficina';
 
   const ipInput = document.getElementById('form-ip-address');
   if (ipInput && defaultIp) ipInput.value = defaultIp;
@@ -6529,6 +6529,11 @@ function openPrinterSetupForm(modelId, customName, modelDriver, defaultIp) {
       customNameInput.focus();
       customNameInput.select();
     }, 150);
+  }
+
+  const driverSelect = document.getElementById('form-driver-select');
+  if (driverSelect && modelDriver) {
+    driverSelect.value = modelDriver;
   }
 
   const formGrid = document.querySelector('.printer-form-grid');
@@ -6648,6 +6653,44 @@ function bindInstalledPrinterTestPageEvents(container) {
       btn.innerHTML = origText;
     });
   });
+
+  const reconfigBtns = container.querySelectorAll('.btn-reconfig-installed');
+  reconfigBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const printerName = btn.getAttribute('data-printer-name');
+      let ip = btn.getAttribute('data-ip') || '';
+      const driver = btn.getAttribute('data-driver') || 'Canon Generic Plus PCL6 / UFR II Driver';
+
+      if (!ip) {
+        if (/Ejecución/i.test(printerName)) ip = '192.168.0.191';
+        else if (/Administración/i.test(printerName)) ip = '192.168.0.40';
+        else if (/Urbanismo/i.test(printerName)) ip = '192.168.0.190';
+        else if (/Básico/i.test(printerName)) ip = '192.168.0.244';
+        else ip = '192.168.0.191';
+      }
+
+      const printerData = {
+        ip,
+        name: printerName,
+        model: 'Canon Multifunción Oficina',
+        driver,
+        location: 'Oficina',
+        isInstalled: true
+      };
+
+      showPrinterNamePromptModal(
+        printerData,
+        async (chosenName) => {
+          openPrinterSetupForm('Canon Multifunción Oficina', chosenName, driver, ip);
+          await executePrinterInstallation();
+        },
+        (chosenName) => {
+          openPrinterSetupForm('Canon Multifunción Oficina', chosenName, driver, ip);
+        }
+      );
+    });
+  });
 }
 
 async function refreshInstalledPrintersList() {
@@ -6679,28 +6722,36 @@ function renderInstalledPrintersListHTML(printers = []) {
 
   return `
     <div class="installed-printers-grid">
-      ${printers.map(p => `
-        <div class="installed-printer-card ${p.isCanon ? 'is-canon-card' : ''}">
-          <div class="installed-card-top">
-            <div class="printer-type-icon">${p.isCanon ? '🖨️' : '📄'}</div>
-            <div class="installed-printer-info">
-              <h4 class="installed-printer-name">${p.name}</h4>
-              <span class="installed-printer-driver">${p.driverName}</span>
+      ${printers.map(p => {
+        const ipMatch = p.portName.match(/\b(?:192\.168\.\d{1,3}\.\d{1,3})\b/) || p.name.match(/\b(?:192\.168\.\d{1,3}\.\d{1,3})\b/);
+        const extractedIp = ipMatch ? ipMatch[0] : '';
+
+        return `
+          <div class="installed-printer-card ${p.isCanon ? 'is-canon-card' : ''}">
+            <div class="installed-card-top">
+              <div class="printer-type-icon">${p.isCanon ? '🖨️' : '📄'}</div>
+              <div class="installed-printer-info">
+                <h4 class="installed-printer-name">${p.name}</h4>
+                <span class="installed-printer-driver">${p.driverName}</span>
+              </div>
+              ${p.isDefault ? '<span class="default-printer-pill">PREDETERMINADA</span>' : ''}
+              ${p.isCanon ? '<span class="canon-tag-pill">CANON</span>' : ''}
             </div>
-            ${p.isDefault ? '<span class="default-printer-pill">PREDETERMINADA</span>' : ''}
-            ${p.isCanon ? '<span class="canon-tag-pill">CANON</span>' : ''}
+            <div class="installed-card-bottom">
+              <span class="printer-port-label">🔌 Puerto: <code>${p.portName}</code></span>
+              <span class="printer-status-tag ${p.status === 'Listo' ? 'status-ready' : ''}">● ${p.status || 'Listo'}</span>
+            </div>
+            <div style="margin-top:12px; border-top:1px solid var(--border-color, rgba(226, 232, 240, 0.5)); padding-top:10px; display:flex; gap:8px;">
+              <button class="btn-test-print-installed" data-printer-name="${p.name}" style="flex:1; padding:9px 10px; background:linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); color:#FFFFFF; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.2s ease;">
+                📄 Imprimir Prueba
+              </button>
+              <button class="btn-reconfig-installed" data-printer-name="${p.name}" data-ip="${extractedIp}" data-driver="${p.driverName}" style="padding:9px 12px; background:var(--bg-tertiary, #F1F5F9); color:var(--text-primary, #1E293B); border:1px solid var(--border-color, #CBD5E1); border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+                ⚙️ Reconfigurar
+              </button>
+            </div>
           </div>
-          <div class="installed-card-bottom">
-            <span class="printer-port-label">🔌 Puerto: <code>${p.portName}</code></span>
-            <span class="printer-status-tag ${p.status === 'Listo' ? 'status-ready' : ''}">● ${p.status || 'Listo'}</span>
-          </div>
-          <div style="margin-top:12px; border-top:1px solid var(--border-color, rgba(226, 232, 240, 0.5)); padding-top:10px;">
-            <button class="btn-test-print-installed" data-printer-name="${p.name}" style="width:100%; padding:9px 12px; background:linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); color:#FFFFFF; border:none; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s ease; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
-              📄 Imprimir Página de Prueba
-            </button>
-          </div>
-        </div>
-      `).join('')}
+        `;
+      }).join('')}
     </div>
   `;
 }

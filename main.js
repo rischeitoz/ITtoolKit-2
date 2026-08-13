@@ -3169,45 +3169,85 @@ ipcMain.handle('get-printers', async () => {
   return { success: true, printers };
 });
 
+function sendRawTestPageToIP(ip, printerName) {
+  return new Promise((resolve) => {
+    if (!ip || !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip)) {
+      return resolve({ success: false, reason: 'Invalid IP' });
+    }
+    const net = require('net');
+    const client = new net.Socket();
+    client.setTimeout(3000);
+
+    const nowStr = new Date().toLocaleString('es-ES');
+    const pjlData = 
+      "\x1b%-12345X@PJL JOB\r\n" +
+      "@PJL ENTER LANGUAGE = PCL\r\n" +
+      "\x1b&l0O\x1b(s0p10h0s0b4099M\r\n" +
+      "\r\n" +
+      "==========================================================\r\n" +
+      "         CANON OFICINA - PAGINA DE PRUEBA DE IMPRESION     \r\n" +
+      "==========================================================\r\n" +
+      `Impresora : ${printerName}\r\n` +
+      `Direccion IP: ${ip}\r\n` +
+      `Fecha y Hora: ${nowStr}\r\n` +
+      "Estado      : Comunicacion Directa TCP/9100 Correcta\r\n" +
+      "==========================================================\r\n" +
+      "\r\n\r\n\x0c\x1b%-12345X@PJL EOJ\r\n";
+
+    client.connect(9100, ip, () => {
+      client.write(pjlData, () => {
+        client.end();
+        resolve({ success: true });
+      });
+    });
+
+    client.on('error', (err) => {
+      client.destroy();
+      resolve({ success: false, error: err.message });
+    });
+
+    client.on('timeout', () => {
+      client.destroy();
+      resolve({ success: false, reason: 'timeout' });
+    });
+  });
+}
+
 ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
   const { model, driver, ip, customName, isDefault, printTestPage } = payload;
   const targetName = (customName && customName.trim()) ? customName.trim() : (model || 'Impresora Canon Oficina');
-  appLog('INFO', `[Printers] Instalando impresora Canon "${targetName}" (IP: ${ip || 'USB'}, Driver: ${driver})...`);
+  appLog('INFO', `[Printers] Instalando/Reconfigurando impresora Canon "${targetName}" (IP: ${ip || 'USB'}, Driver: ${driver}) sin PowerShell...`);
 
-  let logMsg = `Impresora "${targetName}" registrada e instalada correctamente en Windows.`;
+  let logMsg = `Impresora "${targetName}" reconfigurada e instalada correctamente en Windows.`;
 
   if (process.platform === 'win32') {
     try {
       const portName = ip ? `IP_${ip}` : 'USB001';
-      const drvName = driver || 'Canon UFR II Printer Driver';
-      
+      const drvName = driver || 'Canon Generic Plus PCL6 / UFR II Driver';
+
       if (ip) {
         await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\es-ES\\prnport.vbs', '-a', '-r', portName, '-h', ip, '-o', 'raw', '-n', '9100'], 4000).catch(() => {});
         await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\en-US\\prnport.vbs', '-a', '-r', portName, '-h', ip, '-o', 'raw', '-n', '9100'], 4000).catch(() => {});
       }
 
-      const printUiCmd = `rundll32 printui.dll,PrintUIEntry /if /b "${targetName}" /f %windir%\\inf\\ntprint.inf /r "${portName}" /m "${drvName}"`;
+      const printUiCmd = `rundll32 printui.dll,PrintUIEntry /if /b "${targetName}" /r "${portName}" /m "${drvName}"`;
       const res = await runCmd('cmd.exe', ['/c', printUiCmd], 8000);
-      
       if (res.ok) {
-        logMsg = `Impresora "${targetName}" instalada y vinculada al puerto ${portName} en Windows (PrintUI).`;
+        logMsg = `Impresora "${targetName}" instalada y reconfigurada en Windows (Puerto: ${portName}).`;
       }
-      
+
       if (isDefault) {
         await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /y /n "${targetName}"`], 3000).catch(() => {});
       }
-
-      if (printTestPage) {
-        const escapedTarget = targetName.replace(/'/g, "''");
-        const psCmd = `
-          $p = Get-CimInstance -ClassName Win32_Printer -Filter "Name = '${escapedTarget}'"
-          if ($p) { Invoke-CimMethod -InputObject $p -MethodName PrintTestPage }
-          else { "Pagina de prueba" | Out-Printer -Name "${targetName.replace(/"/g, '`"')}" }
-        `.replace(/\r?\n/g, ' ');
-        await runCmd('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], 5000).catch(() => {});
-      }
     } catch (e) {
-      appLog('WARN', `[Printers] Error instalando impresora via PrintUI: ${e.message}`);
+      appLog('WARN', `[Printers] Error reconfigurando impresora via PrintUI: ${e.message}`);
+    }
+
+    if (printTestPage) {
+      if (ip) {
+        sendRawTestPageToIP(ip, targetName).catch(() => {});
+      }
+      runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /n "${targetName}"`], 4000).catch(() => {});
     }
   }
 
@@ -3226,35 +3266,37 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
 
 ipcMain.handle('print-test-page', async (_event, printerName) => {
   const target = printerName || 'Impresora';
-  appLog('INFO', `[Printers] Imprimiendo página de prueba para "${target}"...`);
+  appLog('INFO', `[Printers] Imprimiendo página de prueba para "${target}" sin PowerShell...`);
+
+  let ipToUse = null;
+  const ipMatch = target.match(/\b(?:192\.168\.\d{1,3}\.\d{1,3})\b/);
+  if (ipMatch) {
+    ipToUse = ipMatch[0];
+  } else if (/1º Planta.*Ejecución|Ejecución/i.test(target)) {
+    ipToUse = '192.168.0.191';
+  } else if (/1º Planta.*Admin|Administración/i.test(target)) {
+    ipToUse = '192.168.0.40';
+  } else if (/2º Planta|Urbanismo/i.test(target)) {
+    ipToUse = '192.168.0.190';
+  } else if (/3º Planta|Básico/i.test(target)) {
+    ipToUse = '192.168.0.244';
+  }
+
+  let directRes = { success: false };
+  if (ipToUse) {
+    directRes = await sendRawTestPageToIP(ipToUse, target);
+  }
 
   if (process.platform === 'win32') {
     try {
-      const escapedTarget = target.replace(/'/g, "''");
-      const psCommand = `
-        $printer = Get-CimInstance -ClassName Win32_Printer | Where-Object { $_.Name -eq '${escapedTarget}' -or $_.Name -like '*${escapedTarget}*' } | Select-Object -First 1
-        if ($printer) {
-          $res = Invoke-CimMethod -InputObject $printer -MethodName PrintTestPage
-          if ($res.ReturnValue -eq 0) { exit 0 }
-        }
-        $testText = "========================================\r\nPÁGINA DE PRUEBA DE IMPRESIÓN\r\n========================================\r\nImpresora: ${target}\r\nFecha: $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss')\r\nEstado: Correcto - Comunicación OK\r\n========================================"
-        $testText | Out-Printer -Name "${target.replace(/"/g, '`"')}"
-      `.replace(/\r?\n/g, ' ');
-
-      const res = await runCmd('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCommand], 8000);
-      if (res.ok) {
-        return { success: true, message: `Página de prueba enviada con éxito a "${target}".` };
-      }
-    } catch (e) {
-      appLog('WARN', `[Printers] Error en PowerShell al imprimir página de prueba: ${e.message}`);
-    }
-
-    try {
       await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /n "${target}"`], 5000);
-      return { success: true, message: `Página de prueba enviada a "${target}".` };
     } catch (e) {
-      appLog('WARN', `[Printers] Error enviando página de prueba con rundll32: ${e.message}`);
+      appLog('WARN', `[Printers] Error enviando página de prueba con printui.dll: ${e.message}`);
     }
+  }
+
+  if (directRes.success) {
+    return { success: true, message: `Página de prueba enviada directamente a la IP ${ipToUse} de la impresora "${target}".` };
   }
 
   return { success: true, message: `Página de prueba enviada a la cola de impresión de "${target}".` };
