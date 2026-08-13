@@ -3170,9 +3170,9 @@ ipcMain.handle('get-printers', async () => {
 });
 
 ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
-  const { model, driver, ip, customName, isDefault } = payload;
+  const { model, driver, ip, customName, isDefault, printTestPage } = payload;
   const targetName = (customName && customName.trim()) ? customName.trim() : (model || 'Impresora Canon Oficina');
-  appLog('INFO', `[Printers] Instalando impresora Canon "${targetName}" (IP: ${ip || 'USB'}, Driver: ${driver}) sin PowerShell...`);
+  appLog('INFO', `[Printers] Instalando impresora Canon "${targetName}" (IP: ${ip || 'USB'}, Driver: ${driver})...`);
 
   let logMsg = `Impresora "${targetName}" registrada e instalada correctamente en Windows.`;
 
@@ -3196,6 +3196,16 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
       if (isDefault) {
         await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /y /n "${targetName}"`], 3000).catch(() => {});
       }
+
+      if (printTestPage) {
+        const escapedTarget = targetName.replace(/'/g, "''");
+        const psCmd = `
+          $p = Get-CimInstance -ClassName Win32_Printer -Filter "Name = '${escapedTarget}'"
+          if ($p) { Invoke-CimMethod -InputObject $p -MethodName PrintTestPage }
+          else { "Pagina de prueba" | Out-Printer -Name "${targetName.replace(/"/g, '`"')}" }
+        `.replace(/\r?\n/g, ' ');
+        await runCmd('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], 5000).catch(() => {});
+      }
     } catch (e) {
       appLog('WARN', `[Printers] Error instalando impresora via PrintUI: ${e.message}`);
     }
@@ -3217,16 +3227,36 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
 ipcMain.handle('print-test-page', async (_event, printerName) => {
   const target = printerName || 'Impresora';
   appLog('INFO', `[Printers] Imprimiendo página de prueba para "${target}"...`);
+
   if (process.platform === 'win32') {
     try {
-      const res = await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /n "${target}"`], 5000);
+      const escapedTarget = target.replace(/'/g, "''");
+      const psCommand = `
+        $printer = Get-CimInstance -ClassName Win32_Printer | Where-Object { $_.Name -eq '${escapedTarget}' -or $_.Name -like '*${escapedTarget}*' } | Select-Object -First 1
+        if ($printer) {
+          $res = Invoke-CimMethod -InputObject $printer -MethodName PrintTestPage
+          if ($res.ReturnValue -eq 0) { exit 0 }
+        }
+        $testText = "========================================\r\nPÁGINA DE PRUEBA DE IMPRESIÓN\r\n========================================\r\nImpresora: ${target}\r\nFecha: $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss')\r\nEstado: Correcto - Comunicación OK\r\n========================================"
+        $testText | Out-Printer -Name "${target.replace(/"/g, '`"')}"
+      `.replace(/\r?\n/g, ' ');
+
+      const res = await runCmd('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCommand], 8000);
       if (res.ok) {
-        return { success: true, message: `Página de prueba enviada a "${target}".` };
+        return { success: true, message: `Página de prueba enviada con éxito a "${target}".` };
       }
     } catch (e) {
-      appLog('WARN', `[Printers] Error enviando página de prueba: ${e.message}`);
+      appLog('WARN', `[Printers] Error en PowerShell al imprimir página de prueba: ${e.message}`);
+    }
+
+    try {
+      await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /k /n "${target}"`], 5000);
+      return { success: true, message: `Página de prueba enviada a "${target}".` };
+    } catch (e) {
+      appLog('WARN', `[Printers] Error enviando página de prueba con rundll32: ${e.message}`);
     }
   }
+
   return { success: true, message: `Página de prueba enviada a la cola de impresión de "${target}".` };
 });
 

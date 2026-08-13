@@ -6301,13 +6301,18 @@ function renderOfficePrintersGridHTML(printers = []) {
   if (printers.length === 0) {
     return `
       <div class="empty-printers-box">
-        <p>No se han detectado impresoras en la red local. Haz clic en "Escanear Red de Oficina" para iniciar la búsqueda.</p>
+        <p>No se han configurado impresoras en el catálogo de la oficina.</p>
       </div>
     `;
   }
 
   return printers.map(p => `
-    <div class="printer-model-card" data-ip="${p.ip}" data-name="${p.name}" data-model="${p.model}" data-driver="${p.driver}">
+    <div class="printer-model-card ${p.isInstalled ? 'is-already-installed' : ''}" 
+         data-ip="${p.ip}" 
+         data-name="${p.name}" 
+         data-model="${p.model}" 
+         data-driver="${p.driver}"
+         data-installed="${p.isInstalled ? 'true' : 'false'}">
       <div class="printer-card-header">
         <div class="printer-model-icon">${p.icon || '🖨️'}</div>
         <span class="printer-badge" style="background:#2563EB;">IP: ${p.ip}</span>
@@ -6343,6 +6348,13 @@ function showPrinterNamePromptModal(printerData, onConfirm, onAdvanced) {
       </div>
 
       <div class="event-modal-body" style="padding: 24px; display:flex; flex-direction:column; gap:16px;">
+        ${printerData.isInstalled ? `
+          <div style="background:rgba(234, 179, 8, 0.12); border:1px solid rgba(234, 179, 8, 0.4); color:#A16207; border-radius:8px; padding:10px 14px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:18px;">⚠️</span>
+            <span><strong>Notificación:</strong> Esta impresora ya está instalada en tu equipo. Si continúas, se reconfigurará o actualizará.</span>
+          </div>
+        ` : ''}
+
         <div>
           <label style="display:block; font-size:14px; font-weight:700; margin-bottom:8px; color:var(--text-primary, #0F172A);">
             🏷️ Asigna un nombre a la impresora para Windows:
@@ -6427,9 +6439,14 @@ function bindOfficePrinterEvents(container) {
       const name = card.getAttribute('data-name');
       const model = card.getAttribute('data-model');
       const driver = card.getAttribute('data-driver') || 'Canon Generic Plus PCL6 / UFR II Driver';
+      const isInstalled = card.getAttribute('data-installed') === 'true';
       const locationText = card.querySelector('.printer-model-series')?.textContent || 'Oficina';
 
-      const printerData = { ip, name, model, driver, location: locationText };
+      if (isInstalled) {
+        showToast(`⚠️ Notificación: La impresora "${name}" (IP: ${ip}) ya está instalada en tu equipo.`, 'warning');
+      }
+
+      const printerData = { ip, name, model, driver, location: locationText, isInstalled };
 
       showPrinterNamePromptModal(
         printerData,
