@@ -6174,9 +6174,6 @@ async function runImpresorasUtility() {
 
       <!-- Resumen de Impresoras Detectadas/Instaladas -->
       <div class="printer-status-bar" id="printer-scan-status-bar">
-        <span class="printer-status-pill">
-          <strong>Impresoras en Windows:</strong> <span id="win-printer-count">${systemPrinters.length}</span>
-        </span>
         <span class="printer-status-pill canon-badge-pill">
           <strong>Canon Configurada(s) en Oficina:</strong> <span id="canon-printer-count">${officePrinters.length}</span>
         </span>
@@ -6187,7 +6184,7 @@ async function runImpresorasUtility() {
 
       <!-- Impresoras Canon Detectadas en la Oficina -->
       <div class="printer-section-title">
-        <h3>1. Impresoras Canon de la Oficina (Red e IP):</h3>
+        <h3>Impresoras Canon de la Oficina (Red e IP):</h3>
         <p>Selecciona cualquiera de las impresoras oficiales para instalarla o reconfigurarla en tu equipo.</p>
       </div>
 
@@ -6279,22 +6276,10 @@ async function runImpresorasUtility() {
           </div>
         </div>
       </div>
-
-      <!-- Impresoras Actualmente Instaladas en Windows -->
-      <div class="printer-section-title" style="margin-top: 32px;">
-        <h3>2. Impresoras Registradas en este PC (Windows Spooler):</h3>
-        <p>Listado en tiempo real de impresoras configuradas en Windows.</p>
-      </div>
-
-      <div class="installed-printers-container" id="installed-printers-list">
-        ${renderInstalledPrintersListHTML(systemPrinters)}
-      </div>
     </div>
   `;
 
   bindOfficePrinterEvents(container);
-  const installedContainer = document.getElementById('installed-printers-list');
-  if (installedContainer) bindInstalledPrinterTestPageEvents(installedContainer);
 }
 
 function renderOfficePrintersGridHTML(printers = []) {
