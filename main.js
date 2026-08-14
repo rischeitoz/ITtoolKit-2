@@ -6,7 +6,31 @@ const https = require('https');
 const fs    = require('fs');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LOG DE ACTIVIDAD
+// OPTIMIZACIONES DE INICIO Y RENDIMIENTO DE ELECTRON (Cero Lag / Arranque Rápido)
+// ─────────────────────────────────────────────────────────────────────────────
+// Flags de rendimiento de Chromium antes del inicio
+app.commandLine.appendSwitch('disable-http-cache', 'false');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('enable-fast-unload');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+
+// Bloqueo de instancia única para evitar aperturas duplicadas pesadas
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOG DE ACTIVIDAD (Asíncrono y no bloqueante)
 // ─────────────────────────────────────────────────────────────────────────────
 const LOG_DIR = path.join(os.homedir(), 'HCPToolKit_Logs');
 let logStream   = null;
@@ -46,6 +70,7 @@ function createWindow() {
 
   mainWindow = new BrowserWindow({
     width: 1150, height: 750, minWidth: 950, minHeight: 620,
+    show: false, // Inicio optimizado: no mostrar hasta que el renderizado esté listo
     title: 'HCPToolKit - Diagnóstico y Mantenimiento',
     frame: false,
     titleBarStyle: 'hidden',
@@ -53,11 +78,23 @@ function createWindow() {
     autoHideMenuBar: true,
     backgroundColor: '#0F172A',
     ...(iconPath ? { icon: iconPath } : {}),
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      spellcheck: false, // Desactivar spellcheck acelera drásticamente el inicio
+      backgroundThrottling: false
+    },
   });
+
   mainWindow.setMenuBarVisibility(false);
   mainWindow.removeMenu();
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  // Mostrar la ventana de forma instantánea y fluida cuando esté lista
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 
   mainWindow.on('maximize', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -71,7 +108,10 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => { logFilePath = initLog(); createWindow(); });
+app.whenReady().then(() => {
+  logFilePath = initLog();
+  createWindow();
+});
 app.on('window-all-closed', () => {
   appLog('INFO', '=== HCPToolKit cerrado ===');
   if (logStream) logStream.end();
@@ -131,7 +171,9 @@ function runExec(cmdStr, timeoutMs = 25000) {
 // BARRA DE ESTADO INFERIOR — sólo Node.js nativo, cero PowerShell
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper centralizado para detección de Windows 10 vs Windows 11 por Build Number (>= 22000)
+let cachedOSCaption = null;
 async function getWindowsOSCaption() {
+  if (cachedOSCaption) return cachedOSCaption;
   let osCaption = `${os.type()} ${os.release()}`;
   try {
     const regKey = 'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion';
@@ -158,6 +200,7 @@ async function getWindowsOSCaption() {
       osCaption = disp ? `${name} (${disp.trim()})` : name;
     }
   } catch {}
+  cachedOSCaption = osCaption;
   return osCaption;
 }
 
@@ -3213,31 +3256,103 @@ function sendRawTestPageToIP(ip, printerName) {
   });
 }
 
+async function detectBestCanonDriver(requestedDriver) {
+  const installedDrivers = [];
+  try {
+    const res = await runCmd('cmd.exe', ['/c', 'wmic printerdriver get Name /format:csv'], 4000);
+    if (res.ok && res.stdout) {
+      const lines = res.stdout.split('\n');
+      for (const line of lines) {
+        const parts = line.split(',');
+        if (parts.length >= 2) {
+          const rawName = parts[parts.length - 1].trim();
+          if (rawName && !rawName.includes('Node') && !rawName.includes('Name')) {
+            const cleanName = rawName.split(',')[0].trim();
+            if (cleanName && !installedDrivers.includes(cleanName)) {
+              installedDrivers.push(cleanName);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const res2 = await runCmd('cmd.exe', ['/c', 'wmic printer get DriverName /format:csv'], 4000);
+    if (res2.ok && res2.stdout) {
+      const lines = res2.stdout.split('\n');
+      for (const line of lines) {
+        const parts = line.split(',');
+        if (parts.length >= 2) {
+          const dName = parts[parts.length - 1].trim();
+          if (dName && !dName.includes('Node') && !dName.includes('DriverName') && !installedDrivers.includes(dName)) {
+            installedDrivers.push(dName);
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  appLog('INFO', `[Printers] Drivers detectados en el sistema: ${JSON.stringify(installedDrivers)}`);
+
+  if (requestedDriver) {
+    const match = installedDrivers.find(d => d.toLowerCase() === requestedDriver.toLowerCase());
+    if (match) return match;
+    const partial = installedDrivers.find(d => d.toLowerCase().includes(requestedDriver.toLowerCase()));
+    if (partial) return partial;
+  }
+
+  const canonDrv = installedDrivers.find(d => 
+    d.toLowerCase().includes('imageforce') || 
+    d.toLowerCase().includes('canon') || 
+    d.toLowerCase().includes('ufr') || 
+    d.toLowerCase().includes('pcl6')
+  );
+  if (canonDrv) return canonDrv;
+
+  return requestedDriver || 'imageFORCE C5150';
+}
+
 ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
   const { model, driver, ip, customName, isDefault, printTestPage } = payload;
   const targetName = (customName && customName.trim()) ? customName.trim() : (model || 'Impresora Canon Oficina');
-  appLog('INFO', `[Printers] Instalando/Reconfigurando impresora Canon "${targetName}" (IP: ${ip || 'USB'}, Driver: ${driver}) sin PowerShell...`);
+  appLog('INFO', `[Printers] Instalando impresora individual Canon "${targetName}" (IP: ${ip || 'USB'}, Driver solicitado: ${driver}) sin PowerShell...`);
 
-  let logMsg = `Impresora "${targetName}" reconfigurada e instalada correctamente.`;
+  let logMsg = `Impresora "${targetName}" configurada e instalada correctamente en Windows.`;
 
   if (process.platform === 'win32') {
     try {
       const portName = ip ? `IP_${ip}` : 'USB001';
-      const drvName = driver || 'Canon Generic Plus PCL6 / UFR II Driver';
+      const drvName = await detectBestCanonDriver(driver);
+      appLog('INFO', `[Printers] Usando driver Canon para "${targetName}": "${drvName}" en el puerto "${portName}"`);
 
       if (ip) {
         await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\es-ES\\prnport.vbs', '-a', '-r', portName, '-h', ip, '-o', 'raw', '-n', '9100'], 4000).catch(() => {});
         await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\en-US\\prnport.vbs', '-a', '-r', portName, '-h', ip, '-o', 'raw', '-n', '9100'], 4000).catch(() => {});
       }
 
-      await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\es-ES\\prnmngr.vbs', '-a', '-p', targetName, '-m', drvName, '-r', portName], 5000).catch(() => {});
-      await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\en-US\\prnmngr.vbs', '-a', '-p', targetName, '-m', drvName, '-r', portName], 5000).catch(() => {});
+      const candidateDrivers = Array.from(new Set([
+        drvName,
+        'imageFORCE C5150',
+        'Canon Generic Plus PCL6 / UFR II Driver',
+        'Canon Generic Plus PCL6',
+        'Canon UFR II Printer Driver'
+      ]));
 
-      const printUiCmd = `rundll32 printui.dll,PrintUIEntry /if /q /b "${targetName}" /f "%windir%\\inf\\ntprint.inf" /r "${portName}" /m "${drvName}"`;
-      await runCmd('cmd.exe', ['/c', printUiCmd], 5000).catch(() => {});
+      for (const drvCandidate of candidateDrivers) {
+        const resScript = await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\es-ES\\prnmngr.vbs', '-a', '-p', targetName, '-m', drvCandidate, '-r', portName], 4000).catch(() => ({ ok: false }));
+        if (resScript.ok || resScript.code === 0) {
+          appLog('INFO', `[Printers] Impresora "${targetName}" registrada correctamente con driver "${drvCandidate}"`);
+          break;
+        }
 
-      const printUiGeneric = `rundll32 printui.dll,PrintUIEntry /if /q /b "${targetName}" /f "%windir%\\inf\\ntprint.inf" /r "${portName}" /m "Generic / Text Only"`;
-      await runCmd('cmd.exe', ['/c', printUiGeneric], 3000).catch(() => {});
+        const printUiCmd = `rundll32 printui.dll,PrintUIEntry /if /q /b "${targetName}" /f "%windir%\\inf\\ntprint.inf" /r "${portName}" /m "${drvCandidate}"`;
+        const resUi = await runCmd('cmd.exe', ['/c', printUiCmd], 4000).catch(() => ({ ok: false }));
+        if (resUi.ok) {
+          appLog('INFO', `[Printers] Impresora "${targetName}" registrada via printui con driver "${drvCandidate}"`);
+          break;
+        }
+      }
 
       if (isDefault) {
         await runCmd('cscript', ['C:\\Windows\\System32\\Printing_Admin_Scripts\\es-ES\\prnmngr.vbs', '-t', '-p', targetName], 3000).catch(() => {});
@@ -3245,7 +3360,7 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
         await runCmd('cmd.exe', ['/c', `rundll32 printui.dll,PrintUIEntry /y /q /n "${targetName}"`], 3000).catch(() => {});
       }
     } catch (e) {
-      appLog('WARN', `[Printers] Error reconfigurando impresora: ${e.message}`);
+      appLog('WARN', `[Printers] Error configurando impresora "${targetName}": ${e.message}`);
     }
 
     if (printTestPage) {
@@ -3262,11 +3377,49 @@ ipcMain.handle('install-canon-printer', async (_event, payload = {}) => {
     printer: {
       name: targetName,
       model: model || 'Canon Office Printer',
-      driver: driver || 'Canon UFR II Printer Driver',
+      driver: driver || 'imageFORCE C5150',
       ip: ip || 'USB / Local',
       isDefault: !!isDefault
     }
   };
+});
+
+ipcMain.handle('launch-canon-installer', async () => {
+  const exePath = 'Y:\\03_IT\\00_IMPRESORAS\\Canon C5850i Nuevo\\GPlus_PCL6_Driver_V311_32_64_00\\x64\\Setup.exe';
+  appLog('INFO', `[Printers] Intentando abrir el instalador de drivers de Canon en: ${exePath}`);
+  
+  if (process.platform === 'win32') {
+    try {
+      if (fs.existsSync(exePath)) {
+        await shell.openPath(exePath);
+        return { success: true, message: 'Ejecutando instalador Setup.exe...' };
+      } else {
+        return { 
+          success: false, 
+          error: `No se encontró el archivo ejecutable en la ruta especificada:\n${exePath}\n\nPor favor, verifica que la unidad de red Y: esté conectada e inténtalo de nuevo.` 
+        };
+      }
+    } catch (e) {
+      return { success: false, error: `Error al abrir el instalador: ${e.message}` };
+    }
+  } else {
+    return { success: false, error: 'Esta función requiere un sistema operativo Windows.' };
+  }
+});
+
+ipcMain.handle('open-windows-printers', async () => {
+  appLog('INFO', '[Printers] Abriendo menú de Impresoras y Escáneres de Windows...');
+  if (process.platform === 'win32') {
+    try {
+      await shell.openExternal('ms-settings:printers');
+      return { success: true };
+    } catch (e) {
+      await runCmd('cmd.exe', ['/c', 'start ms-settings:printers || control printers'], 3000).catch(() => {});
+      return { success: true };
+    }
+  } else {
+    return { success: false, error: 'Solo disponible en Windows.' };
+  }
 });
 
 ipcMain.handle('print-test-page', async (_event, printerName) => {

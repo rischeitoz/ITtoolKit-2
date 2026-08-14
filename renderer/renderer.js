@@ -156,14 +156,27 @@ function addLinkButtons(buttonsConfig) {
 
 // ── Barra de estado inferior ─────────────────────────────────────────────────
 async function updateStatusBar() {
-  const s = await window.api.getEquipmentSummary();
-  const now = new Date();
-  const fecha = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  statusBar.textContent =
-    `HCPToolKit v${APP_VERSION}   |   ${fecha}   |   Equipo: ${s.computerName}   |   ` +
-    `Usuario: ${s.userName}   |   SO: ${s.operatingSystem}   |   Encendido hace: ${s.uptimeText}`;
+  if (!statusBar) return;
+  try {
+    const s = await window.api.getEquipmentSummary();
+    const now = new Date();
+    const fecha = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    statusBar.textContent =
+      `HCPToolKit v${APP_VERSION}   |   ${fecha}   |   Equipo: ${s?.computerName || 'PC'}   |   ` +
+      `Usuario: ${s?.userName || 'Usuario'}   |   SO: ${s?.operatingSystem || 'Windows'}   |   Encendido hace: ${s?.uptimeText || '0m'}`;
+  } catch {
+    const now = new Date();
+    const fecha = now.toLocaleDateString('es-ES') + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    statusBar.textContent = `HCPToolKit v${APP_VERSION}   |   ${fecha}   |   Sistema Listo`;
+  }
 }
-updateStatusBar();
+
+// Pintar barra de estado inmediatamente en primer frame y luego sincronizar datos del SO
+if (statusBar) {
+  const initDate = new Date();
+  statusBar.textContent = `HCPToolKit v${APP_VERSION}   |   ${initDate.toLocaleDateString('es-ES')} ${initDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}   |   Iniciando módulos...`;
+}
+setTimeout(updateStatusBar, 50);
 setInterval(updateStatusBar, 30000);
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -6121,43 +6134,17 @@ if (btnLockSession) {
 checkInitialAuth();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UTILIDAD: IMPRESORAS CANON (Búsqueda, Selección de Drivers e Instalación)
+// UTILIDAD: IMPRESORAS CANON (Proceso en 3 Pasos)
 // ─────────────────────────────────────────────────────────────────────────────
 async function runImpresorasUtility() {
-  clearResults('🖨️ Gestor e Instalador de Impresoras Canon');
+  clearResults('🖨️ Instalación de Impresoras Canon');
 
   const container = document.createElement('div');
   container.className = 'printer-container panel-fade-in';
   resultsEl.appendChild(container);
 
-  let systemPrinters = [];
-  try {
-    const pRes = await window.api.getPrinters();
-    if (pRes && pRes.printers) systemPrinters = pRes.printers;
-  } catch (e) {
-    console.warn('Error obteniendo impresoras del sistema:', e);
-  }
-
-  let officePrinters = [];
-  const allowedIPs = ['192.168.0.191', '192.168.0.40', '192.168.0.190', '192.168.0.244'];
-  try {
-    const scanRes = await window.api.scanCanonPrinters();
-    if (scanRes && scanRes.printers && scanRes.printers.length > 0) {
-      const filtered = scanRes.printers.filter(p => allowedIPs.includes(p.ip));
-      if (filtered.length > 0) officePrinters = filtered;
-    }
-  } catch (e) {
-    console.warn('Error escaneando red de impresoras Canon:', e);
-  }
-
-  if (!officePrinters || officePrinters.length === 0) {
-    officePrinters = [
-      { ip: '192.168.0.191', name: 'Canon 1º Planta (Ejecución)', model: 'Canon Multifunción Oficina', location: '1º Planta - Ejecución', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🖨️', status: 'En línea', isInstalled: false },
-      { ip: '192.168.0.40', name: 'Canon 1º Planta (Administración)', model: 'Canon Multifunción Oficina', location: '1º Planta - Administración', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏢', status: 'En línea', isInstalled: false },
-      { ip: '192.168.0.190', name: 'Canon 2º Planta (Urbanismo)', model: 'Canon Multifunción Oficina', location: '2º Planta - Urbanismo', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '🏙️', status: 'En línea', isInstalled: false },
-      { ip: '192.168.0.244', name: 'Canon 3º Planta (Básico)', model: 'Canon Multifunción Oficina', location: '3º Planta - Básico', driver: 'Canon Generic Plus PCL6 / UFR II Driver', icon: '📋', status: 'En línea', isInstalled: false }
-    ];
-  }
+  const canonInstallerPath = 'Y:\\03_IT\\00_IMPRESORAS\\Canon C5850i Nuevo\\GPlus_PCL6_Driver_V311_32_64_00\\x64\\Setup.exe';
+  const textPrinterList = `1º Planta 192.168.0.190 (Ejecución)\n\n1º Planta 192.168.0.40 (Administración)\n\n2º Planta 192.168.0.190 (Urbanismo)\n\n3º Planta 192.168.0.244 (Basico)`;
 
   container.innerHTML = `
     <div class="printer-utility-wrapper">
@@ -6166,120 +6153,150 @@ async function runImpresorasUtility() {
         <div class="printer-hero-left">
           <div class="printer-hero-icon-box">🖨️</div>
           <div class="printer-hero-text">
-            <h2>Instalador de Impresoras Canon de Oficina</h2>
-            <p>Catálogo de impresoras oficiales de la oficina. Todas las impresoras utilizan el controlador estándar Canon Universal (PCL6 / UFR II).</p>
+            <h2>Instalación de Impresoras Canon</h2>
+            <p>Guía y proceso simplificado en 3 pasos para instalar el controlador de Canon y configurar la impresora requerida en Windows.</p>
           </div>
         </div>
       </div>
 
-      <!-- Resumen de Impresoras Detectadas/Instaladas -->
-      <div class="printer-status-bar" id="printer-scan-status-bar">
-        <span class="printer-status-pill canon-badge-pill">
-          <strong>Canon Configurada(s) en Oficina:</strong> <span id="canon-printer-count">${officePrinters.length}</span>
-        </span>
-        <span class="printer-status-pill info-pill">
-          ℹ️ Controlador Estándar Canon Universal PCL6 / UFR II
-        </span>
-      </div>
-
-      <!-- Impresoras Canon Detectadas en la Oficina -->
-      <div class="printer-section-title">
-        <h3>Impresoras Canon de la Oficina (Red e IP):</h3>
-        <p>Selecciona cualquiera de las impresoras oficiales para instalarla o reconfigurarla en tu equipo.</p>
-      </div>
-
-      <div class="printer-models-grid" id="office-printers-grid">
-        ${renderOfficePrintersGridHTML(officePrinters)}
-      </div>
-
-      <!-- Formulario interactivo de Configuración e Instalación -->
-      <div class="printer-setup-panel" id="printer-setup-panel" style="display:none;">
-        <div class="setup-panel-header">
-          <div class="setup-header-title">
-            <span class="setup-icon">📝</span>
-            <div>
-              <h3 id="setup-model-title">Configurar Impresora Canon</h3>
-              <p>Valida la dirección IP y asigna el nombre personalizado para identificarla en Windows.</p>
+      <div class="printer-steps-container">
+        <!-- PASO 1 -->
+        <div class="printer-step-card">
+          <div class="printer-step-header">
+            <div class="printer-step-number">1</div>
+            <div class="printer-step-title-group">
+              <h3>Paso 1: Instalación de Drivers Canon</h3>
+              <p>Haz clic en el botón para ejecutar el instalador oficial de drivers de Canon ubicado en la red de la oficina.</p>
             </div>
           </div>
-          <button class="btn-close-setup" id="btn-close-setup-panel">✕ Cancelar</button>
+
+          <div class="printer-path-box">
+            📁 <span>${canonInstallerPath}</span>
+          </div>
+
+          <button id="btn-launch-canon-installer" class="btn-step-action primary">
+            <span>🚀 Abrir Instalador de Drivers Canon (Setup.exe)</span>
+          </button>
+
+          <div id="step1-status-msg" style="display:none; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600;"></div>
         </div>
 
-        <form id="printer-install-form" onsubmit="return false;" class="printer-form-grid">
-          <input type="hidden" id="form-model-id" />
-          <input type="hidden" id="form-model-name" />
-
-          <div class="form-group full-width">
-            <label class="form-label">
-              🏷️ <strong>NOMBRE DE LA IMPRESORA EN WINDOWS:</strong> <span class="required-star">*</span>
-            </label>
-            <input type="text" id="form-custom-name" class="printer-input highlight-input" placeholder="Ej: Canon Recepción, Canon Dirección, Canon Planta 1..." required />
-            <small class="form-help-text">💬 Nombre descriptivo con el que aparecerá en todos los programas de la oficina al imprimir.</small>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">⚙️ Driver Oficial Canon:</label>
-            <select id="form-driver-select" class="printer-select">
-              <option value="Canon Generic Plus PCL6 / UFR II Driver">Canon Generic Plus PCL6 / UFR II Driver (Universal Canon Oficina)</option>
-              <option value="Canon UFR II Printer Driver v30.85">Canon UFR II Printer Driver v30.85 (Alta Velocidad)</option>
-              <option value="Canon Generic Plus PCL6 Driver v2.70">Canon Generic Plus PCL6 Driver v2.70 (Estándar)</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">🌐 Dirección IP / Puerto de Red:</label>
-            <input type="text" id="form-ip-address" class="printer-input" placeholder="192.168.0.191" value="192.168.0.191" />
-            <small class="form-help-text">Dirección IP local asignada a la impresora en la red de la oficina.</small>
-          </div>
-
-          <div class="form-group options-group full-width">
-            <label class="checkbox-label">
-              <input type="checkbox" id="form-is-default" checked />
-              <span>Establecer como <strong>Impresora Predeterminada</strong> del sistema</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" id="form-print-test" checked />
-              <span>Imprimir <strong>página de prueba</strong> al finalizar la instalación</span>
-            </label>
-          </div>
-
-          <div class="form-actions full-width">
-            <button type="submit" class="btn-submit-install" id="btn-execute-install">
-              <span>🚀 Instalar Impresora Canon</span>
-            </button>
-          </div>
-        </form>
-
-        <!-- Progress Box -->
-        <div class="install-progress-box" id="install-progress-box" style="display:none;">
-          <div class="progress-spinner">⏳</div>
-          <div class="progress-info">
-            <h4 id="progress-step-title">Instalando impresora Canon...</h4>
-            <p id="progress-step-desc">Registrando puerto de red y creando el dispositivo en Windows.</p>
-            <div class="progress-bar-bg">
-              <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        <!-- PASO 2 -->
+        <div class="printer-step-card">
+          <div class="printer-step-header">
+            <div class="printer-step-number">2</div>
+            <div class="printer-step-title-group">
+              <h3>Paso 2: Información de Impresoras de la Oficina</h3>
+              <p>Listado de referencia con las direcciones IP y departamentos de las impresoras disponibles:</p>
             </div>
           </div>
+
+          <div class="printer-text-list-box" id="printer-text-list-content">${textPrinterList}</div>
+
+          <button id="btn-copy-printer-info" class="btn-step-action outline" style="align-self: flex-start;">
+            <span>📋 Copiar Lista de Impresoras al Portapapeles</span>
+          </button>
         </div>
 
-        <!-- Banner de éxito -->
-        <div class="install-success-banner" id="install-success-banner" style="display:none;">
-          <div class="success-icon">✅</div>
-          <div class="success-content">
-            <h4 id="success-title">¡Impresora Instalada Correctamente!</h4>
-            <p id="success-desc">La impresora ha sido configurada y está lista para recibir trabajos de impresión.</p>
-            <div class="success-details-card" id="success-details-card"></div>
-            <div class="success-actions">
-              <button class="btn-success-act" id="btn-print-test-page">📄 Imprimir Página de Prueba</button>
-              <button class="btn-success-act secondary" id="btn-finish-setup">✓ Finalizar y Ver en Impresoras</button>
+        <!-- PASO 3 -->
+        <div class="printer-step-card">
+          <div class="printer-step-header">
+            <div class="printer-step-number">3</div>
+            <div class="printer-step-title-group">
+              <h3>Paso 3: Abrir Impresoras en Windows</h3>
+              <p>Abre el menú de Impresoras y Escáneres de Windows para vincular o verificar la impresora.</p>
             </div>
           </div>
+
+          <button id="btn-open-windows-printers" class="btn-step-action secondary">
+            <span>🖨️ Abrir Impresoras</span>
+          </button>
         </div>
       </div>
     </div>
   `;
 
-  bindOfficePrinterEvents(container);
+  // Bind Paso 1: Abrir ejecutable
+  const btnStep1 = container.querySelector('#btn-launch-canon-installer');
+  const statusMsgStep1 = container.querySelector('#step1-status-msg');
+
+  if (btnStep1) {
+    btnStep1.addEventListener('click', async () => {
+      btnStep1.disabled = true;
+      btnStep1.style.opacity = '0.7';
+      if (statusMsgStep1) {
+        statusMsgStep1.style.display = 'block';
+        statusMsgStep1.style.background = '#EFF6FF';
+        statusMsgStep1.style.color = '#1D4ED8';
+        statusMsgStep1.style.border = '1px solid #BFDBFE';
+        statusMsgStep1.innerHTML = '⏳ Intentando ejecutar Setup.exe... Por favor, espera unos segundos.';
+      }
+
+      try {
+        const res = await window.api.launchCanonInstaller();
+        if (res && res.success) {
+          if (statusMsgStep1) {
+            statusMsgStep1.style.background = '#ECFDF5';
+            statusMsgStep1.style.color = '#047857';
+            statusMsgStep1.style.border = '1px solid #A7F3D0';
+            statusMsgStep1.innerHTML = '✅ Instalador de Canon iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
+          }
+          showToast('✅ Instalador de Canon ejecutado correctamente.', 'success');
+        } else {
+          const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
+          if (statusMsgStep1) {
+            statusMsgStep1.style.background = '#FEF2F2';
+            statusMsgStep1.style.color = '#B91C1C';
+            statusMsgStep1.style.border = '1px solid #FCA5A5';
+            statusMsgStep1.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
+          }
+          showToast('❌ No se pudo abrir el instalador de Canon.', 'error');
+        }
+      } catch (err) {
+        if (statusMsgStep1) {
+          statusMsgStep1.style.background = '#FEF2F2';
+          statusMsgStep1.style.color = '#B91C1C';
+          statusMsgStep1.style.border = '1px solid #FCA5A5';
+          statusMsgStep1.innerHTML = `⚠️ Error: ${err.message}`;
+        }
+        showToast(`❌ Error: ${err.message}`, 'error');
+      } finally {
+        btnStep1.disabled = false;
+        btnStep1.style.opacity = '1';
+      }
+    });
+  }
+
+  // Bind Paso 2: Copiar texto
+  const btnCopyInfo = container.querySelector('#btn-copy-printer-info');
+  if (btnCopyInfo) {
+    btnCopyInfo.addEventListener('click', async () => {
+      try {
+        await window.api.copyToClipboard(textPrinterList);
+        showToast('📋 Lista de impresoras copiada al portapapeles.', 'success');
+        const spanEl = btnCopyInfo.querySelector('span');
+        if (spanEl) spanEl.textContent = '✅ Copiado al Portapapeles!';
+        setTimeout(() => {
+          if (spanEl) spanEl.textContent = '📋 Copiar Lista de Impresoras al Portapapeles';
+        }, 2500);
+      } catch (e) {
+        showToast('Error copiando al portapapeles.', 'error');
+      }
+    });
+  }
+
+  // Bind Paso 3: Abrir menú de impresoras
+  const btnStep3 = container.querySelector('#btn-open-windows-printers');
+  if (btnStep3) {
+    btnStep3.addEventListener('click', async () => {
+      try {
+        await window.api.openWindowsPrinters();
+        showToast('🖨️ Abriendo el menú Impresoras y Escáneres de Windows...', 'info');
+      } catch (e) {
+        showToast('Error al abrir Impresoras y Escáneres.', 'error');
+      }
+    });
+  }
 }
 
 function renderOfficePrintersGridHTML(printers = []) {

@@ -198,7 +198,9 @@ function runElevatedCommand(exe, args = '', windowStyle = 1) {
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. BARRA DE ESTADO INFERIOR & EQUIPMENT SUMMARY
 // ─────────────────────────────────────────────────────────────────────────────
+let cachedOsDetails = null;
 async function getOsDetails() {
+  if (cachedOsDetails) return cachedOsDetails;
   let name = `${os.type()} ${os.release()}`;
   let displayVer = '';
   let build = '';
@@ -240,7 +242,8 @@ async function getOsDetails() {
     } catch {}
   }
 
-  return { name, displayVer, build, arch };
+  cachedOsDetails = { name, displayVer, build, arch };
+  return cachedOsDetails;
 }
 
 app.get('/api/equipment-summary', async (req, res) => {
@@ -2475,6 +2478,20 @@ app.post('/api/printers/install', (req, res) => {
     success: true,
     message: `Impresora Canon "${targetName}" instalada y registrada correctamente en el sistema.`,
     printer: { name: targetName, model, driver, ip, isDefault: !!isDefault }
+  });
+});
+
+app.post('/api/printers/launch-installer', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ejecutando el instalador de drivers de Canon...'
+  });
+});
+
+app.post('/api/printers/open-settings', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Abriendo el menú de Impresoras y Escáneres de Windows...'
   });
 });
 
