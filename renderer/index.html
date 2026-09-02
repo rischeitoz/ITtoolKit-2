@@ -9,8 +9,8 @@
 </head>
 
 <body>
-  <!-- Overlay de Iniciar Sesión / Login de Seguridad -->
-  <div class="login-overlay" id="login-overlay">
+  <!-- Overlay de Iniciar Sesión / Login de Seguridad (Guardado para reactivación futura) -->
+  <div class="login-overlay hidden-login" id="login-overlay" style="display:none;">
     <div class="login-card" id="login-card">
       <div class="login-header">
         <div class="login-badge-icon">🛡️</div>
@@ -65,27 +65,32 @@
 
   <div class="topbar">
     <div class="topbar-left">
-      <span class="topbar-icon">⚡</span>
-      <span class="topbar-title">HCPToolKit</span>
+      <div class="topbar-brand" id="btn-topbar-brand" title="Ir al Panel Principal">
+        <span class="topbar-icon">⚡</span>
+        <div class="topbar-brand-meta">
+          <span class="topbar-title">HCPToolKit</span>
+          <span class="topbar-corp-label">HCP ARQUITECTOS · IT SUITE</span>
+        </div>
+      </div>
       <span class="topbar-version-badge">v1.0.0</span>
-      <span class="topbar-status-pill"><span class="status-dot"></span> Sistema Listo</span>
-      <button class="btn-topbar-home" id="btn-topbar-home" title="Ir al Panel Principal">
-        <span class="topbar-home-icon">⚡</span>
-        <span>Panel Principal</span>
-      </button>
+      <div class="topbar-breadcrumb-nav" id="topbar-breadcrumb">
+        <span class="breadcrumb-item active" id="current-view-name">Panel Principal</span>
+      </div>
     </div>
 
     <div class="topbar-center">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" id="tool-search" class="tool-search-input" placeholder="Buscar utilidad (ej: RAM, GPU, DNS, Updates, SFC)..." />
+        <input type="text" id="tool-search" class="tool-search-input" placeholder="Buscar utilidad (ej: RAM, GPU, DNS, Updates, SFC, Impresoras)..." />
+        <span class="search-kbd-hint">Ctrl + K</span>
         <button id="btn-clear-search" class="btn-clear-search" style="display:none;">✕</button>
       </div>
     </div>
 
     <div class="topbar-right">
-      <button class="btn-lock-session" id="btn-lock-session" title="Bloquear aplicación y cerrar sesión">🔒 Cerrar Sesión</button>
+      <span class="topbar-status-pill" id="topbar-net-status"><span class="status-dot"></span> Sistema Listo</span>
       <button class="theme-toggle" id="btn-theme-toggle" title="Cambiar tema visual (Claro / Oscuro)">🌙 Tema</button>
+      <button class="btn-lock-session" id="btn-lock-session" title="Bloquear aplicación y cerrar sesión">🔒 Salir</button>
 
       <!-- Controles de Ventana Personalizados (Custom TitleBar) -->
       <div class="window-controls">
@@ -104,77 +109,117 @@
   </div>
 
   <div class="main">
-    <!-- Menú lateral con pestañas -->
+    <!-- Menú lateral con pestañas organizadas profesionalmente -->
     <div class="sidebar">
-      <!-- 1. Botón grande destacado Tutoriales -->
-      <button class="btn-tutorials-featured" id="btn-open-tutorials" title="Tutoriales creados y documentados por HCP">
-        <div class="tut-icon-box">📚</div>
-        <div class="tut-content">
-          <span class="tut-title">Tutoriales</span>
-          <span class="tut-subtitle">Documentación y guías HCP</span>
+      <div class="sidebar-scrollable">
+        <!-- Grupo 1: INICIO -->
+        <div class="sidebar-nav-group">
+          <span class="sidebar-group-title">NAVEGACIÓN</span>
+          <button class="sidebar-nav-btn active" id="btn-nav-home" title="Ir al Panel Principal">
+            <span class="sb-nav-icon">⚡</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Panel Principal</span>
+              <span class="sb-nav-sub">Vista general y accesos rápidos</span>
+            </div>
+          </button>
         </div>
-        <div class="tut-badge" id="tut-count-badge">DOCS</div>
-      </button>
 
-      <!-- 2. Botón grande destacado Software -->
-      <button class="btn-tutorials-featured btn-software-featured" id="btn-open-software" title="Catálogo de Software y Programas Descargables">
-        <div class="tut-icon-box soft-icon-box">💻</div>
-        <div class="tut-content">
-          <span class="tut-title">Software</span>
-          <span class="tut-subtitle">Programas descargables</span>
-        </div>
-        <div class="tut-badge soft-badge" id="soft-count-badge">SOFT</div>
-      </button>
+        <!-- Grupo 2: SERVICIOS & GESTIÓN IT -->
+        <div class="sidebar-nav-group">
+          <span class="sidebar-group-title">SERVICIOS & PUESTOS IT</span>
 
-      <!-- 2b. Botón grande destacado Impresoras Canon (debajo de Software) -->
-      <button class="btn-tutorials-featured btn-printers-featured" id="btn-open-printers" title="Gestor e Instalador de Impresoras Canon">
-        <div class="tut-icon-box printer-icon-box">🖨️</div>
-        <div class="tut-content">
-          <span class="tut-title">Impresoras Canon</span>
-          <span class="tut-subtitle">Búsqueda y controladores</span>
-        </div>
-        <div class="tut-badge printer-badge-tag" id="printer-count-badge">CANON</div>
-      </button>
+          <button class="sidebar-nav-btn sb-theme-informes" id="btn-open-informes" title="Informes de Instalación de Equipos Nuevos y Puestas a Punto">
+            <span class="sb-nav-icon">📋</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Informes Equipos</span>
+              <span class="sb-nav-sub">Altas, checklist y ficha técnica</span>
+            </div>
+            <span class="sb-nav-badge" id="informes-count-badge">INFORME</span>
+          </button>
 
-      <!-- 3. Botón grande destacado PC & Diagnóstico -->
-      <button class="btn-tutorials-featured btn-pc-featured" id="btn-open-pc" title="Diagnóstico de Hardware, RAM, CPU, Monitores y Periféricos">
-        <div class="tut-icon-box pc-icon-box">🖥️</div>
-        <div class="tut-content">
-          <span class="tut-title">PC & Diagnóstico</span>
-          <span class="tut-subtitle">Hardware, RAM, GPU y pantallas</span>
-        </div>
-        <div class="tut-badge pc-badge" id="pc-count-badge">PC</div>
-      </button>
+          <button class="sidebar-nav-btn sb-theme-software" id="btn-open-software" title="Catálogo de Software y Programas Descargables">
+            <span class="sb-nav-icon">💻</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Software Corporativo</span>
+              <span class="sb-nav-sub">Programas e instaladores Y:\</span>
+            </div>
+            <span class="sb-nav-badge" id="soft-count-badge">SOFT</span>
+          </button>
 
-      <!-- 4. Botón grande destacado Mantenimiento -->
-      <button class="btn-tutorials-featured btn-maint-featured" id="btn-open-maint" title="Mantenimiento del Sistema, Drivers, Updates y Limpieza">
-        <div class="tut-icon-box maint-icon-box">⚙️</div>
-        <div class="tut-content">
-          <span class="tut-title">Mantenimiento</span>
-          <span class="tut-subtitle">Drivers, updates y limpieza</span>
-        </div>
-        <div class="tut-badge maint-badge" id="maint-count-badge">MAINT</div>
-      </button>
+          <button class="sidebar-nav-btn sb-theme-printers" id="btn-open-printers" title="Gestor e Instalador de Impresoras Canon">
+            <span class="sb-nav-icon">🖨️</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Impresoras Canon</span>
+              <span class="sb-nav-sub">Asistente en 3 pasos e IPs</span>
+            </div>
+            <span class="sb-nav-badge" id="printer-count-badge">CANON</span>
+          </button>
 
-      <!-- 5. Botón grande destacado Red & Conectividad -->
-      <button class="btn-tutorials-featured btn-net-featured" id="btn-open-net" title="Herramientas de Red, Speedtest, Ping y Configuración IP/DNS">
-        <div class="tut-icon-box net-icon-box">🌐</div>
-        <div class="tut-content">
-          <span class="tut-title">Red & Conectividad</span>
-          <span class="tut-subtitle">Speedtest, ping y DNS/IP</span>
+          <button class="sidebar-nav-btn sb-theme-tutorials" id="btn-open-tutorials" title="Tutoriales y Guías Técnicas HCP">
+            <span class="sb-nav-icon">📚</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Guías & Tutoriales</span>
+              <span class="sb-nav-sub">Documentación en \\cielo</span>
+            </div>
+            <span class="sb-nav-badge" id="tut-count-badge">DOCS</span>
+          </button>
         </div>
-        <div class="tut-badge net-badge" id="net-count-badge">RED</div>
-      </button>
 
-      <!-- 6. Botón grande destacado Reparación -->
-      <button class="btn-tutorials-featured btn-repair-featured" id="btn-open-repair" title="Herramientas de Reparación de Windows, SFC, DISM y Memoria">
-        <div class="tut-icon-box repair-icon-box">🛡️</div>
-        <div class="tut-content">
-          <span class="tut-title">Reparación</span>
-          <span class="tut-subtitle">SFC, DISM y Memoria RAM</span>
+        <!-- Grupo 3: DIAGNÓSTICO & SISTEMA -->
+        <div class="sidebar-nav-group">
+          <span class="sidebar-group-title">DIAGNÓSTICO & MANTENIMIENTO</span>
+
+          <button class="sidebar-nav-btn sb-theme-pc" id="btn-open-pc" title="Diagnóstico de Hardware, RAM, CPU, Monitores y Periféricos">
+            <span class="sb-nav-icon">🖥️</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">PC & Diagnóstico</span>
+              <span class="sb-nav-sub">CPU, RAM, GPU y pantallas</span>
+            </div>
+            <span class="sb-nav-badge" id="pc-count-badge">PC</span>
+          </button>
+
+          <button class="sidebar-nav-btn sb-theme-maint" id="btn-open-maint" title="Mantenimiento del Sistema, Drivers, Updates y Limpieza">
+            <span class="sb-nav-icon">⚙️</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Mantenimiento</span>
+              <span class="sb-nav-sub">Drivers, updates y limpieza</span>
+            </div>
+            <span class="sb-nav-badge" id="maint-count-badge">MAINT</span>
+          </button>
+
+          <button class="sidebar-nav-btn sb-theme-net" id="btn-open-net" title="Herramientas de Red, Speedtest, Ping y Configuración IP/DNS">
+            <span class="sb-nav-icon">🌐</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Red & Conectividad</span>
+              <span class="sb-nav-sub">Speedtest, ping y DNS/IP</span>
+            </div>
+            <span class="sb-nav-badge" id="net-count-badge">RED</span>
+          </button>
+
+          <button class="sidebar-nav-btn sb-theme-repair" id="btn-open-repair" title="Herramientas de Reparación de Windows, SFC, DISM y Memoria">
+            <span class="sb-nav-icon">🛡️</span>
+            <div class="sb-nav-info">
+              <span class="sb-nav-title">Reparación</span>
+              <span class="sb-nav-sub">SFC, DISM y Memoria RAM</span>
+            </div>
+            <span class="sb-nav-badge" id="repair-count-badge">FIX</span>
+          </button>
         </div>
-        <div class="tut-badge repair-badge" id="repair-count-badge">FIX</div>
-      </button>
+      </div>
+
+      <!-- Footer del Sidebar con mini estado del equipo -->
+      <div class="sidebar-footer-card" id="sidebar-footer-card">
+        <div class="sb-footer-left">
+          <span class="sb-footer-dot"></span>
+          <div class="sb-footer-text">
+            <span class="sb-footer-name" id="sb-footer-pc-name">Auditoría Lista</span>
+            <span class="sb-footer-sub">HCP Arquitectos</span>
+          </div>
+        </div>
+        <button class="btn-sb-quick-audit" id="btn-sb-quick-audit" title="Ejecutar Diagnóstico Rápido">
+          🩺 Test
+        </button>
+      </div>
     </div>
 
     <!-- Panel de resultados -->
@@ -190,8 +235,8 @@
     </div>
   </div>
 
-  <!-- Modal de Bienvenida (Welcome Overlay) -->
-  <div class="welcome-overlay" id="welcome-overlay">
+  <!-- Modal de Bienvenida (Welcome Overlay - Ocultado para arranque inmediato) -->
+  <div class="welcome-overlay" id="welcome-overlay" style="display:none;">
     <div class="welcome-card">
       <div class="welcome-header">
         <div class="welcome-badge">

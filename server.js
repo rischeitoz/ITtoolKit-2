@@ -609,6 +609,28 @@ async function getGpuInfo() {
             if (model.toLowerCase().includes('intel')) mfg = 'Intel Corporation';
             else if (model.toLowerCase().includes('amd') || model.toLowerCase().includes('radeon')) mfg = 'AMD (Radeon)';
 
+            let officialUrl = 'https://www.nvidia.es/Download/index.aspx?lang=es';
+            let directModelUrl = 'https://www.nvidia.es/Download/index.aspx?lang=es';
+            let searchUrl = `https://www.google.com/search?q=site:nvidia.com+driver+${encodeURIComponent(model)}+official`;
+
+            if (mfg.includes('Intel')) {
+              officialUrl = model.toUpperCase().includes('ARC') || model.toUpperCase().includes('IRIS')
+                ? 'https://www.intel.es/content/www/es/es/download/785597/intel-arc-iris-xe-graphics-windows.html'
+                : 'https://www.intel.es/content/www/es/es/download-center/home.html';
+              directModelUrl = `https://www.intel.es/content/www/es/es/search.html?ws=idsa#q=${encodeURIComponent(model + ' controlador driver')}&t=Downloads`;
+              searchUrl = `https://www.google.com/search?q=site:intel.com+download+${encodeURIComponent(model)}+driver`;
+            } else if (mfg.includes('AMD')) {
+              officialUrl = 'https://www.amd.com/es/support/download/drivers.html';
+              directModelUrl = 'https://www.amd.com/es/support';
+              searchUrl = `https://www.google.com/search?q=site:amd.com+drivers+${encodeURIComponent(model)}+espanol`;
+            } else {
+              officialUrl = model.toUpperCase().includes('GEFORCE') || model.toUpperCase().includes('RTX') || model.toUpperCase().includes('GTX')
+                ? 'https://www.nvidia.com/es-es/geforce/drivers/'
+                : 'https://www.nvidia.es/Download/index.aspx?lang=es';
+              directModelUrl = 'https://www.nvidia.es/Download/index.aspx?lang=es';
+              searchUrl = `https://www.google.com/search?q=site:nvidia.com+driver+${encodeURIComponent(model)}+oficial`;
+            }
+
             gpus.push({
               model,
               manufacturer: mfg,
@@ -619,7 +641,9 @@ async function getGpuInfo() {
               videoProcessor: model,
               temperature: null,
               temperatureError: 'Sensor de temperatura no expuesto por el controlador genérico del SO.',
-              officialUrl: mfg.includes('Intel') ? 'https://www.intel.es/content/www/es/es/download-center/home.html' : mfg.includes('AMD') ? 'https://www.amd.com/es/support' : 'https://www.nvidia.com/Download/index.aspx',
+              officialUrl,
+              directModelUrl,
+              searchUrl,
               driverStatus: 'ok',
               isVirtualOrRemote: false,
             });
@@ -2277,13 +2301,40 @@ app.post('/api/tutorials/read-pdf', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // MONITORES Y PANTALLAS (API REAL / DEV FALLBACK)
 // ─────────────────────────────────────────────────────────────────────────────
+const ALL_STANDARD_HZ_SERVER = [50, 59, 60, 70, 72, 75, 85, 90, 100, 120, 144, 165, 180, 200, 240, 260, 280, 300, 360, 480, 500, 540];
+
 async function getMonitorsInfoServer() {
   const results = [];
   let wmiDetailedList = [];
+  let videoControllers = [];
 
   if (process.platform === 'win32') {
     try {
+      const vcRes = await runCmd('cmd.exe', ['/c', 'wmic path Win32_VideoController get CurrentRefreshRate,MaxRefreshRate,MinRefreshRate,VideoModeDescription,CurrentHorizontalResolution,CurrentVerticalResolution,Name /format:csv'], 4000);
+      if (vcRes.ok && vcRes.stdout) {
+        const lines = vcRes.stdout.split('\n').filter(l => l.trim() && !l.toLowerCase().startsWith('node'));
+        for (const line of lines) {
+          const parts = line.split(',');
+          if (parts.length >= 4) {
+            const curHz = parseInt(parts.find(p => /^\d{2,3}$/.test(p.trim()) && parseInt(p.trim(), 10) >= 30 && parseInt(p.trim(), 10) <= 600) || '0', 10);
+            const desc = parts.find(p => p.includes('x') && p.includes('@')) || '';
+            const matchDescHz = /@\s*(\d+)\s*Hz/i.exec(desc);
+            const hzFromDesc = matchDescHz ? parseInt(matchDescHz[1], 10) : 0;
+            const finalHz = curHz > 0 ? curHz : (hzFromDesc > 0 ? hzFromDesc : 0);
 
+            videoControllers.push({
+              CurrentHz: finalHz,
+              Description: desc,
+              RawLine: line
+            });
+          }
+        }
+      }
+    } catch (e) {
+      appLog('WARN', `[Monitores Server] Error consultando Win32_VideoController: ${e.message}`);
+    }
+
+    try {
       const wmiRes = await runCmd('cmd.exe', ['/c', 'wmic path Win32_PnPEntity where "PNPClass=\'Monitor\' or Service=\'monitor\'" get Caption,Manufacturer,DeviceID /format:csv'], 4000);
       if (wmiRes.ok && wmiRes.stdout) {
         const lines = wmiRes.stdout.split('\n').filter(l => l.trim() && !l.includes('Node,Caption'));
@@ -2303,6 +2354,8 @@ async function getMonitorsInfoServer() {
     }
   }
 
+  const primaryControllerHz = videoControllers.find(vc => vc.CurrentHz > 0)?.CurrentHz || 0;
+
   if (wmiDetailedList.length > 0) {
     wmiDetailedList.forEach((item, idx) => {
       const manufacturer = item.Manufacturer || 'Genérico PnP';
@@ -2316,22 +2369,18 @@ async function getMonitorsInfoServer() {
         }
       }
       const resText = item.Width && item.Height ? `${item.Width} x ${item.Height} px` : '1920 x 1080 px';
-      const currentHz = item.CurrentHz || 60;
-      const maxHz = Math.max(currentHz, item.MaxHz || 60);
+      const currentHz = item.CurrentHz || (primaryControllerHz > 0 ? primaryControllerHz : 60);
+      const maxHz = Math.max(currentHz, item.MaxHz || 144);
 
-      let availableHz = Array.isArray(item.AvailableHz) ? item.AvailableHz : [];
-      if (!availableHz.length) {
-        const std = [50, 60, 75, 90, 100, 120, 144, 165, 180, 240, 360];
-        availableHz = std.filter(h => h <= maxHz);
-        if (!availableHz.includes(currentHz)) availableHz.push(currentHz);
-        if (!availableHz.includes(maxHz)) availableHz.push(maxHz);
-        availableHz.sort((a, b) => a - b);
-      }
+      let availableHz = [...ALL_STANDARD_HZ_SERVER];
+      if (!availableHz.includes(currentHz)) availableHz.push(currentHz);
+      if (!availableHz.includes(maxHz)) availableHz.push(maxHz);
+      availableHz.sort((a, b) => a - b);
 
       results.push({
         id: idx + 1,
-        isPrimary: !!item.IsPrimary,
-        deviceName: item.DeviceName || `Display ${idx + 1}`,
+        isPrimary: !!item.IsPrimary || idx === 0,
+        deviceName: item.DeviceName || `\\\\.\\DISPLAY${idx + 1}`,
         deviceString: item.DeviceString || 'Adaptador de Pantalla',
         manufacturer: manufacturer || 'Genérico PnP',
         model: model || `Monitor ${idx + 1}`,
@@ -2361,7 +2410,7 @@ async function getMonitorsInfoServer() {
         height: 1440,
         currentHz: 144,
         maxHz: 165,
-        availableHz: [60, 75, 100, 120, 144, 165],
+        availableHz: ALL_STANDARD_HZ_SERVER,
         scaleFactor: 100,
         orientation: 'Horizontal (0°)',
         isLaptopInternal: false
@@ -2378,7 +2427,7 @@ async function getMonitorsInfoServer() {
         height: 1080,
         currentHz: 60,
         maxHz: 75,
-        availableHz: [50, 60, 75],
+        availableHz: ALL_STANDARD_HZ_SERVER,
         scaleFactor: 100,
         orientation: 'Horizontal (0°)',
         isLaptopInternal: false

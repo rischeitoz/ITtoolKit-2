@@ -37,9 +37,11 @@ const ICONS = { ok: '🟢', warn: '🟡', error: '🔴' };
 // ── Control de estado activo en la barra lateral ──────────────────────────────
 function setActiveSidebarButton(buttonId) {
   const sidebarButtons = [
+    'btn-nav-home',
     'btn-open-tutorials',
     'btn-open-software',
     'btn-open-printers',
+    'btn-open-informes',
     'btn-open-pc',
     'btn-open-maint',
     'btn-open-net',
@@ -58,6 +60,52 @@ function setActiveSidebarButton(buttonId) {
 }
 
 // ── Helpers de UI ────────────────────────────────────────────────────────────
+function showToast(message, type = 'info', duration = 3500) {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast-item toast-${type}`;
+
+  toast.innerHTML = `
+    <div class="toast-body">${message}</div>
+    <button class="toast-close" title="Cerrar">✕</button>
+  `;
+
+  const closeBtn = toast.querySelector('.toast-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 250);
+    });
+  }
+
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 300);
+    }
+  }, duration);
+}
+window.showToast = showToast;
+
 function setBusy(busy, text = '') {
   progressBar.classList.toggle('active', busy);
   statusText.textContent = text;
@@ -66,6 +114,10 @@ function setBusy(busy, text = '') {
 
 function clearResults(title) {
   resultTitle.textContent = title;
+  const breadcrumbEl = document.getElementById('app-breadcrumb');
+  if (breadcrumbEl) {
+    breadcrumbEl.textContent = title ? `HCPToolKit > ${title}` : 'HCPToolKit > Panel Principal';
+  }
   resultsEl.innerHTML = '';
   resultsEl.classList.remove('panel-fade-in');
   void resultsEl.offsetWidth; // Trigger reflow for animation
@@ -995,27 +1047,30 @@ function renderMonitoresContent(data) {
     const card = document.createElement('div');
     card.className = `monitor-card ${mon.isPrimary ? 'is-primary' : ''}`;
 
-    const isHzUpgradable = mon.maxHz > mon.currentHz;
+    const isHzUpgradable = mon.maxHz > mon.currentHz || mon.currentHz < 144;
 
+    const ALL_HZ = [50, 59, 60, 70, 72, 75, 85, 90, 100, 120, 144, 165, 180, 200, 240, 260, 280, 300, 360, 480, 500, 540];
     let avail = Array.isArray(mon.availableHz) && mon.availableHz.length > 0
       ? [...mon.availableHz]
-      : [50, 60, 75, 90, 100, 120, 144, 165, 180, 240, 360].filter(h => h <= mon.maxHz);
+      : ALL_HZ;
 
     if (!avail.includes(mon.currentHz)) avail.push(mon.currentHz);
     if (!avail.includes(mon.maxHz)) avail.push(mon.maxHz);
-    avail.sort((a, b) => a - b);
+    // Deduplicate and sort
+    avail = Array.from(new Set(avail)).sort((a, b) => a - b);
 
     const hzOptionsHTML = avail.map(hz => {
       const isCurrent = hz === mon.currentHz;
       const isMax = hz === mon.maxHz;
       let label = `${hz} Hz`;
-      if (isCurrent && isMax) label += ' — Actual y Máximo';
-      else if (isCurrent) label += ' — Configurado Actual';
-      else if (isMax) label += ' — Máximo Soportado';
+      if (isCurrent && isMax) label += ' — Configurado Actual (Detectado)';
+      else if (isCurrent) label += ' — Activo Actual en Windows';
+      else if (isMax && mon.maxHz > mon.currentHz) label += ' — Máximo Detectado por Controlador';
+      else if (hz >= 120) label += ' — Alta Tasa de Refresco';
       return `<option value="${hz}" ${isCurrent ? 'selected' : ''}>${label}</option>`;
     }).join('');
 
-    const showSelector = isHzUpgradable || avail.length > 1;
+    const showSelector = true;
 
     card.innerHTML = `
       <div class="monitor-card-header">
@@ -2496,8 +2551,8 @@ function createGpuDriverCard(g) {
     <div class="gpu-card-notice">
       <span style="font-size:18px;">💡</span>
       <div>
-        Los fabricantes de GPU lanzan actualizaciones constantemente para optimizar juegos y rendimiento.
-        Comprueba si hay un nuevo controlador listo para descargar desde la web oficial de <strong>${g.manufacturer}</strong>.
+        Controlador oficial detectado para el modelo <strong>${escapeHtml(g.model)}</strong> (${escapeHtml(g.manufacturer)}).
+        Pulsa en el botón principal para ir directamente al portal oficial de descarga del fabricante para este modelo específico.
       </div>
     </div>
 
@@ -2505,21 +2560,36 @@ function createGpuDriverCard(g) {
   `;
 
   const actionsEl = card.querySelector('.gpu-card-actions');
-  if (g.officialUrl && actionsEl) {
-    const btnUrl = document.createElement('button');
-    btnUrl.className = 'gpu-btn primary';
-    btnUrl.innerHTML = `🚀 Abrir Web Oficial de ${g.manufacturer}`;
-    btnUrl.onclick = () => window.api.openUrl(g.officialUrl);
+  if (actionsEl) {
+    const directUrl = g.directModelUrl || g.officialUrl;
+    const searchUrl = g.searchUrl || `https://www.google.com/search?q=${encodeURIComponent(g.manufacturer + ' ' + g.model + ' official driver')}`;
+
+    if (directUrl) {
+      const btnUrl = document.createElement('button');
+      btnUrl.className = 'gpu-btn primary';
+      btnUrl.innerHTML = `🚀 Descargar Drivers Oficiales de ${escapeHtml(g.manufacturer)}`;
+      btnUrl.title = `Abrir portal oficial de drivers para ${g.model}`;
+      btnUrl.onclick = () => window.api.openUrl(directUrl);
+      actionsEl.appendChild(btnUrl);
+    }
+
+    if (searchUrl) {
+      const btnSearch = document.createElement('button');
+      btnSearch.className = 'gpu-btn secondary';
+      btnSearch.innerHTML = `🔍 Buscar Modelo Exacto en la Web Oficial`;
+      btnSearch.title = `Búsqueda específica del modelo ${g.model} en el fabricante`;
+      btnSearch.onclick = () => window.api.openUrl(searchUrl);
+      actionsEl.appendChild(btnSearch);
+    }
 
     const btnCopy = document.createElement('button');
     btnCopy.className = 'gpu-btn secondary';
-    btnCopy.innerHTML = `📋 Copiar Enlace Directo`;
+    btnCopy.innerHTML = `📋 Copiar Enlace`;
     btnCopy.onclick = () => {
-      window.api.copyToClipboard(g.officialUrl);
+      window.api.copyToClipboard(directUrl || g.officialUrl);
+      showToast('Enlace de descarga de drivers copiado al portapapeles', 'info');
       statusText.textContent = 'Enlace de descarga copiado al portapapeles.';
     };
-
-    actionsEl.appendChild(btnUrl);
     actionsEl.appendChild(btnCopy);
   }
 
@@ -3648,118 +3718,232 @@ function renderSystemUpdatesPanel(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Panel Principal / Dashboard Inicial
+// Panel Principal / Dashboard Ejecutivo
 // ═══════════════════════════════════════════════════════════════════════════════
 function renderHomeDashboard() {
-  clearResults('Panel Principal HCPToolKit');
+  setActiveSidebarButton('btn-nav-home');
+  clearResults('Panel Principal');
+
   const container = document.createElement('div');
-  container.className = 'dashboard-welcome';
+  container.className = 'dashboard-executive-view';
+
+  // Obtener info básica rápida si está disponible
+  const hostDisplay = (window.process && window.process.env && window.process.env.COMPUTERNAME) || 'Equipo Local';
+  const userDisplay = (window.process && window.process.env && window.process.env.USERNAME) || 'Administrador TI';
+
   container.innerHTML = `
-    <div class="welcome-banner">
-      <div class="welcome-text">
-        <h2>⚡ Centro de Mantenimiento y Diagnóstico HCPToolKit</h2>
-        <p>Selecciona una utilidad del menú lateral o busca la función que necesites.</p>
+    <!-- Hero Banner Ejecutivo -->
+    <div class="dash-hero-banner">
+      <div class="dash-hero-left">
+        <div class="dash-hero-avatar">⚡</div>
+        <div>
+          <h2 class="dash-hero-title">HCPToolKit Suite TI</h2>
+          <p class="dash-hero-subtitle">
+            <span>Sistema listo para diagnóstico y gestión</span>
+            <span class="dash-hero-tag">Host: ${escapeHtml(hostDisplay)}</span>
+            <span class="dash-hero-tag">Operador: ${escapeHtml(userDisplay)}</span>
+          </p>
+        </div>
       </div>
-      <div style="display:flex; gap:8px;">
-        <span class="topbar-status-pill"><span class="status-dot"></span> Auditando en Tiempo Real</span>
+      <div class="dash-hero-actions">
+        <button id="btn-hero-audit" class="btn-dash-primary">
+          <span>🩺</span>
+          <span>Auditoría Rápida PC</span>
+        </button>
+        <button id="btn-hero-refresh" class="btn-dash-secondary">
+          <span>🔄</span>
+          <span>Refrescar</span>
+        </button>
       </div>
     </div>
 
-    <!-- Buscador en Grande en Panel Principal -->
+    <!-- Buscador Integrado en Panel Principal -->
     <div class="home-search-section">
       <div class="home-search-box">
         <span class="home-search-icon">🔍</span>
-        <input type="text" id="home-hero-search" class="home-search-input" placeholder="Buscar utilidad o función (ej: RAM, GPU, Speedtest, DNS, SFC, Updates)..." />
+        <input type="text" id="home-hero-search" class="home-search-input" placeholder="Buscar utilidad o función (ej: Informes, Impresoras, RAM, GPU, Speedtest, DNS, SFC)..." />
         <button id="btn-home-clear-search" class="btn-home-clear" style="display:none;">✕</button>
       </div>
       <div class="home-search-tags">
+        <span class="search-tag" data-query="Informes">📋 Informes</span>
+        <span class="search-tag" data-query="Impresoras">🖨️ Impresoras</span>
+        <span class="search-tag" data-query="Software">💻 Software</span>
+        <span class="search-tag" data-query="Tutoriales">📚 Guías</span>
         <span class="search-tag" data-query="Diagnóstico">🖥️ Diagnóstico</span>
         <span class="search-tag" data-query="GPU">🎮 Drivers GPU</span>
-        <span class="search-tag" data-query="Updates">🔄 Actualizaciones</span>
-        <span class="search-tag" data-query="Speedtest">🌐 Test Velocidad</span>
-        <span class="search-tag" data-query="Red">⚙️ Opciones Red</span>
+        <span class="search-tag" data-query="Speedtest">🌐 Velocidad</span>
         <span class="search-tag" data-query="SFC">🛡️ Reparar SFC</span>
-        <span class="search-tag" data-query="Alto Rendimiento">⚡ Rendimiento</span>
       </div>
     </div>
 
-    <div id="home-search-results-box" style="display:none; margin-bottom: 20px;"></div>
+    <div id="home-search-results-box" style="display:none; margin-bottom: 10px;"></div>
 
-    <div class="kpi-grid">
-      <div class="kpi-card" id="kpi-diagnostico" style="cursor:pointer;">
-        <div class="kpi-icon-wrap">🖥️</div>
-        <div class="kpi-info">
-          <span class="kpi-label">Diagnóstico PC</span>
-          <span class="kpi-value">Auditar Hardware</span>
-          <span class="kpi-sub">CPU, RAM, GPU y Discos</span>
+    <!-- Módulos de Gestión y Soporte Técnico (Bento Grid) -->
+    <div class="dash-section-header">
+      <div class="dash-section-title">
+        <span>⭐ Módulos Principales de Gestión</span>
+      </div>
+      <span class="dash-section-badge">Acceso Directo</span>
+    </div>
+
+    <div class="dash-bento-grid">
+      <div class="dash-bento-card" id="bento-informes">
+        <div class="dash-bento-top">
+          <div class="dash-bento-icon-box informes-theme">📋</div>
+          <span class="dash-bento-pill">Documentación</span>
+        </div>
+        <h3 class="dash-bento-title">Informes de Equipos</h3>
+        <p class="dash-bento-desc">Generación de fichas técnicas de alta para puestos nuevos o reciclados con checklist de instalación.</p>
+        <div class="dash-bento-footer">
+          <span>Abrir Informes</span>
+          <span class="dash-bento-arrow">→</span>
         </div>
       </div>
-      <div class="kpi-card" id="kpi-speedtest" style="cursor:pointer;">
-        <div class="kpi-icon-wrap">🌐</div>
-        <div class="kpi-info">
-          <span class="kpi-label">Test Velocidad</span>
-          <span class="kpi-value">Medir Red</span>
-          <span class="kpi-sub">Ping, Descarga y Subida</span>
+
+      <div class="dash-bento-card" id="bento-software">
+        <div class="dash-bento-top">
+          <div class="dash-bento-icon-box software-theme">💻</div>
+          <span class="dash-bento-pill">Instaladores</span>
+        </div>
+        <h3 class="dash-bento-title">Software Corporativo</h3>
+        <p class="dash-bento-desc">Catálogo de aplicaciones departamentales, herramientas ofimáticas y paquetes de red.</p>
+        <div class="dash-bento-footer">
+          <span>Ver Catálogo</span>
+          <span class="dash-bento-arrow">→</span>
         </div>
       </div>
-      <div class="kpi-card" id="kpi-sysupdates" style="cursor:pointer;">
-        <div class="kpi-icon-wrap">🔄</div>
-        <div class="kpi-info">
-          <span class="kpi-label">Actualizaciones</span>
-          <span class="kpi-value">Comprobar Updates</span>
-          <span class="kpi-sub">Windows & HP Support</span>
+
+      <div class="dash-bento-card" id="bento-printers">
+        <div class="dash-bento-top">
+          <div class="dash-bento-icon-box printers-theme">🖨️</div>
+          <span class="dash-bento-pill">Impresión</span>
+        </div>
+        <h3 class="dash-bento-title">Impresoras Canon</h3>
+        <p class="dash-bento-desc">Asistente de instalación guiado en 3 pasos con descarga de controladores oficiales y asignación de IPs.</p>
+        <div class="dash-bento-footer">
+          <span>Gestionar Impresoras</span>
+          <span class="dash-bento-arrow">→</span>
         </div>
       </div>
-      <div class="kpi-card" id="kpi-healthcheck" style="cursor:pointer;">
-        <div class="kpi-icon-wrap">⭐</div>
-        <div class="kpi-info">
-          <span class="kpi-label">Salud General</span>
-          <span class="kpi-value">Evaluación 1-10</span>
-          <span class="kpi-sub">Estado y Consejos</span>
+
+      <div class="dash-bento-card" id="bento-tutorials">
+        <div class="dash-bento-top">
+          <div class="dash-bento-icon-box tutorials-theme">📚</div>
+          <span class="dash-bento-pill">Manuales</span>
+        </div>
+        <h3 class="dash-bento-title">Guías & Tutoriales</h3>
+        <p class="dash-bento-desc">Base de conocimiento técnico en red con manuales de configuración en formato PDF y Word.</p>
+        <div class="dash-bento-footer">
+          <span>Explorar Guías</span>
+          <span class="dash-bento-arrow">→</span>
         </div>
       </div>
     </div>
 
-    <div class="dashboard-section-title">🚀 Accesos Rápidos de Optimización</div>
-    <div class="shortcut-grid">
-      <div class="shortcut-card" id="sc-highperf">
-        <span class="shortcut-icon">⚡</span>
-        <div class="shortcut-text">
-          <span class="shortcut-title">Alto Rendimiento</span>
-          <span class="shortcut-sub">Máxima potencia de procesador y energía</span>
+    <!-- Herramientas de Diagnóstico y Mantenimiento -->
+    <div class="dash-section-header" style="margin-top: 10px;">
+      <div class="dash-section-title">
+        <span>🚀 Diagnóstico Rápido y Optimización</span>
+      </div>
+      <span class="dash-section-badge">Herramientas</span>
+    </div>
+
+    <div class="dash-quick-grid">
+      <div class="dash-quick-card" id="sc-diagnostico">
+        <div class="dash-quick-icon">🖥️</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Diagnóstico PC</span>
+          <span class="dash-quick-sub">CPU, RAM, GPU y Almacenamiento</span>
         </div>
       </div>
-      <div class="shortcut-card" id="sc-cleantemp">
-        <span class="shortcut-icon">🧹</span>
-        <div class="shortcut-text">
-          <span class="shortcut-title">Limpiar Temporales</span>
-          <span class="shortcut-sub">Liberar espacio en disco inmediatamente</span>
+
+      <div class="dash-quick-card" id="sc-speedtest">
+        <div class="dash-quick-icon">🌐</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Test de Velocidad</span>
+          <span class="dash-quick-sub">Descarga, subida y latencia ping</span>
         </div>
       </div>
-      <div class="shortcut-card" id="sc-gpudrivers">
-        <span class="shortcut-icon">🎮</span>
-        <div class="shortcut-text">
-          <span class="shortcut-title">Drivers de GPU</span>
-          <span class="shortcut-sub">Comprobar controlador de la gráfica</span>
+
+      <div class="dash-quick-card" id="sc-sysupdates">
+        <div class="dash-quick-icon">🔄</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Actualizaciones</span>
+          <span class="dash-quick-sub">Windows Update y parches HP</span>
         </div>
       </div>
-      <div class="shortcut-card" id="sc-sfc">
-        <span class="shortcut-icon">🛡️</span>
-        <div class="shortcut-text">
-          <span class="shortcut-title">Reparar Archivos SFC</span>
-          <span class="shortcut-sub">Escanear archivos del sistema en CMD</span>
+
+      <div class="dash-quick-card" id="sc-healthcheck">
+        <div class="dash-quick-icon">⭐</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Salud General</span>
+          <span class="dash-quick-sub">Puntuación 1-10 y recomendaciones</span>
+        </div>
+      </div>
+
+      <div class="dash-quick-card" id="sc-highperf">
+        <div class="dash-quick-icon">⚡</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Alto Rendimiento</span>
+          <span class="dash-quick-sub">Plan de energía de máxima potencia</span>
+        </div>
+      </div>
+
+      <div class="dash-quick-card" id="sc-cleantemp">
+        <div class="dash-quick-icon">🧹</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Limpiar Temporales</span>
+          <span class="dash-quick-sub">Liberar espacio en disco local</span>
+        </div>
+      </div>
+
+      <div class="dash-quick-card" id="sc-gpudrivers">
+        <div class="dash-quick-icon">🎮</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Drivers de GPU</span>
+          <span class="dash-quick-sub">Detectar gráfica y versión instalada</span>
+        </div>
+      </div>
+
+      <div class="dash-quick-card" id="sc-sfc">
+        <div class="dash-quick-icon">🛡️</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Reparar SFC</span>
+          <span class="dash-quick-sub">Escanear archivos del sistema</span>
         </div>
       </div>
     </div>
   `;
+
   resultsEl.appendChild(container);
 
-  // Vincular eventos KPI y Accesos Rápidos
-  document.getElementById('kpi-diagnostico')?.addEventListener('click', () => runDiagnostico());
-  document.getElementById('kpi-speedtest')?.addEventListener('click', () => runSpeedTest());
-  document.getElementById('kpi-sysupdates')?.addEventListener('click', () => runSysUpdates());
-  document.getElementById('kpi-healthcheck')?.addEventListener('click', () => runHealthCheck());
+  // Vincular eventos Hero
+  document.getElementById('btn-hero-audit')?.addEventListener('click', () => runDiagnostico());
+  document.getElementById('btn-hero-refresh')?.addEventListener('click', () => renderHomeDashboard());
 
+  // Vincular Bento Cards
+  document.getElementById('bento-informes')?.addEventListener('click', () => {
+    setActiveSidebarButton('btn-open-informes');
+    runInformesUtility();
+  });
+  document.getElementById('bento-software')?.addEventListener('click', () => {
+    setActiveSidebarButton('btn-open-software');
+    openSoftwarePanel();
+  });
+  document.getElementById('bento-printers')?.addEventListener('click', () => {
+    setActiveSidebarButton('btn-open-printers');
+    runImpresorasUtility();
+  });
+  document.getElementById('bento-tutorials')?.addEventListener('click', () => {
+    setActiveSidebarButton('btn-open-tutorials');
+    loadAndRenderTutorials();
+  });
+
+  // Vincular Accesos Rápidos
+  document.getElementById('sc-diagnostico')?.addEventListener('click', () => runDiagnostico());
+  document.getElementById('sc-speedtest')?.addEventListener('click', () => runSpeedTest());
+  document.getElementById('sc-sysupdates')?.addEventListener('click', () => runSysUpdates());
+  document.getElementById('sc-healthcheck')?.addEventListener('click', () => runHealthCheck());
   document.getElementById('sc-highperf')?.addEventListener('click', () => runHighPerf());
   document.getElementById('sc-cleantemp')?.addEventListener('click', () => runCleanTemp());
   document.getElementById('sc-gpudrivers')?.addEventListener('click', () => runGpuDrivers());
@@ -3898,13 +4082,26 @@ if (topClearBtn) {
   topClearBtn.addEventListener('click', () => performSearch(''));
 }
 
-// Botón "Panel Principal" (Topbar)
+// Botón "Panel Principal" (Topbar & Brand)
 function goHome() {
-  setActiveSidebarButton(null);
+  setActiveSidebarButton('btn-nav-home');
   renderHomeDashboard();
 }
 
 document.getElementById('btn-topbar-home')?.addEventListener('click', goHome);
+document.getElementById('btn-topbar-brand')?.addEventListener('click', goHome);
+
+// Atajo global Ctrl + K para enfocar el buscador
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    const searchInput = document.getElementById('tool-search') || document.getElementById('home-hero-search');
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Controles de Ventana (Custom TitleBar)
@@ -3973,7 +4170,7 @@ if (window.api?.isWindowMaximized) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Ventana de Bienvenida & Secuencia de Inicio
+// Ventana de Bienvenida & Secuencia de Inicio (Optimizada para Arranque Inmediato)
 // ═══════════════════════════════════════════════════════════════════════════════
 const welcomeOverlay = document.getElementById('welcome-overlay');
 const startBtn = document.getElementById('btn-welcome-start');
@@ -3982,38 +4179,24 @@ const loaderBox = document.getElementById('welcome-loader-box');
 const stepLabel = document.getElementById('welcome-step-label');
 const progressFill = document.getElementById('welcome-progress-fill');
 
+// Ocultar pantalla de bienvenida para que la aplicación cargue al instante
+if (welcomeOverlay) {
+  welcomeOverlay.style.display = 'none';
+  welcomeOverlay.classList.add('fade-out');
+}
+
 if (startBtn && welcomeOverlay) {
   startBtn.addEventListener('click', () => {
-    actionBox.style.display = 'none';
-    loaderBox.style.display = 'flex';
-
-    const steps = [
-      { text: 'Iniciando sensores de hardware y procesador...', pct: 25 },
-      { text: 'Detectando módulos de memoria RAM y discos...', pct: 60 },
-      { text: 'Cargando utilidades de red y reparación...', pct: 85 },
-      { text: '¡Sistema listo!', pct: 100 }
-    ];
-
-    let current = 0;
-    const interval = setInterval(() => {
-      if (current < steps.length) {
-        if (stepLabel) stepLabel.textContent = steps[current].text;
-        if (progressFill) progressFill.style.width = `${steps[current].pct}%`;
-        current++;
-      } else {
-        clearInterval(interval);
-        setTimeout(() => {
-          welcomeOverlay.classList.add('fade-out');
-          setTimeout(() => {
-            welcomeOverlay.style.display = 'none';
-          }, 400);
-        }, 300);
-      }
-    }, 400);
+    if (welcomeOverlay) {
+      welcomeOverlay.classList.add('fade-out');
+      setTimeout(() => {
+        welcomeOverlay.style.display = 'none';
+      }, 200);
+    }
   });
 }
 
-// Carga inicial del Dashboard
+// Carga inicial e instantánea del Dashboard Principal
 renderHomeDashboard();
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -4036,6 +4219,7 @@ const CATEGORIES_CONFIG = {
     themeClass: 'pc-theme',
     btnId: 'btn-open-pc',
     tools: [
+      { id: 'btn-informes-pc', title: 'Informe de Instalación', sub: 'Ficha y checklist oficial de alta para equipos nuevos o reciclados', icon: '📋', badge: 'INFORMES', run: runInformesUtility },
       { id: 'btn-info-equipo', title: 'Información del Equipo', sub: 'Nombre NetBIOS/DNS, Dominio / Grupo y Contraseña', icon: '🏷️', badge: 'IDENTIFICACIÓN', run: runInfoEquipo },
       { id: 'btn-diagnostico', title: 'Diagnóstico del PC', sub: 'RAM, CPU, GPU y disco duro en tiempo real', icon: '🩺', badge: 'AUDITORÍA', run: runDiagnostico },
       { id: 'btn-monitores', title: 'Monitores y Pantallas', sub: 'Resolución, Hz (actual y máx), Fabricante, Modelo y Detección PnP', icon: '🖥️', badge: 'PANTALLAS', run: renderMonitoresUtility },
@@ -4159,6 +4343,14 @@ function renderCategoryPanel(categoryKey) {
 }
 
 // Vincular botones destacados de la barra lateral
+document.getElementById('btn-nav-home')?.addEventListener('click', () => {
+  renderHomeDashboard();
+});
+
+document.getElementById('btn-sb-quick-audit')?.addEventListener('click', () => {
+  runDiagnostico();
+});
+
 document.getElementById('btn-open-tutorials')?.addEventListener('click', () => {
   setActiveSidebarButton('btn-open-tutorials');
   loadAndRenderTutorials();
@@ -4172,6 +4364,11 @@ document.getElementById('btn-open-software')?.addEventListener('click', () => {
 document.getElementById('btn-open-printers')?.addEventListener('click', () => {
   setActiveSidebarButton('btn-open-printers');
   runImpresorasUtility();
+});
+
+document.getElementById('btn-open-informes')?.addEventListener('click', () => {
+  setActiveSidebarButton('btn-open-informes');
+  runInformesUtility();
 });
 
 document.getElementById('btn-open-pc')?.addEventListener('click', () => {
@@ -5961,7 +6158,12 @@ async function startSoftwareDownloadProcess(prog, cardElement) {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MÓDULO DE SEGURIDAD Y AUTENTICACIÓN (LOGIN DE ADMINISTRADOR)
+// ─────────────────────────────────────────────────────────────────────────────
+// [CONFIGURACIÓN DE SEGURIDAD]:
+// Para reactivar la petición obligatoria de contraseña en el futuro,
+// simplemente cambia la constante `ENABLE_SECURITY_LOGIN` a `true`.
 // ═══════════════════════════════════════════════════════════════════════════════
+const ENABLE_SECURITY_LOGIN = false; // 🔒 Guardado para reactivación futura: cambiar a true para reactivar login
 const AUTH_KEY = 'hcptoolkit_admin_authenticated';
 let failedLoginAttempts = 0;
 let lockoutTimer = null;
@@ -5978,11 +6180,19 @@ const btnLoginSubmit = document.getElementById('btn-login-submit');
 const btnLoginText = document.getElementById('btn-login-text');
 const btnLockSession = document.getElementById('btn-lock-session');
 
-// Verificación inicial de estado de sesión (solicita login cada vez que se abre la app)
+// Verificación inicial de estado de sesión
 function checkInitialAuth() {
+  if (!ENABLE_SECURITY_LOGIN) {
+    if (loginOverlay) {
+      loginOverlay.classList.add('hidden-login');
+      loginOverlay.style.display = 'none';
+    }
+    return;
+  }
   localStorage.removeItem(AUTH_KEY);
   sessionStorage.removeItem(AUTH_KEY);
   if (loginOverlay) {
+    loginOverlay.style.display = 'flex';
     loginOverlay.classList.remove('hidden-login');
     setTimeout(() => {
       if (loginPassword) loginPassword.focus();
@@ -6116,12 +6326,20 @@ function startLockoutCountdown(seconds) {
 
 // Cierre / Bloqueo de Sesión desde la barra superior
 if (btnLockSession) {
+  if (!ENABLE_SECURITY_LOGIN) {
+    btnLockSession.style.display = 'none';
+  }
   btnLockSession.addEventListener('click', () => {
+    if (!ENABLE_SECURITY_LOGIN) {
+      showToast('ℹ️ El sistema de contraseñas está desactivado temporalmente.', 'info');
+      return;
+    }
     localStorage.removeItem(AUTH_KEY);
     sessionStorage.removeItem(AUTH_KEY);
     if (loginStatusMsg) loginStatusMsg.style.display = 'none';
     if (loginPassword) loginPassword.value = '';
     if (loginOverlay) {
+      loginOverlay.style.display = 'flex';
       loginOverlay.classList.remove('hidden-login');
       setTimeout(() => {
         if (loginPassword) loginPassword.focus();
@@ -6144,7 +6362,46 @@ async function runImpresorasUtility() {
   resultsEl.appendChild(container);
 
   const canonInstallerPath = 'Y:\\03_IT\\00_IMPRESORAS\\Canon C5850i Nuevo\\GPlus_PCL6_Driver_V311_32_64_00\\x64\\Setup.exe';
-  const textPrinterList = `1º Planta 192.168.0.190 (Ejecución)\n\n1º Planta 192.168.0.40 (Administración)\n\n2º Planta 192.168.0.190 (Urbanismo)\n\n3º Planta 192.168.0.244 (Basico)`;
+  const textPrinterList = `1º Planta 192.168.0.191 (Ejecución)\n\n1º Planta 192.168.0.40 (Administración)\n\n2º Planta 192.168.0.190 (Urbanismo)\n\n3º Planta 192.168.0.244 (Basico)`;
+
+  const officePrinters = [
+    {
+      id: 'p1',
+      floor: '1ª Planta',
+      dept: 'Ejecución',
+      ip: '192.168.0.191',
+      icon: '💼',
+      color: '#2563EB',
+      modelText: 'Canon imageRUNNER ADVANCE'
+    },
+    {
+      id: 'p2',
+      floor: '1ª Planta',
+      dept: 'Administración',
+      ip: '192.168.0.40',
+      icon: '📑',
+      color: '#0D9488',
+      modelText: 'Canon imageRUNNER ADVANCE'
+    },
+    {
+      id: 'p3',
+      floor: '2ª Planta',
+      dept: 'Urbanismo',
+      ip: '192.168.0.190',
+      icon: '📐',
+      color: '#D97706',
+      modelText: 'Canon imageRUNNER ADVANCE'
+    },
+    {
+      id: 'p4',
+      floor: '3ª Planta',
+      dept: 'Básico',
+      ip: '192.168.0.244',
+      icon: '📁',
+      color: '#7C3AED',
+      modelText: 'Canon imageRUNNER ADVANCE'
+    }
+  ];
 
   container.innerHTML = `
     <div class="printer-utility-wrapper">
@@ -6186,16 +6443,64 @@ async function runImpresorasUtility() {
           <div class="printer-step-header">
             <div class="printer-step-number">2</div>
             <div class="printer-step-title-group">
-              <h3>Paso 2: Información de Impresoras de la Oficina</h3>
-              <p>Listado de referencia con las direcciones IP y departamentos de las impresoras disponibles:</p>
+              <h3>Paso 2: Directorio de Impresoras por Planta y Departamento</h3>
+              <p>Selecciona la impresora deseada según tu ubicación para copiar su IP o verificar su conexión de red:</p>
             </div>
           </div>
 
-          <div class="printer-text-list-box" id="printer-text-list-content">${textPrinterList}</div>
+          <!-- Rejilla Visual de Impresoras -->
+          <div class="printer-directory-grid">
+            ${officePrinters.map(p => `
+              <div class="printer-dir-card" style="--card-accent: ${p.color};">
+                <div class="printer-dir-card-top">
+                  <div class="printer-dir-floor-pill">
+                    <span class="floor-dot" style="background-color: ${p.color};"></span>
+                    <span>${p.floor}</span>
+                  </div>
+                  <span class="printer-dir-network-badge">🟢 Red Local</span>
+                </div>
 
-          <button id="btn-copy-printer-info" class="btn-step-action outline" style="align-self: flex-start;">
-            <span>📋 Copiar Lista de Impresoras al Portapapeles</span>
-          </button>
+                <div class="printer-dir-card-main">
+                  <div class="printer-dir-icon-avatar" style="background-color: ${p.color}18; color: ${p.color};">
+                    <span>${p.icon}</span>
+                  </div>
+                  <div class="printer-dir-info">
+                    <h4 class="printer-dir-dept-title">${p.dept}</h4>
+                    <span class="printer-dir-canon-model">${p.modelText}</span>
+                  </div>
+                </div>
+
+                <div class="printer-dir-card-footer">
+                  <div class="printer-dir-ip-box">
+                    <span class="printer-dir-ip-label">Dirección IP</span>
+                    <span class="printer-dir-ip-code">${p.ip}</span>
+                  </div>
+
+                  <div class="printer-dir-card-actions">
+                    <button class="btn-card-copy-ip" data-ip="${p.ip}" data-dept="${p.dept}" data-floor="${p.floor}">
+                      <span>📋 Copiar IP</span>
+                    </button>
+                    <button class="btn-card-ping-ip" data-ip="${p.ip}" data-id="${p.id}" title="Comprobar conexión en red local">
+                      <span>🌐 Ping</span>
+                    </button>
+                  </div>
+
+                  <div class="printer-ping-badge" id="ping-badge-${p.id}" style="display:none;"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Pie del Paso 2 con Acciones Globales -->
+          <div class="printer-step2-footer">
+            <div class="printer-step2-hint">
+              <span>💡</span>
+              <span>Copia la IP directa para introducirla en el asistente de instalación o copia la lista completa.</span>
+            </div>
+            <button id="btn-copy-printer-info" class="btn-step-action outline">
+              <span>📋 Copiar Lista Completa</span>
+            </button>
+          </div>
         </div>
 
         <!-- PASO 3 -->
@@ -6267,17 +6572,82 @@ async function runImpresorasUtility() {
     });
   }
 
-  // Bind Paso 2: Copiar texto
+  // Bind Paso 2: Copiar IP individual
+  const copyButtons = container.querySelectorAll('.btn-card-copy-ip');
+  copyButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ip = btn.getAttribute('data-ip');
+      const dept = btn.getAttribute('data-dept');
+      const floor = btn.getAttribute('data-floor');
+      try {
+        await window.api.copyToClipboard(ip);
+        showToast(`IP ${ip} (${dept} - ${floor}) copiada al portapapeles.`, 'success');
+        const span = btn.querySelector('span');
+        if (span) span.textContent = '✅ Copiada!';
+        setTimeout(() => {
+          if (span) span.textContent = '📋 Copiar IP';
+        }, 2200);
+      } catch (err) {
+        showToast('Error al copiar la IP.', 'error');
+      }
+    });
+  });
+
+  // Bind Paso 2: Ping individual a cada impresora
+  const pingButtons = container.querySelectorAll('.btn-card-ping-ip');
+  pingButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ip = btn.getAttribute('data-ip');
+      const pid = btn.getAttribute('data-id');
+      const badge = container.querySelector(`#ping-badge-${pid}`);
+
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+      if (badge) {
+        badge.style.display = 'block';
+        badge.className = 'printer-ping-badge';
+        badge.textContent = `⏳ Comprobando ${ip}...`;
+      }
+
+      try {
+        const pingRes = await window.api.runPingTest({ host: ip, count: 2 });
+        if (pingRes && (pingRes.success || pingRes.alive || pingRes.avgPing || pingRes.avg)) {
+          const latency = pingRes.avgPing || pingRes.avg || (pingRes.times && pingRes.times[0]) || '<10';
+          if (badge) {
+            badge.className = 'printer-ping-badge ok';
+            badge.textContent = `✅ En línea (${latency} ms)`;
+          }
+          showToast(`✅ Impresora ${ip} responde correctamente (${latency} ms).`, 'success');
+        } else {
+          if (badge) {
+            badge.className = 'printer-ping-badge fail';
+            badge.textContent = `⚠️ Sin respuesta (Offline o firewall)`;
+          }
+          showToast(`⚠️ No se recibió respuesta de ${ip}.`, 'warning');
+        }
+      } catch (err) {
+        if (badge) {
+          badge.className = 'printer-ping-badge fail';
+          badge.textContent = `❌ Error comprobando IP`;
+        }
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    });
+  });
+
+  // Bind Paso 2: Copiar texto completo
   const btnCopyInfo = container.querySelector('#btn-copy-printer-info');
   if (btnCopyInfo) {
     btnCopyInfo.addEventListener('click', async () => {
       try {
         await window.api.copyToClipboard(textPrinterList);
-        showToast('📋 Lista de impresoras copiada al portapapeles.', 'success');
+        showToast('📋 Lista completa de impresoras copiada al portapapeles.', 'success');
         const spanEl = btnCopyInfo.querySelector('span');
         if (spanEl) spanEl.textContent = '✅ Copiado al Portapapeles!';
         setTimeout(() => {
-          if (spanEl) spanEl.textContent = '📋 Copiar Lista de Impresoras al Portapapeles';
+          if (spanEl) spanEl.textContent = '📋 Copiar Lista Completa';
         }, 2500);
       } catch (e) {
         showToast('Error copiando al portapapeles.', 'error');
@@ -6757,5 +7127,1255 @@ function renderInstalledPrintersListHTML(printers = []) {
     </div>
   `;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÓDULO: INFORMES DE INSTALACIÓN DE EQUIPOS NUEVOS (HCP ARQUITECTOS)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const INFORMES_CONFIG_KEY = 'hcptoolkit_informes_config';
+
+const DEFAULT_INFORMES_PROGRAMS = [
+  { id: 'monkinet', name: 'Monkinet Antivirus', desc: 'Antivirus corporativo' },
+  { id: 'mesh', name: 'Mesh Agent', desc: 'Gestión remota' },
+  { id: 'zip', name: '7-Zip', desc: 'Compresor de archivos' },
+  { id: 'chrome', name: 'Google Chrome', desc: 'Navegador web' },
+  { id: 'office', name: 'Microsoft Office', desc: 'Suite ofimática' },
+  { id: 'lightshot', name: 'Lightshot', desc: 'Capturas de pantalla' },
+  { id: 'workmeter', name: 'WorkMeter', desc: 'Control de actividad' },
+  { id: 'kofax', name: 'KOFAX PDF', desc: 'Gestión de documentos PDF' },
+  { id: 'dna', name: 'Client Setup DNA', desc: 'Cliente corporativo' }
+];
+
+const DEFAULT_CARPETA_COMPARTIDA = 'Y:\\03_IT\\02_SOFTWARE_BASICO';
+
+const INFORMES_PRINTERS_CATALOG = [
+  {
+    planta: '1.ª Planta',
+    items: [
+      { id: 'pr1', label: '192.168.0.44 — Ejecución Recepción' },
+      { id: 'pr2', label: '192.168.0.191 — Ejecución' }
+    ]
+  },
+  {
+    planta: '2.ª Planta',
+    items: [
+      { id: 'pr3', label: '192.168.0.190 — Urbanismo' },
+      { id: 'pr4', label: '192.168.0.110 — Plóter Urbanismo' }
+    ]
+  },
+  {
+    planta: '3.ª Planta',
+    items: [
+      { id: 'pr5', label: '192.168.0.244 — Básico' }
+    ]
+  }
+];
+
+const INFORMES_AJUSTES_LIST = [
+  'Acceso a \\\\cibeles verificado',
+  'Impresoras de red añadidas',
+  'Lightshot configurado',
+  'Windows Update aplicado',
+  'Programas adicionales solicitados',
+  'Outlook / correo configurado',
+  'Permisos de red verificados'
+];
+
+const INFORMES_VERIFICACIONES_LIST = [
+  'Inicio de sesión con cuenta de usuario',
+  'Conexión al servidor \\\\cibeles',
+  'Carpetas compartidas accesibles',
+  'Impresoras funcionales',
+  'Software sin errores',
+  'Actualizaciones completas'
+];
+
+const INFORMES_STEPS_CONFIG = [
+  { key: 'general', num: '00', title: 'Datos generales', sub: 'Identificación básica del equipo', anchor: 'inf-sec-00' },
+  { key: 'specs', num: '01', title: 'Especificaciones', sub: 'Hardware y reporte de componentes', anchor: 'inf-sec-01' },
+  { key: 'p1', num: '02', title: 'Preparación', sub: 'Usuario local, nombre y dominio', anchor: 'inf-sec-02' },
+  { key: 'p2', num: '03', title: 'Software corporativo', sub: 'Instalación de programas base', anchor: 'inf-sec-03' },
+  { key: 'p3', num: '04', title: 'Sesión usuario', sub: 'Plugins, backups e impresoras', anchor: 'inf-sec-04' },
+  { key: 'p4', num: '05', title: 'Ajustes', sub: 'Red, Outlook y permisos', anchor: 'inf-sec-05' },
+  { key: 'p5', num: '06', title: 'Comprobaciones', sub: 'Test funcional antes de entrega', anchor: 'inf-sec-06' },
+  { key: 'p6', num: '07', title: 'Entrega', sub: 'Receptor, fecha y observaciones', anchor: 'inf-sec-07' }
+];
+
+function loadInformesConfig() {
+  try {
+    const raw = localStorage.getItem(INFORMES_CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        programs: parsed.programs || DEFAULT_INFORMES_PROGRAMS,
+        carpetaCompartida: parsed.carpetaCompartida || DEFAULT_CARPETA_COMPARTIDA,
+        tecnicoDefault: parsed.tecnicoDefault || ''
+      };
+    }
+  } catch (e) {
+    console.warn('Error leyendo config de informes:', e);
+  }
+  return {
+    programs: DEFAULT_INFORMES_PROGRAMS.slice(),
+    carpetaCompartida: DEFAULT_CARPETA_COMPARTIDA,
+    tecnicoDefault: ''
+  };
+}
+
+function saveInformesConfig(cfg) {
+  if (informesState) {
+    informesState.config = cfg;
+  }
+  try {
+    localStorage.setItem(INFORMES_CONFIG_KEY, JSON.stringify(cfg));
+  } catch (e) {
+    console.error('Error guardando config de informes:', e);
+  }
+}
+
+function createBlankInformeData(customCfg = null) {
+  const cfg = customCfg || loadInformesConfig();
+  const progs = (cfg && cfg.programs) ? cfg.programs : DEFAULT_INFORMES_PROGRAMS;
+
+  return {
+    id: 'INF-' + Date.now().toString(36).toUpperCase(),
+    createdAt: new Date().toISOString(),
+    general: {
+      tecnico: (cfg && cfg.tecnicoDefault) || '',
+      fecha: new Date().toISOString().slice(0, 10),
+      nombreEquipo: '',
+      tipo: 'Nuevo', // 'Nuevo' | 'Reciclado'
+      usuarioAsignado: '',
+      numeroSerie: ''
+    },
+    specs: {
+      cpu: '',
+      ram: '',
+      gpu: '',
+      os: '',
+      storage: '',
+      ip: '',
+      pdfNombre: '',
+      pdfBase64: ''
+    },
+    p1: {
+      usuarioLocal: false,
+      nombreCambiado: false,
+      unidoDominio: false,
+      actualizaciones: false
+    },
+    p2: progs.reduce((acc, p) => {
+      acc[p.id] = { instalado: false, obs: '' };
+      return acc;
+    }, {}),
+    p3: {
+      pyrevit: false,
+      backups: false,
+      printers: INFORMES_PRINTERS_CATALOG.flatMap(g => g.items).reduce((acc, item) => {
+        acc[item.id] = false;
+        return acc;
+      }, {})
+    },
+    p4: INFORMES_AJUSTES_LIST.map(() => ({ realizado: false, obs: '' })),
+    p5: INFORMES_VERIFICACIONES_LIST.map(() => ({ estado: null, obs: '' })), // 'ok' | 'no' | null
+    p6: {
+      entregadoA: '',
+      fechaEntrega: new Date().toISOString().slice(0, 10),
+      programasAdicionales: '',
+      observaciones: ''
+    }
+  };
+}
+
+// Estado global del módulo de informes
+const initialInformesConfig = loadInformesConfig();
+let informesState = {
+  viewMode: 'form', // 'form' | 'report' | 'config'
+  data: createBlankInformeData(initialInformesConfig),
+  config: initialInformesConfig
+};
+
+function ensureInformeP2Keys(d) {
+  if (!d.p2) d.p2 = {};
+  const progs = (informesState && informesState.config && informesState.config.programs)
+    ? informesState.config.programs
+    : DEFAULT_INFORMES_PROGRAMS;
+  progs.forEach(p => {
+    if (!d.p2[p.id]) {
+      d.p2[p.id] = { instalado: false, obs: '' };
+    }
+  });
+}
+
+// ── Punto de Entrada de la Utilidad ──────────────────────────────────────────
+function runInformesUtility() {
+  setActiveSidebarButton('btn-open-informes');
+  clearResults('HCP · Informe de Instalación de Equipos');
+
+  const container = document.createElement('div');
+  container.className = 'informes-wrapper panel-fade-in';
+  container.id = 'informes-main-container';
+
+  resultsEl.appendChild(container);
+  renderInformesView();
+}
+
+function renderInformesView() {
+  const container = document.getElementById('informes-main-container');
+  if (!container) return;
+
+  const prevScrollTop = resultsEl ? resultsEl.scrollTop : 0;
+  const mode = informesState.viewMode;
+  let contentHTML = '';
+
+  if (mode === 'form') {
+    contentHTML = renderInformesFormHTML();
+  } else if (mode === 'report') {
+    contentHTML = renderInformesReportHTML(informesState.data);
+  } else if (mode === 'config') {
+    contentHTML = renderInformesConfigHTML();
+  }
+
+  container.innerHTML = `
+    <!-- Banner de Cabecera -->
+    <div class="informes-banner-card">
+      <div class="informes-banner-left">
+        <div class="informes-banner-avatar">📋</div>
+        <div>
+          <h2 class="informes-banner-title">HCP Arquitectos · Departamento de IT</h2>
+          <p class="informes-banner-sub">Gestor de Informes de Instalación y Fichas de Puesta a Punto de Equipos</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de Herramientas Superior -->
+    <div class="informes-toolbar">
+      <div class="informes-toolbar-group">
+        <button class="btn-inf-tool ${mode === 'form' ? 'active' : 'secondary'}" id="btn-inf-mode-form">
+          📝 Formulario de Instalación
+        </button>
+        <button class="btn-inf-tool ${mode === 'report' ? 'active' : 'secondary'}" id="btn-inf-mode-report">
+          📄 Ver Informe Final
+        </button>
+      </div>
+
+      <div class="informes-toolbar-group">
+        <button class="btn-inf-tool ghost" id="btn-inf-new" title="Limpiar y preparar un nuevo informe en blanco">
+          ＋ Nuevo / Limpiar
+        </button>
+        <button class="btn-inf-tool ${mode === 'config' ? 'active' : 'ghost'}" id="btn-inf-mode-config" title="Configuración de software corporativo y rutas">
+          ⚙️ Catálogo / Ajustes
+        </button>
+      </div>
+    </div>
+
+    ${contentHTML}
+  `;
+
+  bindInformesCommonEvents(container);
+
+  if (resultsEl && prevScrollTop > 0) {
+    resultsEl.scrollTop = prevScrollTop;
+  }
+}
+
+function bindInformesCommonEvents(container) {
+  // Botones de cambio de modo
+  container.querySelector('#btn-inf-mode-form')?.addEventListener('click', () => {
+    informesState.viewMode = 'form';
+    renderInformesView();
+  });
+
+  container.querySelector('#btn-inf-mode-report')?.addEventListener('click', () => {
+    informesState.viewMode = 'report';
+    renderInformesView();
+  });
+
+  container.querySelector('#btn-inf-mode-config')?.addEventListener('click', () => {
+    informesState.viewMode = 'config';
+    renderInformesView();
+  });
+
+  container.querySelector('#btn-inf-new')?.addEventListener('click', () => {
+    if (confirm('¿Deseas iniciar un nuevo informe de equipo? Los datos del formulario actual se reiniciarán.')) {
+      informesState.data = createBlankInformeData();
+      informesState.viewMode = 'form';
+      showToast('Nuevo informe en blanco preparado', 'info');
+      renderInformesView();
+    }
+  });
+}
+
+// ── Vista: Formulario Completo Continuo (Hacia Abajo) ─────────────────────────
+function renderInformesFormHTML() {
+  const d = informesState.data;
+  ensureInformeP2Keys(d);
+
+  // Barra de navegación rápida a secciones
+  const quickJumpHTML = `
+    <div class="inf-quick-jump-bar">
+      ${INFORMES_STEPS_CONFIG.map(s => `
+        <a href="#${s.anchor}" class="inf-jump-chip" onclick="event.preventDefault();document.getElementById('${s.anchor}')?.scrollIntoView({behavior:'smooth',block:'start'});">
+          <strong>${s.num}.</strong> ${s.title}
+        </a>
+      `).join('')}
+    </div>
+  `;
+
+  const sectionsHTML = `
+    <div class="inf-sections-stack">
+      <div class="inf-section-anchor" id="inf-sec-00">
+        ${renderStep0General(d)}
+      </div>
+
+      <div class="inf-section-anchor" id="inf-sec-01">
+        ${renderStep1Specs(d)}
+      </div>
+
+      <div class="inf-section-anchor" id="inf-sec-02">
+        ${renderStep2Preparacion(d)}
+      </div>
+
+      <div class="inf-section-anchor" id="inf-sec-03">
+        ${renderStep3Programas(d)}
+      </div>
+
+      <div class="inf-section-anchor" id="inf-sec-04">
+        ${renderStep4Sesion(d)}
+      </div>
+
+      <div class="inf-section-anchor" id="inf-sec-05">
+        ${renderStep5Ajustes(d)}
+      </div>
+
+      <div class="inf-section-anchor" id="inf-sec-06">
+        ${renderStep6Comprobaciones(d)}
+      </div>
+
+      <div class="inf-section-anchor" id="inf-sec-07">
+        ${renderStep7Entrega(d)}
+      </div>
+    </div>
+  `;
+
+  const footerActionsHTML = `
+    <div class="inf-form-footer-actions">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button class="btn-inf-tool primary" onclick="informesState.viewMode='report';renderInformesView();">
+          📄 Generar y Ver Informe Final →
+        </button>
+        <button class="btn-inf-tool secondary" onclick="window._printDirectInforme();">
+          🖨️ Imprimir / Guardar en PDF
+        </button>
+        <button class="btn-inf-tool secondary" onclick="window._copyInformeSummaryText();">
+          📋 Copiar Resumen
+        </button>
+      </div>
+
+      <button class="btn-inf-tool ghost" onclick="window._resetInformeForm();" style="color:#EF4444;">
+        🗑 Limpiar Formulario
+      </button>
+    </div>
+  `;
+
+  return `
+    ${quickJumpHTML}
+    ${sectionsHTML}
+    ${footerActionsHTML}
+  `;
+}
+
+// ── PASO 0: Datos Generales ──────────────────────────────────────────────────
+function renderStep0General(d) {
+  const g = d.general;
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Ficha del Equipo · Paso 00</span>
+      <h3 class="inf-section-title">Datos Generales de la Instalación</h3>
+      <p class="inf-section-desc">Información principal para identificar el equipo, el técnico responsable y la persona asignada.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-grid2">
+        <div class="inf-field">
+          <label>Técnico Responsable *</label>
+          <input type="text" value="${escapeHtml(g.tecnico)}" oninput="informesState.data.general.tecnico=this.value" placeholder="Nombre y apellidos del técnico">
+        </div>
+
+        <div class="inf-field">
+          <label>Fecha de Instalación</label>
+          <input type="date" value="${g.fecha}" oninput="informesState.data.general.fecha=this.value">
+        </div>
+
+        <div class="inf-field">
+          <label>Nombre del Equipo (NetBIOS / Hostname) *</label>
+          <input type="text" value="${escapeHtml(g.nombreEquipo)}" oninput="informesState.data.general.nombreEquipo=this.value" placeholder="Ej: HCP-PORTATIL-01 o nombre-apellido">
+          <span class="inf-hint">Formato corporativo estándar: nombre-apellido o identificador NetBIOS.</span>
+        </div>
+
+        <div class="inf-field">
+          <label>Tipo de Instalación</label>
+          <div class="inf-radio-group">
+            <div class="inf-radio-pill ${g.tipo === 'Nuevo' ? 'selected' : ''}" onclick="informesState.data.general.tipo='Nuevo';renderInformesView();">
+              ✨ Nuevo
+            </div>
+            <div class="inf-radio-pill ${g.tipo === 'Reciclado' ? 'selected' : ''}" onclick="informesState.data.general.tipo='Reciclado';renderInformesView();">
+              ♻️ Reciclado / Puesta a punto
+            </div>
+          </div>
+        </div>
+
+        <div class="inf-field">
+          <label>Usuario Asignado</label>
+          <input type="text" value="${escapeHtml(g.usuarioAsignado)}" oninput="informesState.data.general.usuarioAsignado=this.value" placeholder="usuario.asignado o Nombre">
+        </div>
+
+        <div class="inf-field">
+          <label>Número de Serie (S/N del Fabricante / BIOS)</label>
+          <input type="text" value="${escapeHtml(g.numeroSerie)}" oninput="informesState.data.general.numeroSerie=this.value" placeholder="Ej: 5CD1234XYZ">
+          <span class="inf-hint">Comando WMI: <code>Get-WmiObject Win32_BIOS | Select-Object SerialNumber</code></span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── PASO 1: Especificaciones del Equipo ───────────────────────────────────────
+function renderStep1Specs(d) {
+  const s = d.specs;
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Auditoría Técnica · Paso 01</span>
+      <h3 class="inf-section-title">Especificaciones del Hardware</h3>
+      <p class="inf-section-desc">Detalles del procesador, memoria RAM, tarjeta gráfica, almacenamiento y adjuntos de informe PDF.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Componentes Detectados / Especificaciones</div>
+      
+      <div class="inf-grid2">
+        <div class="inf-field">
+          <label>Procesador (CPU)</label>
+          <input type="text" value="${escapeHtml(s.cpu)}" oninput="informesState.data.specs.cpu=this.value" placeholder="Ej: Intel Core i7-13700H @ 2.40GHz">
+        </div>
+
+        <div class="inf-field">
+          <label>Memoria RAM</label>
+          <input type="text" value="${escapeHtml(s.ram)}" oninput="informesState.data.specs.ram=this.value" placeholder="Ej: 32 GB DDR5 4800MHz">
+        </div>
+
+        <div class="inf-field">
+          <label>Tarjeta Gráfica (GPU)</label>
+          <input type="text" value="${escapeHtml(s.gpu)}" oninput="informesState.data.specs.gpu=this.value" placeholder="Ej: NVIDIA RTX 4060 Laptop GPU (8 GB)">
+        </div>
+
+        <div class="inf-field">
+          <label>Sistema Operativo y Edición</label>
+          <input type="text" value="${escapeHtml(s.os)}" oninput="informesState.data.specs.os=this.value" placeholder="Ej: Windows 11 Pro 64-bit (23H2)">
+        </div>
+
+        <div class="inf-field">
+          <label>Almacenamiento / Discos</label>
+          <input type="text" value="${escapeHtml(s.storage)}" oninput="informesState.data.specs.storage=this.value" placeholder="Ej: NVMe Samsung 980 Pro 1TB">
+        </div>
+
+        <div class="inf-field">
+          <label>Dirección IP / Red</label>
+          <input type="text" value="${escapeHtml(s.ip)}" oninput="informesState.data.specs.ip=this.value" placeholder="Ej: 192.168.0.125 (DHCP)">
+        </div>
+      </div>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Adjunto de Informe PDF (HCPToolKit / Auditoría Externa)</div>
+      <p class="inf-hint">Puedes adjuntar un informe técnico en PDF generado previamente para adjuntarlo o previsualizarlo dentro del informe final.</p>
+
+      <input type="file" id="infSpecsPdfInput" accept=".pdf,application/pdf" style="display:none;" onchange="window._handleInformePdfUpload(this)">
+
+      ${s.pdfBase64 ? `
+        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-tertiary, #F1F5F9); padding:12px 16px; border-radius:10px; border:1px solid #CBD5E1;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:22px;">📄</span>
+            <div>
+              <strong style="font-size:13.5px;">${escapeHtml(s.pdfNombre)}</strong>
+              <div style="font-size:11.5px; color:#64748B;">Documento PDF adjunto y listo para visualizar</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-inf-tool ghost" onclick="document.getElementById('infSpecsPdfInput').click()">🔁 Sustituir</button>
+            <button class="btn-inf-tool ghost" onclick="window._removeInformePdf()" style="color:#EF4444;">🗑 Quitar</button>
+          </div>
+        </div>
+        <div style="margin-top:12px; border-radius:10px; overflow:hidden; border:1px solid #CBD5E1;">
+          <iframe src="${s.pdfBase64}" style="width:100%; height:450px; border:none; background:#fff;"></iframe>
+        </div>
+      ` : `
+        <div style="text-align:center; padding:28px 16px; border:2px dashed #CBD5E1; border-radius:12px; background:var(--bg-tertiary, #F8FAFC);">
+          <div style="font-size:32px; margin-bottom:8px;">📤</div>
+          <h4 style="margin:0 0 6px 0; font-size:15px;">Subir Informe en PDF</h4>
+          <p style="font-size:12.5px; color:#64748B; margin:0 0 14px 0;">Selecciona el archivo .PDF generado por HCPToolKit o auditoría de hardware</p>
+          <button class="btn-inf-tool primary" onclick="document.getElementById('infSpecsPdfInput').click()">
+            Examinar Archivo PDF...
+          </button>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+// ── PASO 2: Preparación del Equipo ───────────────────────────────────────────
+function renderStep2Preparacion(d) {
+  const p1 = d.p1;
+  const items = [
+    { key: 'usuarioLocal', title: 'Usuario local creado', sub: 'Usuario estándar: usuario · Contraseña según política IT' },
+    { key: 'nombreCambiado', title: 'Nombre del equipo cambiado correctamente', sub: 'Formato nombre-apellido o NetBIOS sin caracteres especiales' },
+    { key: 'unidoDominio', title: 'Equipo unido al dominio corporativo', sub: 'hcparquitectos.local' },
+    { key: 'actualizaciones', title: 'Actualizaciones de Windows Update aplicadas', sub: 'Sistema operativo actualizado a la última compilación estable' }
+  ];
+
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Configuración Inicial · Paso 02</span>
+      <h3 class="inf-section-title">Preparación del Equipo</h3>
+      <p class="inf-section-desc">Conexión inicial, creación del usuario local, asignación del nombre de red y unión al dominio.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Checklist de Preparación</div>
+
+      ${items.map(item => `
+        <div class="inf-check-row">
+          <div class="inf-checkbox ${p1[item.key] ? 'checked' : ''}" onclick="informesState.data.p1.${item.key}=!informesState.data.p1.${item.key};renderInformesView();"></div>
+          <div class="inf-check-body">
+            <div class="inf-check-label">${item.title}</div>
+            <div class="inf-check-sub">${item.sub}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="inf-note-box">
+      ℹ️ <strong>Ruta de Unión a Dominio:</strong> Sistema → Cambiar el nombre de este equipo (avanzado) → Cambiar → Dominio: <code>hcparquitectos.local</code>
+    </div>
+  `;
+}
+
+// ── PASO 3: Instalación de Programas Corporativos ─────────────────────────────
+function renderStep3Programas(d) {
+  const progs = (informesState.config && informesState.config.programs)
+    ? informesState.config.programs
+    : DEFAULT_INFORMES_PROGRAMS;
+  const carpeta = (informesState.config && informesState.config.carpetaCompartida)
+    ? informesState.config.carpetaCompartida
+    : DEFAULT_CARPETA_COMPARTIDA;
+
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Software Base · Paso 03</span>
+      <h3 class="inf-section-title">Instalación de Programas</h3>
+      <p class="inf-section-desc">Software corporativo requerido. Todos los instaladores se encuentran en la carpeta compartida.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Ubicación de Instaladores en Red</div>
+      <div class="inf-note-box" style="display:flex; align-items:center; justify-content:space-between; gap:12px; font-family:monospace;">
+        <span>📁 ${escapeHtml(carpeta)}</span>
+        <button class="btn-inf-tool ghost" style="padding:6px 12px; font-size:12px;" onclick="window._copyInformesPath('${escapeHtml(carpeta)}')">
+          📋 Copiar Ruta
+        </button>
+      </div>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Catálogo de Software Corporativo</div>
+
+      <table class="inf-table">
+        <thead>
+          <tr>
+            <th style="width:36px;">Estado</th>
+            <th>Programa</th>
+            <th>Observaciones / Versión</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${progs.map(p => {
+            const rowData = d.p2[p.id] || { instalado: false, obs: '' };
+            return `
+              <tr>
+                <td>
+                  <div class="inf-checkbox ${rowData.instalado ? 'checked' : ''}" onclick="informesState.data.p2['${p.id}'].instalado=!informesState.data.p2['${p.id}'].instalado;renderInformesView();"></div>
+                </td>
+                <td>
+                  <div style="font-weight:700; font-size:13.5px;">${escapeHtml(p.name)}</div>
+                  <div style="font-size:11.5px; color:#64748B;">${escapeHtml(p.desc)}</div>
+                </td>
+                <td>
+                  <input type="text" value="${escapeHtml(rowData.obs)}" oninput="informesState.data.p2['${p.id}'].obs=this.value" placeholder="Versión / notas opcionales" style="width:100%; padding:6px 10px; font-size:12.5px;">
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ── PASO 4: Sesión Usuario Asignado ──────────────────────────────────────────
+function renderStep4Sesion(d) {
+  const p3 = d.p3;
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Sesión Usuario · Paso 04</span>
+      <h3 class="inf-section-title">Sesión con el Usuario Asignado</h3>
+      <p class="inf-section-desc">Instalación de complementos de Revit, scripts de copias de seguridad e impresoras con la cuenta corporativa.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Plugins de Revit & Copias de Seguridad</div>
+
+      <div class="inf-check-row">
+        <div class="inf-checkbox ${p3.pyrevit ? 'checked' : ''}" onclick="informesState.data.p3.pyrevit=!informesState.data.p3.pyrevit;renderInformesView();"></div>
+        <div class="inf-check-body">
+          <div class="inf-check-label">PyRevit instalado y configurado</div>
+          <div class="inf-check-sub">Colorize Open Documents activado · Project Tab Style: Background Fill · Rutas ToolbarHcp agregadas</div>
+        </div>
+      </div>
+
+      <div class="inf-check-row">
+        <div class="inf-checkbox ${p3.backups ? 'checked' : ''}" onclick="informesState.data.p3.backups=!informesState.data.p3.backups;renderInformesView();"></div>
+        <div class="inf-check-body">
+          <div class="inf-check-label">Copias de seguridad HCP instaladas</div>
+          <div class="inf-check-sub">Script RevitFoldersByHCP ejecutado · Carpeta local creada en Documentos</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Impresoras de Red Instaladas por IP</div>
+
+      ${INFORMES_PRINTERS_CATALOG.map(group => `
+        <div style="margin-bottom:12px;">
+          <div style="font-size:12px; font-weight:800; color:#0284C7; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
+            ▸ ${group.planta}
+          </div>
+          ${group.items.map(printer => `
+            <div class="inf-check-row" style="padding:7px 4px;">
+              <div class="inf-checkbox ${p3.printers[printer.id] ? 'checked' : ''}" onclick="informesState.data.p3.printers['${printer.id}']=!informesState.data.p3.printers['${printer.id}'];renderInformesView();"></div>
+              <div class="inf-check-body">
+                <div class="inf-check-label" style="font-weight:600; font-size:13px;">${printer.label}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="inf-note-box">
+      ⚠️ <strong>Recordatorio:</strong> Avisar al administrador de sistemas para que restablezca y comunique la contraseña temporal al usuario.
+    </div>
+  `;
+}
+
+// ── PASO 5: Configuraciones y Ajustes ─────────────────────────────────────────
+function renderStep5Ajustes(d) {
+  const p4 = d.p4;
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Ajustes Finales · Paso 05</span>
+      <h3 class="inf-section-title">Configuraciones y Ajustes del Sistema</h3>
+      <p class="inf-section-desc">Verificaciones de conectividad a servidores compartidos, impresoras, correo y permisos.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Ajustes Requeridos</div>
+
+      ${INFORMES_AJUSTES_LIST.map((label, idx) => {
+        const row = p4[idx] || { realizado: false, obs: '' };
+        return `
+          <div class="inf-check-row">
+            <div class="inf-checkbox ${row.realizado ? 'checked' : ''}" onclick="informesState.data.p4[${idx}].realizado=!informesState.data.p4[${idx}].realizado;renderInformesView();"></div>
+            <div class="inf-check-body">
+              <div class="inf-check-label">${label}</div>
+              <input class="inf-check-note" type="text" value="${escapeHtml(row.obs)}" oninput="informesState.data.p4[${idx}].obs=this.value" placeholder="Observaciones / incidencias (opcional)">
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ── PASO 6: Comprobaciones Finales ───────────────────────────────────────────
+function renderStep6Comprobaciones(d) {
+  const p5 = d.p5;
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Control de Calidad · Paso 06</span>
+      <h3 class="inf-section-title">Comprobaciones Finales</h3>
+      <p class="inf-section-desc">Verificación funcional completa del equipo antes de autorizar la entrega formal al usuario.</p>
+    </div>
+
+    <div class="inf-card">
+      <table class="inf-table">
+        <thead>
+          <tr>
+            <th>Verificación Funcional</th>
+            <th style="width:60px; text-align:center;">OK</th>
+            <th style="width:60px; text-align:center;">NO OK</th>
+            <th>Comentarios / Incidencias</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${INFORMES_VERIFICACIONES_LIST.map((label, idx) => {
+            const row = p5[idx] || { estado: null, obs: '' };
+            return `
+              <tr>
+                <td style="font-weight:600; font-size:13.5px;">${label}</td>
+                <td style="text-align:center;">
+                  <div class="inf-radiodot ok ${row.estado === 'ok' ? 'selected' : ''}" onclick="informesState.data.p5[${idx}].estado='ok';renderInformesView();" title="Correcto"></div>
+                </td>
+                <td style="text-align:center;">
+                  <div class="inf-radiodot bad ${row.estado === 'no' ? 'selected' : ''}" onclick="informesState.data.p5[${idx}].estado='no';renderInformesView();" title="Incidencia"></div>
+                </td>
+                <td>
+                  <input type="text" value="${escapeHtml(row.obs)}" oninput="informesState.data.p5[${idx}].obs=this.value" placeholder="Detalle si hay incidencia o anotación" style="width:100%; padding:6px 10px; font-size:12.5px;">
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ── PASO 7: Resumen y Entrega ────────────────────────────────────────────────
+function renderStep7Entrega(d) {
+  const p6 = d.p6;
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Cierre y Firma · Paso 07</span>
+      <h3 class="inf-section-title">Resumen y Entrega del Equipo</h3>
+      <p class="inf-section-desc">Datos finales de entrega. El informe final se guardará en el historial y podrá exportarse a PDF o imprimirse.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-grid2">
+        <div class="inf-field">
+          <label>Equipo Entregado a (Nombre de Usuario / Departamento)</label>
+          <input type="text" value="${escapeHtml(p6.entregadoA)}" oninput="informesState.data.p6.entregadoA=this.value" placeholder="Nombre completo de quien recibe el PC">
+        </div>
+
+        <div class="inf-field">
+          <label>Fecha de Entrega Efectiva</label>
+          <input type="date" value="${p6.fechaEntrega}" oninput="informesState.data.p6.fechaEntrega=this.value">
+        </div>
+      </div>
+
+      <div class="inf-field">
+        <label>Programas Adicionales Instalados (AutoCAD, 3ds Max, Photoshop, Rhino, etc.)</label>
+        <textarea oninput="informesState.data.p6.programasAdicionales=this.value" placeholder="Lista de licencias o programas especiales solicitados por el usuario">${escapeHtml(p6.programasAdicionales)}</textarea>
+      </div>
+
+      <div class="inf-field">
+        <label>Observaciones Generales / Incidencias Resueltas</label>
+        <textarea oninput="informesState.data.p6.observaciones=this.value" placeholder="Cualquier nota relevante durante el proceso de instalación">${escapeHtml(p6.observaciones)}</textarea>
+      </div>
+    </div>
+
+    <div class="inf-note-box">
+      📁 <strong>Ubicación de archivo en red:</strong> <code>\\\\cielo\\INFORMATICA\\Instalaciones Equipo - Informes</code>
+    </div>
+  `;
+}
+
+// ── Vista: Hoja de Informe Formal Corporativo (Report Sheet) ─────────────────
+function renderInformesReportHTML(d) {
+  const g = d.general;
+  const s = d.specs;
+  const p1 = d.p1;
+  const p2 = d.p2 || {};
+  const p3 = d.p3;
+  const p4 = d.p4 || [];
+  const p5 = d.p5 || [];
+  const p6 = d.p6;
+
+  const progs = (informesState.config && informesState.config.programs)
+    ? informesState.config.programs
+    : DEFAULT_INFORMES_PROGRAMS;
+
+  const progsInstalledCount = progs.filter(p => p2[p.id] && p2[p.id].instalado).length;
+  const p4DoneCount = p4.filter(item => item.realizado).length;
+  const p5OkCount = p5.filter(item => item.estado === 'ok').length;
+  const p5BadCount = p5.filter(item => item.estado === 'no').length;
+
+  return `
+    <div class="report-actions-bar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; gap:8px;">
+        <button class="btn-inf-tool primary" onclick="window.print()">
+          🖨️ Imprimir / Guardar en PDF
+        </button>
+        <button class="btn-inf-tool secondary" onclick="window._copyInformeSummaryText()">
+          📋 Copiar Resumen al Portapapeles
+        </button>
+        <button class="btn-inf-tool ghost" onclick="window._downloadInformeHtml()">
+          💾 Descargar Copia .HTML
+        </button>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn-inf-tool ghost" onclick="informesState.viewMode='form';renderInformesView();">
+          ✏️ Volver a Editar
+        </button>
+      </div>
+    </div>
+
+    <!-- Hoja de Informe Formal -->
+    <div class="inf-report-sheet" id="inf-printable-report">
+      <div class="inf-report-header">
+        <div class="inf-report-header-top">
+          <div>
+            <div class="inf-report-brand-text">HCP ARQUITECTOS · DEPARTAMENTO DE IT</div>
+            <h2 class="inf-report-title">Informe de Instalación de Equipos</h2>
+            <div class="inf-report-sub">${escapeHtml(g.nombreEquipo || 'Equipo sin nombre')} · ${formatDateES(g.fecha)}</div>
+          </div>
+          <div class="inf-report-id-box">
+            <strong>${escapeHtml(d.id || 'INF-BORRADOR')}</strong><br>
+            <span>Generado: ${formatDateES(d.createdAt)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="inf-report-body">
+        <!-- Bloque: Datos Generales -->
+        <div class="inf-r-block">
+          <div class="inf-r-block-title">📋 Datos Generales</div>
+          <div class="inf-r-grid">
+            <div class="inf-r-row"><span class="inf-rk">Técnico Responsable</span><span class="inf-rv">${escapeHtml(g.tecnico) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Fecha de Instalación</span><span class="inf-rv">${formatDateES(g.fecha)}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Nombre del Equipo</span><span class="inf-rv">${escapeHtml(g.nombreEquipo) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Tipo de Instalación</span><span class="inf-rv"><span class="inf-badge-tipo ${g.tipo === 'Nuevo' ? 'nuevo' : 'reciclado'}">${g.tipo}</span></span></div>
+            <div class="inf-r-row"><span class="inf-rk">Usuario Asignado</span><span class="inf-rv">${escapeHtml(g.usuarioAsignado) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Número de Serie (S/N)</span><span class="inf-rv">${escapeHtml(g.numeroSerie) || '—'}</span></div>
+          </div>
+        </div>
+
+        <!-- Bloque: Especificaciones de Hardware -->
+        <div class="inf-r-block">
+          <div class="inf-r-block-title">🖥️ Especificaciones de Hardware</div>
+          <div class="inf-r-grid">
+            <div class="inf-r-row"><span class="inf-rk">Procesador (CPU)</span><span class="inf-rv">${escapeHtml(s.cpu) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Memoria RAM</span><span class="inf-rv">${escapeHtml(s.ram) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Tarjeta Gráfica</span><span class="inf-rv">${escapeHtml(s.gpu) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Sistema Operativo</span><span class="inf-rv">${escapeHtml(s.os) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Almacenamiento</span><span class="inf-rv">${escapeHtml(s.storage) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Dirección IP</span><span class="inf-rv">${escapeHtml(s.ip) || '—'}</span></div>
+          </div>
+          ${s.pdfNombre ? `
+            <div style="font-size:12.5px; color:#0284C7; font-weight:700; margin-top:6px;">
+              📄 Informe PDF Adjunto: ${escapeHtml(s.pdfNombre)}
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Bloque: Preparación del Equipo -->
+        <div class="inf-r-block">
+          <div class="inf-r-block-title">⚙️ Paso 1 · Preparación del Equipo</div>
+          <ul class="inf-r-checklist">
+            <li class="inf-r-check-item">
+              <span class="inf-r-mark ${p1.usuarioLocal ? 'yes' : 'no'}">${p1.usuarioLocal ? '✓' : '✕'}</span>
+              <span>Usuario local creado</span>
+            </li>
+            <li class="inf-r-check-item">
+              <span class="inf-r-mark ${p1.nombreCambiado ? 'yes' : 'no'}">${p1.nombreCambiado ? '✓' : '✕'}</span>
+              <span>Nombre del equipo cambiado correctamente</span>
+            </li>
+            <li class="inf-r-check-item">
+              <span class="inf-r-mark ${p1.unidoDominio ? 'yes' : 'no'}">${p1.unidoDominio ? '✓' : '✕'}</span>
+              <span>Equipo unido al dominio corporativo (<code>hcparquitectos.local</code>)</span>
+            </li>
+            <li class="inf-r-check-item">
+              <span class="inf-r-mark ${p1.actualizaciones ? 'yes' : 'no'}">${p1.actualizaciones ? '✓' : '✕'}</span>
+              <span>Actualizaciones de Windows Update aplicadas</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Bloque: Programas Instalados -->
+        <div class="inf-r-block">
+          <div class="inf-r-block-title">💻 Paso 2 · Software Base (${progsInstalledCount}/${progs.length} Instalados)</div>
+          <ul class="inf-r-checklist">
+            ${progs.map(p => {
+              const item = p2[p.id] || { instalado: false, obs: '' };
+              return `
+                <li class="inf-r-check-item">
+                  <span class="inf-r-mark ${item.instalado ? 'yes' : 'no'}">${item.instalado ? '✓' : '✕'}</span>
+                  <span><strong>${escapeHtml(p.name)}</strong></span>
+                  ${item.obs ? `<span class="inf-r-obs">— ${escapeHtml(item.obs)}</span>` : ''}
+                </li>
+              `;
+            }).join('')}
+          </ul>
+        </div>
+
+        <!-- Bloque: Sesión Usuario & Impresoras -->
+        <div class="inf-r-block">
+          <div class="inf-r-block-title">👤 Paso 3 · Sesión Usuario Asignado & Plugins</div>
+          <ul class="inf-r-checklist">
+            <li class="inf-r-check-item">
+              <span class="inf-r-mark ${p3.pyrevit ? 'yes' : 'no'}">${p3.pyrevit ? '✓' : '✕'}</span>
+              <span>PyRevit instalado y configurado con barras HCP</span>
+            </li>
+            <li class="inf-r-check-item">
+              <span class="inf-r-mark ${p3.backups ? 'yes' : 'no'}">${p3.backups ? '✓' : '✕'}</span>
+              <span>Copias de seguridad HCP instaladas en Documentos</span>
+            </li>
+          </ul>
+          <div style="margin-top:8px;">
+            <div style="font-size:12.5px; font-weight:700; color:#0284C7; margin-bottom:6px;">Impresoras de red agregadas:</div>
+            <ul class="inf-r-checklist">
+              ${INFORMES_PRINTERS_CATALOG.flatMap(g => g.items).map(pr => `
+                <li class="inf-r-check-item">
+                  <span class="inf-r-mark ${p3.printers[pr.id] ? 'yes' : 'no'}">${p3.printers[pr.id] ? '✓' : '✕'}</span>
+                  <span>${pr.label}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        </div>
+
+        <!-- Bloque: Configuraciones y Ajustes -->
+        <div class="inf-r-block">
+          <div class="inf-r-block-title">🔧 Paso 4 · Configuraciones y Ajustes (${p4DoneCount}/${INFORMES_AJUSTES_LIST.length})</div>
+          <ul class="inf-r-checklist">
+            ${INFORMES_AJUSTES_LIST.map((label, idx) => {
+              const item = p4[idx] || { realizado: false, obs: '' };
+              return `
+                <li class="inf-r-check-item">
+                  <span class="inf-r-mark ${item.realizado ? 'yes' : 'no'}">${item.realizado ? '✓' : '✕'}</span>
+                  <span>${label}</span>
+                  ${item.obs ? `<span class="inf-r-obs">— ${escapeHtml(item.obs)}</span>` : ''}
+                </li>
+              `;
+            }).join('')}
+          </ul>
+        </div>
+
+        <!-- Bloque: Comprobaciones Finales -->
+        <div class="inf-r-block">
+          <div class="inf-r-block-title">🧪 Paso 5 · Comprobaciones Finales (${p5OkCount} OK · ${p5BadCount} Incidencias)</div>
+          <ul class="inf-r-checklist">
+            ${INFORMES_VERIFICACIONES_LIST.map((label, idx) => {
+              const item = p5[idx] || { estado: null, obs: '' };
+              const markClass = item.estado === 'ok' ? 'yes' : item.estado === 'no' ? 'fail' : 'no';
+              const markText = item.estado === 'ok' ? '✓' : item.estado === 'no' ? '✕' : '—';
+              return `
+                <li class="inf-r-check-item">
+                  <span class="inf-r-mark ${markClass}">${markText}</span>
+                  <span>${label}</span>
+                  ${item.obs ? `<span class="inf-r-obs">— ${escapeHtml(item.obs)}</span>` : ''}
+                </li>
+              `;
+            }).join('')}
+          </ul>
+        </div>
+
+        <!-- Bloque: Resumen y Entrega -->
+        <div class="inf-r-block" style="border-bottom:none;">
+          <div class="inf-r-block-title">📦 Paso 6 · Resumen y Entrega</div>
+          <div class="inf-r-grid">
+            <div class="inf-r-row"><span class="inf-rk">Equipo Entregado a</span><span class="inf-rv">${escapeHtml(p6.entregadoA) || '—'}</span></div>
+            <div class="inf-r-row"><span class="inf-rk">Fecha de Entrega</span><span class="inf-rv">${formatDateES(p6.fechaEntrega)}</span></div>
+          </div>
+          ${p6.programasAdicionales ? `
+            <div style="margin-top:10px; background:var(--bg-tertiary, #F8FAFC); padding:10px 14px; border-radius:8px;">
+              <strong style="font-size:12.5px; color:#475569;">Programas Adicionales:</strong>
+              <div style="font-size:13px; margin-top:2px;">${escapeHtml(p6.programasAdicionales)}</div>
+            </div>
+          ` : ''}
+          ${p6.observaciones ? `
+            <div style="margin-top:10px; background:var(--bg-tertiary, #F8FAFC); padding:10px 14px; border-radius:8px;">
+              <strong style="font-size:12.5px; color:#475569;">Observaciones / Incidencias:</strong>
+              <div style="font-size:13px; margin-top:2px;">${escapeHtml(p6.observaciones)}</div>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Vista: Configuración y Catálogo de Software ──────────────────────────────
+function renderInformesConfigHTML() {
+  const cfg = informesState.config;
+  return `
+    <div class="inf-section-header">
+      <span class="inf-eyebrow">Ajustes Generales</span>
+      <h3 class="inf-section-title">Configuración del Catálogo de Software e Instaladores</h3>
+      <p class="inf-section-desc">Personaliza la ruta de red de los instaladores y el listado de software corporativo por defecto.</p>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Rutas y Valores Predeterminados</div>
+
+      <div class="inf-field">
+        <label>Carpeta Compartida de Instaladores (Ruta de red)</label>
+        <input type="text" id="cfgCarpetaInput" value="${escapeHtml(cfg.carpetaCompartida)}" placeholder="Y:\\03_IT\\02_SOFTWARE_BASICO">
+        <span class="inf-hint">Ruta mostrada a los técnicos para acceder a los ejecutables.</span>
+      </div>
+
+      <div class="inf-field">
+        <label>Técnico Predeterminado</label>
+        <input type="text" id="cfgTecnicoInput" value="${escapeHtml(cfg.tecnicoDefault)}" placeholder="Nombre del técnico habitual">
+      </div>
+    </div>
+
+    <div class="inf-card">
+      <div class="inf-card-title"><span class="inf-dot"></span>Catálogo de Software Corporativo (Checklist)</div>
+      
+      <div id="cfgProgramsList" style="display:flex; flex-direction:column; gap:10px;">
+        ${cfg.programs.map((p, idx) => `
+          <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:center;">
+            <input type="text" class="cfg-prog-name" data-idx="${idx}" value="${escapeHtml(p.name)}" placeholder="Nombre del programa">
+            <input type="text" class="cfg-prog-desc" data-idx="${idx}" value="${escapeHtml(p.desc)}" placeholder="Descripción o propósito">
+            <button class="btn-inf-tool ghost" onclick="window._removeConfigProgram(${idx})" style="color:#EF4444; padding:6px 10px;">🗑</button>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="margin-top:10px;">
+        <button class="btn-inf-tool ghost" onclick="window._addConfigProgram()">
+          ＋ Añadir Programa al Catálogo
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+      <button class="btn-inf-tool primary" onclick="window._saveInformesConfigChanges()">
+        💾 Guardar Cambios de Configuración
+      </button>
+    </div>
+  `;
+}
+
+// ── Funciones Globales para Control de Eventos del Módulo ────────────────────
+window._printDirectInforme = function () {
+  informesState.viewMode = 'report';
+  renderInformesView();
+  setTimeout(() => {
+    window.print();
+  }, 180);
+};
+
+window._resetInformeForm = function () {
+  if (confirm('¿Deseas vaciar todos los campos y comenzar un nuevo informe de equipo?')) {
+    informesState.data = createBlankInformeData();
+    informesState.viewMode = 'form';
+    showToast('Formulario vaciado para nuevo informe', 'info');
+    renderInformesView();
+  }
+};
+
+window._copyInformesPath = function (text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Ruta copiada al portapapeles: ' + text, 'success');
+    }).catch(() => {
+      window.api.copyToClipboard(text);
+      showToast('📋 Ruta copiada al portapapeles', 'success');
+    });
+  } else {
+    window.api.copyToClipboard(text);
+    showToast('📋 Ruta copiada al portapapeles', 'success');
+  }
+};
+
+window._handleInformePdfUpload = function (input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+    showToast('Por favor, selecciona un archivo en formato PDF', 'error');
+    input.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    informesState.data.specs.pdfNombre = file.name;
+    informesState.data.specs.pdfBase64 = e.target.result;
+    showToast(`PDF "${file.name}" cargado correctamente`, 'success');
+    renderInformesView();
+  };
+  reader.onerror = function () {
+    showToast('Error al leer el archivo PDF', 'error');
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+};
+
+window._removeInformePdf = function () {
+  if (confirm('¿Deseas quitar el PDF adjunto de especificaciones?')) {
+    informesState.data.specs.pdfNombre = '';
+    informesState.data.specs.pdfBase64 = '';
+    renderInformesView();
+  }
+};
+
+window._copyInformeSummaryText = function () {
+  const d = informesState.data;
+  const g = d.general;
+  const s = d.specs;
+
+  const text = `
+═══════════════════════════════════════════════════════
+HCP ARQUITECTOS · INFORME DE INSTALACIÓN DE EQUIPO
+═══════════════════════════════════════════════════════
+ID: ${d.id}
+FECHA: ${g.fecha}
+TÉCNICO: ${g.tecnico || '—'}
+EQUIPO: ${g.nombreEquipo || '—'} (${g.tipo})
+USUARIO ASIGNADO: ${g.usuarioAsignado || '—'}
+Nº DE SERIE (S/N): ${g.numeroSerie || '—'}
+
+ESPECIFICACIONES:
+- CPU: ${s.cpu || '—'}
+- RAM: ${s.ram || '—'}
+- GPU: ${s.gpu || '—'}
+- S.O.: ${s.os || '—'}
+- Almacenamiento: ${s.storage || '—'}
+- IP: ${s.ip || '—'}
+
+ESTADO DE INSTALACIÓN:
+- Usuario local creado: ${d.p1.usuarioLocal ? 'SÍ' : 'NO'}
+- Nombre cambiado: ${d.p1.nombreCambiado ? 'SÍ' : 'NO'}
+- Unido a dominio hcparquitectos.local: ${d.p1.unidoDominio ? 'SÍ' : 'NO'}
+- Actualizaciones Windows: ${d.p1.actualizaciones ? 'SÍ' : 'NO'}
+- PyRevit & Backups: ${d.p3.pyrevit ? 'PyRevit OK' : 'No'} | ${d.p3.backups ? 'Backups OK' : 'No'}
+
+ENTREGA:
+- Entregado a: ${d.p6.entregadoA || '—'}
+- Fecha de entrega: ${d.p6.fechaEntrega || '—'}
+- Observaciones: ${d.p6.observaciones || 'Sin incidencias'}
+═══════════════════════════════════════════════════════
+  `.trim();
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Resumen copiado al portapapeles', 'success');
+    });
+  } else {
+    window.api.copyToClipboard(text);
+    showToast('📋 Resumen copiado al portapapeles', 'success');
+  }
+};
+
+window._downloadInformeHtml = function () {
+  const sheet = document.getElementById('inf-printable-report');
+  if (!sheet) return;
+
+  const htmlDoc = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe de Instalación - ${escapeHtml(informesState.data.general?.nombreEquipo || 'Equipo')}</title>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #EEF4F7; color: #1B2B33; margin: 0; padding: 24px; }
+    .inf-report-sheet { background: #FFFFFF; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; max-width: 900px; margin: 0 auto; }
+    .inf-report-header { background: #0E2841; color: #FFFFFF; padding: 26px 30px; }
+    .inf-report-brand-text { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #7DD3FC; text-transform: uppercase; }
+    .inf-report-title { font-size: 22px; font-weight: 800; margin: 4px 0; }
+    .inf-report-sub { font-size: 13px; color: #E0F2FE; }
+    .inf-report-body { padding: 26px 30px; display: flex; flex-direction: column; gap: 20px; }
+    .inf-r-block-title { font-size: 13px; font-weight: 800; color: #0E2841; text-transform: uppercase; border-bottom: 2px solid #7DD3FC; padding-bottom: 6px; margin-bottom: 8px; }
+    .inf-r-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
+    .inf-r-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #E2E8F0; font-size: 13px; }
+    .inf-rk { color: #64748B; font-weight: 600; }
+    .inf-rv { font-weight: 700; color: #0F172A; }
+    .inf-r-checklist { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+    .inf-r-check-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .inf-r-mark { width: 16px; height: 16px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #fff; }
+    .inf-r-mark.yes { background: #10B981; }
+    .inf-r-mark.no { background: #94A3B8; }
+    .inf-r-mark.fail { background: #EF4444; }
+    .inf-badge-tipo { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .inf-badge-tipo.nuevo { background: #DCFCE7; color: #15803D; }
+    .inf-badge-tipo.reciclado { background: #E0F2FE; color: #0369A1; }
+  </style>
+</head>
+<body>
+  ${sheet.outerHTML}
+</body>
+</html>
+  `;
+
+  const blob = new Blob([htmlDoc], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Informe_Instalacion_${(informesState.data.general?.nombreEquipo || 'equipo').replace(/[^a-zA-Z0-9_-]/g, '_')}.html`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast('Informe HTML descargado', 'success');
+};
+
+window._addConfigProgram = function () {
+  informesState.config.programs.push({
+    id: 'prog_' + Date.now().toString(36),
+    name: '',
+    desc: ''
+  });
+  renderInformesView();
+};
+
+window._removeConfigProgram = function (idx) {
+  informesState.config.programs.splice(idx, 1);
+  renderInformesView();
+};
+
+window._saveInformesConfigChanges = function () {
+  const carpeta = document.getElementById('cfgCarpetaInput')?.value.trim() || DEFAULT_CARPETA_COMPARTIDA;
+  const tecnico = document.getElementById('cfgTecnicoInput')?.value.trim() || '';
+
+  const nameInputs = document.querySelectorAll('.cfg-prog-name');
+  const descInputs = document.querySelectorAll('.cfg-prog-desc');
+
+  const updatedPrograms = [];
+  nameInputs.forEach((inp, idx) => {
+    const name = inp.value.trim();
+    const desc = descInputs[idx]?.value.trim() || '';
+    if (name) {
+      const existingId = informesState.config.programs[idx]?.id || ('prog_' + idx);
+      updatedPrograms.push({ id: existingId, name, desc });
+    }
+  });
+
+  const newConfig = {
+    carpetaCompartida: carpeta,
+    tecnicoDefault: tecnico,
+    programs: updatedPrograms.length > 0 ? updatedPrograms : DEFAULT_INFORMES_PROGRAMS
+  };
+
+  saveInformesConfig(newConfig);
+  showToast('Configuración y catálogo de programas guardados', 'success');
+  informesState.viewMode = 'form';
+  renderInformesView();
+};
+
+function formatDateES(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    const dt = new Date(dateStr);
+    if (isNaN(dt.getTime())) return dateStr;
+    return dt.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
 
 
