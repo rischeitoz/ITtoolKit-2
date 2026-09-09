@@ -6015,9 +6015,10 @@ async function openWebcamTestPanel(webcamList, initialIdx = 0) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MÓDULO DE SOFTWARE Y PROGRAMAS DESCARGABLES
+// MÓDULO DE SOFTWARE Y PROGRAMAS DESCARGABLES (GESTIÓN DE ENLACES ACTUALIZABLES)
 // ═══════════════════════════════════════════════════════════════════════════════
-const softwareCatalog = [
+
+const DEFAULT_SOFTWARE_CATALOG = [
   {
     id: 'forticlient-vpn',
     title: 'FortiClient VPN',
@@ -6028,6 +6029,7 @@ const softwareCatalog = [
     defaultFileName: 'FortiClientVPN_v7.2.2_Setup.exe',
     description: 'Cliente VPN oficial de Fortinet para conexiones remotas seguras (SSL / IPsec VPN) a la red corporativa.',
     downloadUrl: 'https://links.fortinet.com/forticlient/win/vpnagent',
+    defaultUrl: 'https://links.fortinet.com/forticlient/win/vpnagent',
     logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="120" height="120" rx="22" fill="#DA291C"/>
       <path d="M26 34H56V50H26V34ZM64 34H94V50H64V34ZM26 70H56V86H26V70ZM64 70H94V86H64V70Z" fill="white"/>
@@ -6048,6 +6050,7 @@ const softwareCatalog = [
     defaultFileName: 'AnyDesk_Portable_v7.1.exe',
     description: 'Herramienta de escritorio remoto rápida para soporte técnico instantáneo y asistencia a usuarios.',
     downloadUrl: 'https://download.anydesk.com/AnyDesk.exe',
+    defaultUrl: 'https://download.anydesk.com/AnyDesk.exe',
     logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="120" height="120" rx="22" fill="#EF4444"/>
       <path d="M42 38L78 38L96 60L78 82L42 82L24 60L42 38Z" fill="white"/>
@@ -6066,6 +6069,7 @@ const softwareCatalog = [
     defaultFileName: 'MicroSIP-3.22.12.exe',
     description: 'Softphone SIP ligero de código abierto para Windows. Permite realizar y recibir llamadas de voz/video sobre IP en la oficina.',
     downloadUrl: 'https://www.microsip.org/download/MicroSIP-3.22.12.exe',
+    defaultUrl: 'https://www.microsip.org/download/MicroSIP-3.22.12.exe',
     logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="120" height="120" rx="22" fill="#10B981"/>
       <path d="M38 32H82C85.3137 32 88 34.6863 88 38V82C88 85.3137 85.3137 88 82 88H38C34.6863 88 32 85.3137 32 82V38C32 34.6863 34.6863 32 38 32Z" fill="#047857" opacity="0.3"/>
@@ -6075,46 +6079,201 @@ const softwareCatalog = [
     </svg>`,
     fileInfo: 'Instalador Oficial .exe',
     badgeText: 'VOIP'
+  },
+  {
+    id: '7zip',
+    title: '7-Zip Compresor',
+    publisher: 'Igor Pavlov',
+    version: 'v24.08 / Oficial',
+    platform: 'Windows (x64)',
+    category: 'Utilidades del Sistema',
+    defaultFileName: '7z2408-x64.exe',
+    description: 'Archivador de ficheros de alta tasa de compresión (formato 7z, ZIP, RAR, TAR). Herramienta base corporativa.',
+    downloadUrl: 'https://www.7-zip.org/a/7z2408-x64.exe',
+    defaultUrl: 'https://www.7-zip.org/a/7z2408-x64.exe',
+    logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="120" rx="22" fill="#2563EB"/>
+      <rect x="24" y="24" width="72" height="72" rx="14" fill="white" fill-opacity="0.18"/>
+      <text x="60" y="73" font-family="monospace, sans-serif" font-weight="900" font-size="38" fill="white" text-anchor="middle">7Z</text>
+    </svg>`,
+    fileInfo: 'Instalador Oficial .exe',
+    badgeText: 'BÁSICO'
+  },
+  {
+    id: 'google-chrome',
+    title: 'Google Chrome Enterprise',
+    publisher: 'Google LLC',
+    version: 'Standalone Oficial',
+    platform: 'Windows (x64)',
+    category: 'Navegación Web',
+    defaultFileName: 'ChromeStandaloneSetup64.exe',
+    description: 'Instalador independiente completo y offline de Google Chrome para entornos corporativos y puestos de trabajo.',
+    downloadUrl: 'https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe',
+    defaultUrl: 'https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe',
+    logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="120" rx="22" fill="#1E293B"/>
+      <circle cx="60" cy="60" r="40" fill="#EA4335"/>
+      <circle cx="60" cy="60" r="26" fill="#FBBC05"/>
+      <circle cx="60" cy="60" r="16" fill="#4285F4"/>
+    </svg>`,
+    fileInfo: 'Instalador Offline .exe',
+    badgeText: 'NAVEGADOR'
+  },
+  {
+    id: 'lightshot',
+    title: 'Lightshot Screenshot',
+    publisher: 'Skillbrains',
+    version: 'v5.5.0 / Oficial',
+    platform: 'Windows (x64 / x86)',
+    category: 'Productividad',
+    defaultFileName: 'setup-lightshot.exe',
+    description: 'Capturas de pantalla de área seleccionable con subida instantánea, flechas y anotaciones rápidas en oficina.',
+    downloadUrl: 'https://app.prntscr.com/build/setup-lightshot.exe',
+    defaultUrl: 'https://app.prntscr.com/build/setup-lightshot.exe',
+    logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="120" height="120" rx="22" fill="#8B5CF6"/>
+      <path d="M42 78L78 42M78 42C82 46 82 52 78 56L56 78C52 82 46 82 42 78Z" stroke="white" stroke-width="8" stroke-linecap="round"/>
+    </svg>`,
+    fileInfo: 'Instalador Oficial .exe',
+    badgeText: 'CAPTURA'
   }
 ];
 
+const SOFTWARE_STORAGE_KEY = 'hcptoolkit_software_catalog_v2';
+
+// Cargar catálogo de software con persistencia de enlaces personalizados
+function getSoftwareCatalog() {
+  try {
+    const raw = localStorage.getItem(SOFTWARE_STORAGE_KEY);
+    if (!raw) {
+      return DEFAULT_SOFTWARE_CATALOG.map(item => ({ ...item }));
+    }
+    const saved = JSON.parse(raw);
+    if (!Array.isArray(saved) || saved.length === 0) {
+      return DEFAULT_SOFTWARE_CATALOG.map(item => ({ ...item }));
+    }
+
+    // Asegurar que todos los elementos tengan defaultUrl y campos requeridos
+    return saved.map(item => {
+      const def = DEFAULT_SOFTWARE_CATALOG.find(d => d.id === item.id);
+      return {
+        ...(def || {}),
+        ...item,
+        defaultUrl: (def && def.defaultUrl) || item.defaultUrl || item.downloadUrl,
+        isCustomized: item.downloadUrl !== ((def && def.defaultUrl) || item.defaultUrl)
+      };
+    });
+  } catch (e) {
+    console.warn('Error al leer catálogo de software:', e);
+    return DEFAULT_SOFTWARE_CATALOG.map(item => ({ ...item }));
+  }
+}
+
+// Guardar catálogo en localStorage
+function saveSoftwareCatalog(catalogList) {
+  try {
+    localStorage.setItem(SOFTWARE_STORAGE_KEY, JSON.stringify(catalogList));
+  } catch (e) {
+    console.error('Error al guardar catálogo de software:', e);
+  }
+}
+
+// Restablecer catálogo a enlaces originales de fábrica
+function resetSoftwareCatalogToDefaults() {
+  localStorage.removeItem(SOFTWARE_STORAGE_KEY);
+  return DEFAULT_SOFTWARE_CATALOG.map(item => ({ ...item }));
+}
+
+// Comprobación en vivo del estado del enlace mediante endpoint backend
+async function checkSoftwareUrlLive(url) {
+  if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+    return { ok: false, error: 'URL no válida. Debe comenzar por http:// o https://' };
+  }
+  try {
+    const res = await fetch(`/api/software/check-link?url=${encodeURIComponent(url)}`);
+    if (!res.ok) {
+      return { ok: false, statusCode: res.status, error: `Error HTTP ${res.status}` };
+    }
+    return await res.json();
+  } catch (err) {
+    return { ok: false, error: err.message || 'No se pudo verificar el enlace.' };
+  }
+}
+
+// Formateo legible de bytes
+function formatCompactBytes(bytes) {
+  const num = parseInt(bytes, 10);
+  if (isNaN(num) || num <= 0) return '';
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)} KB`;
+  return `${(num / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Render del panel principal de Software Corporativo
 function openSoftwarePanel() {
-  clearResults('💻 Catálogo de Software y Programas');
+  clearResults('💻 Catálogo de Software Corporativo');
 
   const container = document.createElement('div');
   container.className = 'software-container panel-fade-in';
 
-  // 1. Header Banner
+  let currentCatalog = getSoftwareCatalog();
+
+  // 1. Header Banner con Toolbar de Gestión de Enlaces
   const header = document.createElement('div');
   header.className = 'software-header';
+
+  const customizedCount = currentCatalog.filter(p => p.downloadUrl !== p.defaultUrl).length;
+
   header.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:4px;">
+    <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
       <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-size:20px;">💻</span>
-        <strong style="font-size:16px; color:var(--text-primary);">Catálogo de Software y Programas</strong>
+        <span style="font-size:22px;">💻</span>
+        <strong style="font-size:17px; color:var(--text-primary);">Software Corporativo e Instaladores</strong>
+        <span class="soft-publisher-tag" id="soft-header-badge" style="font-size:11.5px; padding:4px 12px; border-radius:20px;">
+          📦 ${currentCatalog.length} Programas ${customizedCount > 0 ? `• ✏️ ${customizedCount} con enlace actualizado` : '• 🟢 Enlaces Oficiales'}
+        </span>
       </div>
       <span style="font-size:13px; color:var(--text-secondary);">
-        Descargas integradas directamente en la herramienta con barra de progreso en tiempo real y selección de ruta de guardado.
-      </span>
-    </div>
-    <div>
-      <span class="soft-publisher-tag" style="font-size:12px; padding:6px 14px; border-radius:20px;">
-        📦 ${softwareCatalog.length} Programa${softwareCatalog.length !== 1 ? 's' : ''} Disponible${softwareCatalog.length !== 1 ? 's' : ''}
+        Descargas directas y enlaces actualizables para puestos de trabajo. Si un enlace deja de funcionar o cambia de versión, puedes actualizarlo al instante.
       </span>
     </div>
   `;
   container.appendChild(header);
 
-  // 2. Banner informativo
+  // Barra de herramientas: Búsqueda en tiempo real + Botones de Gestión de Enlaces
+  const toolbar = document.createElement('div');
+  toolbar.className = 'software-toolbar-row';
+  toolbar.innerHTML = `
+    <div class="soft-search-wrap">
+      <span>🔍</span>
+      <input type="text" class="soft-search-input" id="soft-search-filter" placeholder="Buscar software, categoría o enlace..." autocomplete="off" />
+    </div>
+
+    <div class="soft-header-actions">
+      <button class="btn-soft-act primary" id="btn-soft-manage-all" title="Gestionar y verificar todos los enlaces corporativos">
+        <span>⚙️ Gestionar Enlaces</span>
+      </button>
+      <button class="btn-soft-act" id="btn-soft-add-new" title="Añadir un nuevo software o enlace corporativo al catálogo">
+        <span>➕ Añadir Software</span>
+      </button>
+      <button class="btn-soft-act" id="btn-soft-reset-defaults" title="Restablecer todos los enlaces a las URLs de fábrica">
+        <span>🔄 Restablecer Oficiales</span>
+      </button>
+    </div>
+  `;
+  container.appendChild(toolbar);
+
+  // 2. Banner informativo con sugerencia de cambio de enlace
   const notice = document.createElement('div');
   notice.className = 'software-notice-banner';
   notice.innerHTML = `
-    <span style="font-size:18px;">ℹ️</span>
-    <span>Al hacer clic en <strong>"DESCARGAR"</strong>, la app te preguntará la carpeta donde deseas guardar el ejecutable y mostrará la velocidad y porcentaje de descarga en vivo.</span>
+    <span style="font-size:18px;">💡</span>
+    <span>
+      <strong>Gestión Dinámica de Enlaces:</strong> Puedes pulsar <strong>"Cambiar Enlace"</strong> en cualquier tarjeta para actualizar la URL si el servidor oficial la modificó o dio error 404. La nueva ruta se guardará de forma permanente.
+    </span>
   `;
   container.appendChild(notice);
 
-  // 2b. Banner destacado de Impresoras Canon (Herramienta integrada debajo de Software)
+  // 2b. Banner destacado de Impresoras Canon
   const printerBanner = document.createElement('div');
   printerBanner.className = 'software-notice-banner';
   printerBanner.style.background = 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(30, 58, 138, 0.15) 100%)';
@@ -6122,7 +6281,7 @@ function openSoftwarePanel() {
   printerBanner.style.color = '#38BDF8';
   printerBanner.style.cursor = 'pointer';
   printerBanner.style.justifyContent = 'space-between';
-  printerBanner.style.marginTop = '10px';
+  printerBanner.style.marginTop = '4px';
   printerBanner.innerHTML = `
     <div style="display:flex; align-items:center; gap:12px;">
       <span style="font-size:24px;">🖨️</span>
@@ -6141,52 +6300,790 @@ function openSoftwarePanel() {
   });
   container.appendChild(printerBanner);
 
-  // 3. Grid de Tarjetas de Software
-  const grid = document.createElement('div');
-  grid.className = 'software-grid';
+  // 3. Contenedor de la Cuadrícula de Tarjetas de Software
+  const gridContainer = document.createElement('div');
+  gridContainer.id = 'software-cards-grid-wrap';
+  container.appendChild(gridContainer);
 
-  softwareCatalog.forEach(prog => {
-    const card = document.createElement('div');
-    card.className = 'software-card';
-    card.id = `soft-card-${prog.id}`;
+  function renderSoftwareCards(filterText = '') {
+    gridContainer.innerHTML = '';
+    const q = filterText.trim().toLowerCase();
 
-    card.innerHTML = `
-      <div class="soft-card-top">
-        <div class="soft-logo-container">
-          ${prog.logoSvg}
+    const filtered = currentCatalog.filter(prog => {
+      if (!q) return true;
+      const haystack = `${prog.title} ${prog.publisher} ${prog.category} ${prog.version} ${prog.downloadUrl} ${prog.description}`.toLowerCase();
+      return haystack.includes(q);
+    });
+
+    if (filtered.length === 0) {
+      const emptyBox = document.createElement('div');
+      emptyBox.style.cssText = 'padding: 40px 20px; text-align: center; color: var(--text-secondary); background: var(--card); border: 1px dashed var(--card-border); border-radius: 16px; margin-top: 10px;';
+      emptyBox.innerHTML = `
+        <div style="font-size: 36px; margin-bottom: 8px;">🔍</div>
+        <div style="font-weight: 800; font-size: 16px; color: var(--text-primary); margin-bottom: 4px;">No se encontraron programas</div>
+        <div style="font-size: 13.5px;">No hay software que coincida con "<strong>${escapeHtml(filterText)}</strong>".</div>
+      `;
+      gridContainer.appendChild(emptyBox);
+      return;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'software-grid';
+
+    filtered.forEach(prog => {
+      const card = document.createElement('div');
+      card.className = 'software-card';
+      card.id = `soft-card-${prog.id}`;
+
+      const isCustomized = prog.downloadUrl !== prog.defaultUrl;
+
+      card.innerHTML = `
+        <div class="soft-card-top">
+          <div class="soft-logo-container">
+            ${prog.logoSvg || `<div style="font-size:32px;">📦</div>`}
+          </div>
+          <div class="soft-card-meta">
+            <div class="soft-title-row">
+              <h3 class="soft-title">${escapeHtml(prog.title)}</h3>
+              <span class="soft-publisher-tag">${escapeHtml(prog.publisher)}</span>
+            </div>
+            <span class="soft-platform-text">💻 ${escapeHtml(prog.platform || 'Windows')} • ${escapeHtml(prog.version)}</span>
+            <p class="soft-description">${escapeHtml(prog.description)}</p>
+            <div class="soft-details-chips">
+              <span class="soft-chip">🏷️ ${escapeHtml(prog.category)}</span>
+              <span class="soft-chip">⚡ ${escapeHtml(prog.fileInfo || 'Instalador')}</span>
+              ${isCustomized ? `<span class="soft-chip" style="color:#D97706; border-color:rgba(245,158,11,0.3); background:rgba(245,158,11,0.08);">✏️ Enlace Actualizado</span>` : ''}
+            </div>
+
+            <!-- Previsualización del Enlace Activo y Controles de URL -->
+            <div class="soft-url-box" id="url-box-${prog.id}">
+              <div class="soft-url-header">
+                <span class="soft-url-title">
+                  <span>🔗</span> Enlace de Descarga:
+                </span>
+                <span class="soft-badge-pill ${isCustomized ? 'customized' : 'official'}" id="badge-status-${prog.id}">
+                  ${isCustomized ? '✏️ Personalizado' : '🟢 Oficial'}
+                </span>
+              </div>
+              <div class="soft-url-text-row">
+                <span class="soft-url-text" title="${escapeHtml(prog.downloadUrl)}">${escapeHtml(prog.downloadUrl)}</span>
+                <div class="soft-url-tools">
+                  <button class="btn-soft-mini" id="btn-copy-${prog.id}" title="Copiar enlace al portapapeles">
+                    <span>📋 Copiar</span>
+                  </button>
+                  <button class="btn-soft-mini" id="btn-check-${prog.id}" title="Comprobar si el enlace responde en vivo">
+                    <span>🔍 Probar</span>
+                  </button>
+                  <button class="btn-soft-mini" id="btn-edit-${prog.id}" title="Cambiar enlace por si deja de funcionar">
+                    <span>⚙️ Cambiar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
-        <div class="soft-card-meta">
-          <div class="soft-title-row">
-            <h3 class="soft-title">${escapeHtml(prog.title)}</h3>
-            <span class="soft-publisher-tag">${escapeHtml(prog.publisher)}</span>
+
+        <div class="soft-card-bottom">
+          <div class="soft-card-btn-row">
+            <button class="btn-download-big" id="btn-download-${prog.id}">
+              <span class="download-icon-anim">⬇️</span>
+              <span>DESCARGAR</span>
+            </button>
+            <button class="btn-change-link-secondary" id="btn-change-secondary-${prog.id}" title="Cambiar el enlace de descarga de este programa">
+              <span>⚙️ Cambiar Enlace</span>
+            </button>
           </div>
-          <span class="soft-platform-text">💻 ${escapeHtml(prog.platform)} • ${escapeHtml(prog.version)}</span>
-          <p class="soft-description">${escapeHtml(prog.description)}</p>
-          <div class="soft-details-chips">
-            <span class="soft-chip">🏷️ ${escapeHtml(prog.category)}</span>
-            <span class="soft-chip">⚡ ${escapeHtml(prog.fileInfo)}</span>
-          </div>
+        </div>
+      `;
+
+      // 1. Evento Descargar
+      const dlBtn = card.querySelector(`#btn-download-${prog.id}`);
+      if (dlBtn) {
+        dlBtn.addEventListener('click', () => {
+          startSoftwareDownloadProcess(prog, card);
+        });
+      }
+
+      // 2. Evento Cambiar Enlace (tanto el mini-botón como el botón secundario)
+      const editBtn = card.querySelector(`#btn-edit-${prog.id}`);
+      const editSecondaryBtn = card.querySelector(`#btn-change-secondary-${prog.id}`);
+      const triggerEdit = () => {
+        openEditSoftwareLinkModal(prog, () => {
+          currentCatalog = getSoftwareCatalog();
+          renderSoftwareCards(searchInput ? searchInput.value : '');
+        });
+      };
+      if (editBtn) editBtn.addEventListener('click', triggerEdit);
+      if (editSecondaryBtn) editSecondaryBtn.addEventListener('click', triggerEdit);
+
+      // 3. Evento Copiar Enlace
+      const copyBtn = card.querySelector(`#btn-copy-${prog.id}`);
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(prog.downloadUrl);
+            copyBtn.innerHTML = '<span>✔ ¡Copiado!</span>';
+            showToast(`📋 Enlace de ${prog.title} copiado al portapapeles.`, 'success');
+            setTimeout(() => {
+              copyBtn.innerHTML = '<span>📋 Copiar</span>';
+            }, 2000);
+          } catch (e) {
+            showToast('Error al copiar al portapapeles.', 'error');
+          }
+        });
+      }
+
+      // 4. Evento Probar Enlace en Vivo
+      const checkBtn = card.querySelector(`#btn-check-${prog.id}`);
+      const statusPill = card.querySelector(`#badge-status-${prog.id}`);
+      if (checkBtn) {
+        checkBtn.addEventListener('click', async () => {
+          checkBtn.innerHTML = '<span>⏳...</span>';
+          checkBtn.disabled = true;
+          const result = await checkSoftwareUrlLive(prog.downloadUrl);
+          checkBtn.disabled = false;
+          checkBtn.innerHTML = '<span>🔍 Probar</span>';
+
+          if (result.ok) {
+            const sizeStr = formatCompactBytes(result.contentLength);
+            statusPill.className = 'soft-badge-pill status-ok';
+            statusPill.innerHTML = `✅ Activo (${result.statusCode}${sizeStr ? ` • ${sizeStr}` : ''})`;
+            showToast(`✅ ${prog.title}: Enlace activo (Código ${result.statusCode}).`, 'success');
+          } else {
+            statusPill.className = 'soft-badge-pill status-err';
+            statusPill.innerHTML = `❌ Error (${result.statusCode || 'Caído'})`;
+            showToast(`❌ ${prog.title}: El enlace no responde o devuelve error (${result.error || result.statusCode}). Puedes cambiarlo con "Cambiar Enlace".`, 'error', 5000);
+          }
+        });
+      }
+
+      grid.appendChild(card);
+    });
+
+    gridContainer.appendChild(grid);
+  }
+
+  // Render inicial de tarjetas
+  renderSoftwareCards();
+
+  // Búsqueda en tiempo real
+  const searchInput = toolbar.querySelector('#soft-search-filter');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      renderSoftwareCards(e.target.value);
+    });
+  }
+
+  // Botón "Gestionar Todos los Enlaces"
+  const btnManageAll = toolbar.querySelector('#btn-soft-manage-all');
+  if (btnManageAll) {
+    btnManageAll.addEventListener('click', () => {
+      openSoftwareManagerModal(() => {
+        currentCatalog = getSoftwareCatalog();
+        renderSoftwareCards(searchInput ? searchInput.value : '');
+      });
+    });
+  }
+
+  // Botón "Añadir Nuevo Software"
+  const btnAddNew = toolbar.querySelector('#btn-soft-add-new');
+  if (btnAddNew) {
+    btnAddNew.addEventListener('click', () => {
+      openAddSoftwareModal(() => {
+        currentCatalog = getSoftwareCatalog();
+        renderSoftwareCards(searchInput ? searchInput.value : '');
+      });
+    });
+  }
+
+  // Botón "Restablecer Enlaces Oficiales"
+  const btnResetDefaults = toolbar.querySelector('#btn-soft-reset-defaults');
+  if (btnResetDefaults) {
+    btnResetDefaults.addEventListener('click', () => {
+      if (confirm('¿Deseas restablecer todos los enlaces de software a las URLs oficiales de fábrica? Se descartarán los cambios manuales.')) {
+        currentCatalog = resetSoftwareCatalogToDefaults();
+        renderSoftwareCards(searchInput ? searchInput.value : '');
+        showToast('🔄 Todos los enlaces han sido restablecidos a sus valores oficiales de fábrica.', 'info');
+      }
+    });
+  }
+
+  resultsEl.appendChild(container);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODAL: CAMBIAR / EDITAR ENLACE DE UN SOFTWARE
+// ═══════════════════════════════════════════════════════════════════════════════
+function openEditSoftwareLinkModal(prog, onSaved) {
+  const modal = document.createElement('div');
+  modal.className = 'dl-modal-overlay';
+
+  const isCustomized = prog.downloadUrl !== prog.defaultUrl;
+
+  modal.innerHTML = `
+    <div class="soft-modal-card">
+      <div class="dl-modal-header">
+        <div class="dl-modal-icon" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);">
+          ⚙️
+        </div>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <h3 class="dl-modal-title">Cambiar Enlace: ${escapeHtml(prog.title)}</h3>
+          <span class="dl-modal-subtitle">
+            Actualiza la URL de descarga si el enlace dejó de funcionar, cambió de versión o deseas usar un servidor propio.
+          </span>
         </div>
       </div>
 
-      <div class="soft-card-bottom">
-        <button class="btn-download-big" id="btn-download-${prog.id}">
-          <span class="download-icon-anim">⬇️</span>
-          <span>DESCARGAR</span>
+      <div class="soft-modal-field">
+        <label>
+          <span>Enlace de Descarga (URL directa al ejecutable):</span>
+          ${isCustomized ? '<span style="color:#D97706; font-size:11px; font-weight:700;">Modificado manualmente</span>' : '<span style="color:#059669; font-size:11px; font-weight:700;">Enlace oficial actual</span>'}
+        </label>
+        <input type="url" id="modal-edit-url" class="soft-modal-input mono" value="${escapeHtml(prog.downloadUrl)}" placeholder="https://ejemplo.com/instalador.exe" />
+        <span style="font-size:11.5px; color:var(--text-secondary);">Debe comenzar por http:// o https:// y apuntar directamente a un instalador ejecutable.</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="soft-modal-field">
+          <label>Nombre de archivo al guardar:</label>
+          <input type="text" id="modal-edit-filename" class="soft-modal-input" value="${escapeHtml(prog.defaultFileName || '')}" placeholder="Instalador.exe" />
+        </div>
+        <div class="soft-modal-field">
+          <label>Etiqueta de versión:</label>
+          <input type="text" id="modal-edit-version" class="soft-modal-input" value="${escapeHtml(prog.version || '')}" placeholder="v1.0 Oficial" />
+        </div>
+      </div>
+
+      <div class="soft-modal-field">
+        <label>Descripción técnica breve:</label>
+        <input type="text" id="modal-edit-desc" class="soft-modal-input" value="${escapeHtml(prog.description || '')}" placeholder="Descripción o propósito del programa" />
+      </div>
+
+      <!-- Probador en vivo del nuevo enlace -->
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-size:12.5px; font-weight:700;">Verificación de Conexión:</span>
+          <button class="btn-soft-mini" id="modal-btn-test-url" style="padding:5px 12px; font-size:12px; background:var(--bg);">
+            <span>🔍 Comprobar Enlace Ahora</span>
+          </button>
+        </div>
+        <div id="modal-test-feedback-box" class="soft-test-result-box" style="display:none;"></div>
+      </div>
+
+      <!-- Enlace oficial de respaldo -->
+      <div style="background:var(--bg); border:1px solid var(--card-border); border-radius:10px; padding:10px 14px; font-size:12px; color:var(--text-secondary); display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div>
+          <span style="font-weight:700; display:block; color:var(--text-primary);">Enlace original de fábrica:</span>
+          <span style="font-family:monospace; font-size:11px; word-break:break-all;">${escapeHtml(prog.defaultUrl || prog.downloadUrl)}</span>
+        </div>
+        <button class="btn-soft-mini" id="modal-btn-restore-default" title="Copiar enlace original de fábrica en el campo de texto">
+          <span>🔄 Usar Original</span>
         </button>
+      </div>
+
+      <div class="dl-modal-footer" style="justify-content:space-between; flex-wrap:wrap;">
+        <button class="btn-dl-cancel" id="modal-btn-close">Cancelar</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn-dl-start" id="modal-btn-save-link">
+            <span>💾 Guardar Enlace</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const urlInput = modal.querySelector('#modal-edit-url');
+  const filenameInput = modal.querySelector('#modal-edit-filename');
+  const versionInput = modal.querySelector('#modal-edit-version');
+  const descInput = modal.querySelector('#modal-edit-desc');
+  const testBtn = modal.querySelector('#modal-btn-test-url');
+  const testFeedback = modal.querySelector('#modal-test-feedback-box');
+  const restoreBtn = modal.querySelector('#modal-btn-restore-default');
+  const saveBtn = modal.querySelector('#modal-btn-save-link');
+  const closeBtn = modal.querySelector('#modal-btn-close');
+
+  // Test en vivo dentro del modal
+  testBtn.addEventListener('click', async () => {
+    const testUrl = urlInput.value.trim();
+    if (!testUrl) {
+      testFeedback.style.display = 'flex';
+      testFeedback.className = 'soft-test-result-box err';
+      testFeedback.innerHTML = '<span>⚠️ Por favor escribe una URL antes de comprobar.</span>';
+      return;
+    }
+
+    testFeedback.style.display = 'flex';
+    testFeedback.className = 'soft-test-result-box testing';
+    testFeedback.innerHTML = '<span>⏳ Conectando con el servidor remoto para verificar el archivo...</span>';
+    testBtn.disabled = true;
+
+    const res = await checkSoftwareUrlLive(testUrl);
+    testBtn.disabled = false;
+
+    if (res.ok) {
+      const sizeStr = formatCompactBytes(res.contentLength);
+      testFeedback.className = 'soft-test-result-box ok';
+      testFeedback.innerHTML = `
+        <span style="font-size:16px;">✅</span>
+        <div>
+          <strong>¡Enlace Verificado y Accesible!</strong>
+          <div style="font-size:11.5px; opacity:0.9;">
+            Respuesta HTTP ${res.statusCode} OK ${sizeStr ? `• Tamaño: ${sizeStr}` : ''} • Tipo: ${escapeHtml(res.contentType || 'binario')}
+          </div>
+        </div>
+      `;
+    } else {
+      testFeedback.className = 'soft-test-result-box err';
+      testFeedback.innerHTML = `
+        <span style="font-size:16px;">❌</span>
+        <div>
+          <strong>Error de Acceso al Enlace</strong>
+          <div style="font-size:11.5px; opacity:0.9;">
+            ${res.statusCode ? `Código HTTP ${res.statusCode}: ` : ''}${escapeHtml(res.error || 'El servidor remoto no respondió.')}
+          </div>
+        </div>
+      `;
+    }
+  });
+
+  // Usar original de fábrica
+  restoreBtn.addEventListener('click', () => {
+    urlInput.value = prog.defaultUrl || prog.downloadUrl;
+    testFeedback.style.display = 'none';
+    showToast('Restaurada la URL original en el campo.', 'info');
+  });
+
+  // Guardar cambios
+  saveBtn.addEventListener('click', () => {
+    const newUrl = urlInput.value.trim();
+    if (!newUrl || (!newUrl.startsWith('http://') && !newUrl.startsWith('https://'))) {
+      alert('Por favor introduce una URL válida que comience por http:// o https://');
+      urlInput.focus();
+      return;
+    }
+
+    const catalog = getSoftwareCatalog();
+    const targetIdx = catalog.findIndex(p => p.id === prog.id);
+    if (targetIdx !== -1) {
+      catalog[targetIdx].downloadUrl = newUrl;
+      catalog[targetIdx].defaultFileName = filenameInput.value.trim() || catalog[targetIdx].defaultFileName;
+      catalog[targetIdx].version = versionInput.value.trim() || catalog[targetIdx].version;
+      catalog[targetIdx].description = descInput.value.trim() || catalog[targetIdx].description;
+      saveSoftwareCatalog(catalog);
+
+      modal.remove();
+      showToast(`✅ Enlace de ${prog.title} actualizado correctamente.`, 'success');
+      if (onSaved) onSaved();
+    }
+  });
+
+  const closeModal = () => {
+    modal.remove();
+  };
+
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODAL: GESTOR GLOBAL DE TODOS LOS ENLACES CORPORATIVOS
+// ═══════════════════════════════════════════════════════════════════════════════
+function openSoftwareManagerModal(onUpdated) {
+  const modal = document.createElement('div');
+  modal.className = 'dl-modal-overlay';
+
+  const renderManagerContent = () => {
+    const catalog = getSoftwareCatalog();
+
+    modal.innerHTML = `
+      <div class="soft-modal-card" style="max-width:850px;">
+        <div class="dl-modal-header" style="justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div class="dl-modal-icon" style="background:linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);">
+              ⚙️
+            </div>
+            <div>
+              <h3 class="dl-modal-title">Gestor Global de Enlaces de Software</h3>
+              <span class="dl-modal-subtitle">Auditoría técnica de URLs, prueba masiva de accesibilidad y actualización de repositorios.</span>
+            </div>
+          </div>
+          <button class="toast-close" id="mgr-modal-close" style="font-size:18px; cursor:pointer;" title="Cerrar">✕</button>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <div style="display:flex; gap:8px;">
+            <button class="btn-soft-act primary" id="mgr-btn-test-all">
+              <span>🔍 Comprobar Todos los Enlaces</span>
+            </button>
+            <button class="btn-soft-act" id="mgr-btn-add-item">
+              <span>➕ Añadir Programa</span>
+            </button>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-soft-act" id="mgr-btn-export" title="Exportar configuración de enlaces a archivo JSON">
+              <span>📤 Exportar JSON</span>
+            </button>
+            <label class="btn-soft-act" style="cursor:pointer;" title="Cargar archivo JSON con enlaces corporativos actualizados">
+              <span>📥 Importar JSON</span>
+              <input type="file" id="mgr-input-import" accept=".json" style="display:none;" />
+            </label>
+            <button class="btn-soft-act" id="mgr-btn-reset-all" style="color:#EF4444;" title="Revertir todos los programas a sus URLs de fábrica">
+              <span>🔄 Restablecer Todo</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="soft-manager-table-wrap">
+          <table class="soft-manager-table">
+            <thead>
+              <tr>
+                <th style="width:25%;">Software / Versión</th>
+                <th style="width:45%;">URL de Descarga Activa</th>
+                <th style="width:15%;">Estado Enlace</th>
+                <th style="width:15%; text-align:right;">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${catalog.map(prog => {
+                const isCustom = prog.downloadUrl !== prog.defaultUrl;
+                return `
+                  <tr id="mgr-row-${prog.id}">
+                    <td>
+                      <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-size:18px;">${prog.logoSvg ? '💻' : '📦'}</span>
+                        <div>
+                          <strong style="display:block; color:var(--text-primary);">${escapeHtml(prog.title)}</strong>
+                          <span style="font-size:11px; color:var(--text-secondary);">${escapeHtml(prog.version)}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="display:flex; align-items:center; gap:6px;">
+                        <span style="font-family:monospace; font-size:11px; color:var(--text-primary); word-break:break-all;" title="${escapeHtml(prog.downloadUrl)}">
+                          ${escapeHtml(prog.downloadUrl.length > 55 ? prog.downloadUrl.slice(0, 52) + '...' : prog.downloadUrl)}
+                        </span>
+                        ${isCustom ? '<span style="font-size:10px; background:rgba(245,158,11,0.15); color:#D97706; padding:2px 6px; border-radius:6px; font-weight:700;">Editado</span>' : ''}
+                      </div>
+                    </td>
+                    <td>
+                      <span class="soft-badge-pill ${isCustom ? 'customized' : 'official'}" id="mgr-pill-${prog.id}">
+                        ${isCustom ? '✏️ Modificado' : '🟢 Oficial'}
+                      </span>
+                    </td>
+                    <td style="text-align:right;">
+                      <button class="btn-soft-mini mgr-edit-btn" data-id="${prog.id}" title="Modificar enlace">
+                        <span>✏️ Editar</span>
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="dl-modal-footer">
+          <button class="btn-dl-start" id="mgr-modal-done" style="padding:10px 24px;">
+            <span>Listo / Cerrar</span>
+          </button>
+        </div>
       </div>
     `;
 
-    const dlBtn = card.querySelector(`#btn-download-${prog.id}`);
-    dlBtn.addEventListener('click', () => {
-      startSoftwareDownloadProcess(prog, card);
+    // Conectar eventos
+    const closeBtn = modal.querySelector('#mgr-modal-close');
+    const doneBtn = modal.querySelector('#mgr-modal-done');
+    const closeModal = () => {
+      modal.remove();
+      if (onUpdated) onUpdated();
+    };
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (doneBtn) doneBtn.addEventListener('click', closeModal);
+
+    // Botones Editar por fila
+    modal.querySelectorAll('.mgr-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const prog = catalog.find(p => p.id === id);
+        if (prog) {
+          openEditSoftwareLinkModal(prog, () => {
+            renderManagerContent();
+          });
+        }
+      });
     });
 
-    grid.appendChild(card);
+    // Comprobar todos los enlaces
+    const testAllBtn = modal.querySelector('#mgr-btn-test-all');
+    if (testAllBtn) {
+      testAllBtn.addEventListener('click', async () => {
+        testAllBtn.disabled = true;
+        testAllBtn.innerHTML = '<span>⏳ Comprobando enlaces...</span>';
+
+        for (const prog of catalog) {
+          const pill = modal.querySelector(`#mgr-pill-${prog.id}`);
+          if (pill) {
+            pill.className = 'soft-badge-pill';
+            pill.innerHTML = '⏳ Probando...';
+          }
+          const res = await checkSoftwareUrlLive(prog.downloadUrl);
+          if (pill) {
+            if (res.ok) {
+              const sizeStr = formatCompactBytes(res.contentLength);
+              pill.className = 'soft-badge-pill status-ok';
+              pill.innerHTML = `✅ OK (${res.statusCode}${sizeStr ? ` • ${sizeStr}` : ''})`;
+            } else {
+              pill.className = 'soft-badge-pill status-err';
+              pill.innerHTML = `❌ Caído (${res.statusCode || 'Error'})`;
+            }
+          }
+        }
+
+        testAllBtn.disabled = false;
+        testAllBtn.innerHTML = '<span>🔍 Comprobar Todos los Enlaces</span>';
+        showToast('Comprobación de todos los enlaces completada.', 'info');
+      });
+    }
+
+    // Añadir programa
+    const addBtn = modal.querySelector('#mgr-btn-add-item');
+    if (addBtn) {
+      addBtn.addEventListener('click', () => {
+        openAddSoftwareModal(() => {
+          renderManagerContent();
+        });
+      });
+    }
+
+    // Exportar JSON
+    const exportBtn = modal.querySelector('#mgr-btn-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(catalog, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", dataStr);
+        dlAnchor.setAttribute("download", `HCP_Software_Catalog_Links_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+        showToast('Exportada la lista de enlaces a archivo JSON.', 'success');
+      });
+    }
+
+    // Importar JSON
+    const importInput = modal.querySelector('#mgr-input-import');
+    if (importInput) {
+      importInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const imported = JSON.parse(event.target.result);
+            if (Array.isArray(imported) && imported.length > 0) {
+              saveSoftwareCatalog(imported);
+              showToast(`Importados correctamente ${imported.length} programas y enlaces corporativos.`, 'success');
+              renderManagerContent();
+            } else {
+              alert('El archivo JSON no tiene un formato de catálogo válido.');
+            }
+          } catch (err) {
+            alert('Error al leer el archivo JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+
+    // Restablecer todo
+    const resetAllBtn = modal.querySelector('#mgr-btn-reset-all');
+    if (resetAllBtn) {
+      resetAllBtn.addEventListener('click', () => {
+        if (confirm('¿Restablecer TODOS los enlaces a los valores oficiales de fábrica?')) {
+          resetSoftwareCatalogToDefaults();
+          showToast('Enlaces restablecidos a fábrica.', 'info');
+          renderManagerContent();
+        }
+      });
+    }
+  };
+
+  renderManagerContent();
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+      if (onUpdated) onUpdated();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MODAL: AÑADIR NUEVO SOFTWARE CORPORATIVO
+// ═══════════════════════════════════════════════════════════════════════════════
+function openAddSoftwareModal(onAdded) {
+  const modal = document.createElement('div');
+  modal.className = 'dl-modal-overlay';
+
+  modal.innerHTML = `
+    <div class="soft-modal-card">
+      <div class="dl-modal-header">
+        <div class="dl-modal-icon" style="background:linear-gradient(135deg, #10B981 0%, #059669 100%);">
+          ➕
+        </div>
+        <div>
+          <h3 class="dl-modal-title">Añadir Nuevo Software Corporativo</h3>
+          <span class="dl-modal-subtitle">Registra una herramienta adicional o instalador interno con su enlace de descarga correspondiente.</span>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="soft-modal-field">
+          <label>Nombre del Programa / Herramienta *:</label>
+          <input type="text" id="add-soft-title" class="soft-modal-input" placeholder="Ej: Microsoft Office 2021" required />
+        </div>
+        <div class="soft-modal-field">
+          <label>Fabricante / Proveedor:</label>
+          <input type="text" id="add-soft-publisher" class="soft-modal-input" placeholder="Ej: Microsoft Corp." />
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="soft-modal-field">
+          <label>Categoría:</label>
+          <input type="text" id="add-soft-category" class="soft-modal-input" placeholder="Ej: Ofimática / Diseño" />
+        </div>
+        <div class="soft-modal-field">
+          <label>Versión / Edición:</label>
+          <input type="text" id="add-soft-version" class="soft-modal-input" placeholder="Ej: v2024 Corporativo" />
+        </div>
+      </div>
+
+      <div class="soft-modal-field">
+        <label>URL de Descarga Directa (HTTP / HTTPS) *:</label>
+        <input type="url" id="add-soft-url" class="soft-modal-input mono" placeholder="https://servidor.empresa.local/instalador.exe" required />
+      </div>
+
+      <div class="soft-modal-field">
+        <label>Nombre de archivo ejecutable al guardar *:</label>
+        <input type="text" id="add-soft-filename" class="soft-modal-input" placeholder="Instalador_Office.exe" />
+      </div>
+
+      <div class="soft-modal-field">
+        <label>Descripción del Software:</label>
+        <input type="text" id="add-soft-desc" class="soft-modal-input" placeholder="Propósito, licencia o notas de instalación" />
+      </div>
+
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <span style="font-size:12.5px; font-weight:700;">Verificar Enlace Antes de Añadir:</span>
+        <button class="btn-soft-mini" id="add-btn-test" style="padding:5px 12px; font-size:12px;">
+          <span>🔍 Probar Enlace</span>
+        </button>
+      </div>
+      <div id="add-test-feedback" class="soft-test-result-box" style="display:none;"></div>
+
+      <div class="dl-modal-footer">
+        <button class="btn-dl-cancel" id="add-btn-cancel">Cancelar</button>
+        <button class="btn-dl-start" id="add-btn-save">
+          <span>✔ Añadir al Catálogo</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const titleIn = modal.querySelector('#add-soft-title');
+  const pubIn = modal.querySelector('#add-soft-publisher');
+  const catIn = modal.querySelector('#add-soft-category');
+  const verIn = modal.querySelector('#add-soft-version');
+  const urlIn = modal.querySelector('#add-soft-url');
+  const fileIn = modal.querySelector('#add-soft-filename');
+  const descIn = modal.querySelector('#add-soft-desc');
+  const testBtn = modal.querySelector('#add-btn-test');
+  const feedback = modal.querySelector('#add-test-feedback');
+  const cancelBtn = modal.querySelector('#add-btn-cancel');
+  const saveBtn = modal.querySelector('#add-btn-save');
+
+  testBtn.addEventListener('click', async () => {
+    const url = urlIn.value.trim();
+    if (!url) {
+      feedback.style.display = 'flex';
+      feedback.className = 'soft-test-result-box err';
+      feedback.innerHTML = '<span>Por favor introduce una URL antes de probar.</span>';
+      return;
+    }
+    feedback.style.display = 'flex';
+    feedback.className = 'soft-test-result-box testing';
+    feedback.innerHTML = '<span>⏳ Conectando con el servidor remoto...</span>';
+    testBtn.disabled = true;
+
+    const res = await checkSoftwareUrlLive(url);
+    testBtn.disabled = false;
+
+    if (res.ok) {
+      const sizeStr = formatCompactBytes(res.contentLength);
+      feedback.className = 'soft-test-result-box ok';
+      feedback.innerHTML = `<span>✅ Enlace activo (HTTP ${res.statusCode} ${sizeStr ? `• ${sizeStr}` : ''})</span>`;
+    } else {
+      feedback.className = 'soft-test-result-box err';
+      feedback.innerHTML = `<span>❌ Enlace no responde (${res.error || res.statusCode})</span>`;
+    }
   });
 
-  container.appendChild(grid);
-  resultsEl.appendChild(container);
+  saveBtn.addEventListener('click', () => {
+    const title = titleIn.value.trim();
+    const url = urlIn.value.trim();
+    if (!title) {
+      alert('Por favor introduce el nombre del software.');
+      titleIn.focus();
+      return;
+    }
+    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+      alert('Por favor introduce una URL válida que comience por http:// o https://');
+      urlIn.focus();
+      return;
+    }
+
+    const id = 'soft-' + Date.now().toString(36);
+    const newProg = {
+      id,
+      title,
+      publisher: pubIn.value.trim() || 'Software Corporativo',
+      category: catIn.value.trim() || 'Herramientas TI',
+      version: verIn.value.trim() || 'v1.0 Oficial',
+      platform: 'Windows (x64 / x86)',
+      downloadUrl: url,
+      defaultUrl: url,
+      defaultFileName: fileIn.value.trim() || `${title.replace(/\s+/g, '_')}.exe`,
+      description: descIn.value.trim() || 'Software corporativo integrado para puestos de trabajo.',
+      fileInfo: 'Instalador .exe',
+      badgeText: 'CORPORATIVO',
+      logoSvg: `<svg width="52" height="52" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="120" height="120" rx="22" fill="#059669"/>
+        <text x="60" y="72" font-family="sans-serif" font-weight="900" font-size="34" fill="white" text-anchor="middle">${escapeHtml(title.slice(0, 3).toUpperCase())}</text>
+      </svg>`
+    };
+
+    const catalog = getSoftwareCatalog();
+    catalog.push(newProg);
+    saveSoftwareCatalog(catalog);
+
+    modal.remove();
+    showToast(`✅ Programa "${title}" añadido correctamente al catálogo.`, 'success');
+    if (onAdded) onAdded();
+  });
+
+  cancelBtn.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }
 
 // Modal para consultar ubicación de guardado antes de descargar
@@ -6466,17 +7363,31 @@ async function startSoftwareDownloadProcess(prog, cardElement) {
   } catch (err) {
     if (isCancelled) return;
     bottomBox.innerHTML = `
-      <div class="software-notice-banner" style="background:rgba(239, 68, 68, 0.1); border-color:rgba(239, 68, 68, 0.3); color:#EF4444;">
-        <span>❌ Error durante la descarga: ${escapeHtml(err.message)}</span>
+      <div class="software-notice-banner" style="background:rgba(239, 68, 68, 0.1); border-color:rgba(239, 68, 68, 0.3); color:#EF4444; flex-direction:column; align-items:flex-start; gap:4px;">
+        <span style="font-weight:700;">❌ Error durante la descarga: ${escapeHtml(err.message)}</span>
+        <span style="font-size:12px; color:var(--text-secondary);">El enlace puede haber caducado, devuelto error 404 o el servidor remoto cambió la ruta. Puedes actualizar la URL directamente con el botón de abajo.</span>
       </div>
-      <button class="btn-download-big" id="btn-retry-err-${prog.id}" style="margin-top:10px;">
-        <span class="download-icon-anim">🔄</span>
-        <span>REINTENTAR DESCARGAR</span>
-      </button>
+      <div style="display:flex; gap:10px; margin-top:10px; width:100%;">
+        <button class="btn-download-big" id="btn-retry-err-${prog.id}" style="flex:1;">
+          <span class="download-icon-anim">🔄</span>
+          <span>REINTENTAR</span>
+        </button>
+        <button class="btn-change-link-secondary" id="btn-fix-err-${prog.id}" style="padding:10px 16px; border-color:#EF4444; color:#EF4444;">
+          <span>⚙️ Cambiar Enlace</span>
+        </button>
+      </div>
     `;
     const retryBtn = bottomBox.querySelector(`#btn-retry-err-${prog.id}`);
     if (retryBtn) {
       retryBtn.addEventListener('click', () => startSoftwareDownloadProcess(prog, cardElement));
+    }
+    const fixBtn = bottomBox.querySelector(`#btn-fix-err-${prog.id}`);
+    if (fixBtn) {
+      fixBtn.addEventListener('click', () => {
+        openEditSoftwareLinkModal(prog, () => {
+          openSoftwarePanel();
+        });
+      });
     }
   }
 }

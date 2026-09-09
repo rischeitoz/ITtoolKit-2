@@ -137,6 +137,99 @@ app.get('/api/software/proxy-download', async (req, res) => {
   }
 });
 
+// Endpoint para comprobar estado y accesibilidad de un enlace de software
+app.get('/api/software/check-link', async (req, res) => {
+  const fileUrl = req.query.url;
+  if (!fileUrl) {
+    return res.status(400).json({ ok: false, error: 'El parámetro url es requerido.' });
+  }
+
+  try {
+    const checkWithRedirects = (currentUrl, redirectsLeft = 5) => {
+      return new Promise((resolve, reject) => {
+        if (redirectsLeft <= 0) return reject(new Error('Demasiadas redirecciones.'));
+        let parsed;
+        try {
+          parsed = new URL(currentUrl);
+        } catch (e) {
+          return reject(new Error('URL inválida. Debe comenzar por http:// o https://'));
+        }
+
+        const isHttps = parsed.protocol === 'https:';
+        const httpLib = isHttps ? require('https') : require('http');
+
+        const request = httpLib.request(currentUrl, {
+          method: 'HEAD',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          },
+          timeout: 8000
+        }, (response) => {
+          if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+            let nextUrl = response.headers.location;
+            if (!nextUrl.startsWith('http')) {
+              nextUrl = `${parsed.protocol}//${parsed.host}${nextUrl}`;
+            }
+            return resolve(checkWithRedirects(nextUrl, redirectsLeft - 1));
+          }
+
+          if (response.statusCode === 405 || response.statusCode === 403) {
+            const getReq = httpLib.request(currentUrl, {
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Range': 'bytes=0-1024'
+              },
+              timeout: 8000
+            }, (getRes) => {
+              const status = getRes.statusCode;
+              const len = getRes.headers['content-length'] || getRes.headers['content-range'] || '';
+              const type = getRes.headers['content-type'] || '';
+              getReq.destroy();
+              resolve({
+                ok: status >= 200 && status < 400,
+                statusCode: status,
+                contentLength: len,
+                contentType: type,
+                finalUrl: currentUrl
+              });
+            });
+            getReq.on('error', reject);
+            getReq.on('timeout', () => { getReq.destroy(); reject(new Error('Tiempo de espera agotado (Timeout)')); });
+            getReq.end();
+            return;
+          }
+
+          const status = response.statusCode;
+          const len = response.headers['content-length'] || '';
+          const type = response.headers['content-type'] || '';
+          request.destroy();
+          resolve({
+            ok: status >= 200 && status < 400,
+            statusCode: status,
+            contentLength: len,
+            contentType: type,
+            finalUrl: currentUrl
+          });
+        });
+
+        request.on('error', reject);
+        request.on('timeout', () => { request.destroy(); reject(new Error('Tiempo de espera agotado (Timeout)')); });
+        request.end();
+      });
+    };
+
+    const checkResult = await checkWithRedirects(fileUrl);
+    return res.json(checkResult);
+  } catch (err) {
+    return res.json({
+      ok: false,
+      statusCode: 0,
+      error: err.message || 'No se pudo conectar al servidor de origen.'
+    });
+  }
+});
+
 // SSE endpoint for progress & logs
 app.get('/api/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
