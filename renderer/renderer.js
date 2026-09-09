@@ -26,7 +26,7 @@ const statusText = document.getElementById('status-text');
 const statusBar = document.getElementById('statusbar');
 
 const ALL_BTN_IDS = [
-  'btn-info-equipo', 'btn-monitores', 'btn-speedtest', 'btn-ping', 'btn-netoptions',
+  'btn-speedtest', 'btn-ping', 'btn-netoptions',
   'btn-diagnostico', 'btn-gpudrivers', 'btn-sysupdates', 'btn-eventlog', 'btn-highperf', 'btn-healthcheck',
   'btn-sfc', 'btn-dism', 'btn-mdsched', 'btn-cleantemp',
 ];
@@ -112,8 +112,9 @@ function setBusy(busy, text = '') {
   allButtons().forEach(b => b.disabled = busy);
 }
 
-function clearResults(title) {
+function clearResults(title, showTitle = true) {
   resultTitle.textContent = title;
+  resultTitle.style.display = showTitle ? 'block' : 'none';
   const breadcrumbEl = document.getElementById('app-breadcrumb');
   if (breadcrumbEl) {
     breadcrumbEl.textContent = title ? `HCPToolKit > ${title}` : 'HCPToolKit > Panel Principal';
@@ -1491,7 +1492,7 @@ async function runInfoEquipo() {
 document.getElementById('btn-info-equipo')?.addEventListener('click', runInfoEquipo);
 
 async function runDiagnostico() {
-  clearResults('Diagnóstico del PC');
+  clearResults('Información del Equipo');
   const stopLoading = startDiagLoadingSequence();
   setBusy(true, 'Analizando el equipo...');
 
@@ -1500,7 +1501,7 @@ async function runDiagnostico() {
     lastDiagnosticoResult = r;
 
     stopLoading();
-    clearResults('Diagnóstico del PC');
+    clearResults('Información del Equipo');
 
     // ── BOTÓN DE EXPORTACIÓN A PDF AL PRINCIPIO DEL TODO ─────────────
     const pdfBanner = document.createElement('div');
@@ -3722,7 +3723,7 @@ function renderSystemUpdatesPanel(data) {
 // ═══════════════════════════════════════════════════════════════════════════════
 function renderHomeDashboard() {
   setActiveSidebarButton('btn-nav-home');
-  clearResults('Panel Principal');
+  clearResults('Panel Principal', false);
 
   const container = document.createElement('div');
   container.className = 'dashboard-executive-view';
@@ -3769,7 +3770,7 @@ function renderHomeDashboard() {
         <span class="search-tag" data-query="Impresoras">🖨️ Impresoras</span>
         <span class="search-tag" data-query="Software">💻 Software</span>
         <span class="search-tag" data-query="Tutoriales">📚 Guías</span>
-        <span class="search-tag" data-query="Diagnóstico">🖥️ Diagnóstico</span>
+        <span class="search-tag" data-query="Información del Equipo">🖥️ Info Equipo</span>
         <span class="search-tag" data-query="GPU">🎮 Drivers GPU</span>
         <span class="search-tag" data-query="Speedtest">🌐 Velocidad</span>
         <span class="search-tag" data-query="SFC">🛡️ Reparar SFC</span>
@@ -3852,7 +3853,7 @@ function renderHomeDashboard() {
       <div class="dash-quick-card" id="sc-diagnostico">
         <div class="dash-quick-icon">🖥️</div>
         <div class="dash-quick-meta">
-          <span class="dash-quick-name">Diagnóstico PC</span>
+          <span class="dash-quick-name">Información del Equipo</span>
           <span class="dash-quick-sub">CPU, RAM, GPU y Almacenamiento</span>
         </div>
       </div>
@@ -4029,29 +4030,48 @@ function performSearch(query) {
       resultsBox.appendChild(heading);
 
       const grid = document.createElement('div');
-      grid.className = 'category-tools-grid';
+      grid.className = 'category-tools-grid grid-2x2';
 
       let count = 0;
       Object.values(CATEGORIES_CONFIG).forEach(cat => {
         cat.tools.forEach(tool => {
-          const textToSearch = `${tool.title} ${tool.sub} ${cat.title}`.toLowerCase();
+          const textToSearch = `${tool.title} ${tool.sub} ${cat.title} ${(tool.tags || []).join(' ')}`.toLowerCase();
           if (textToSearch.includes(q)) {
             count++;
             const card = document.createElement('div');
             card.className = 'category-tool-card';
+            const tagsHtml = (tool.tags || [])
+              .map(t => `<span class="tool-tag-item">${escapeHtml(t)}</span>`)
+              .join('');
+
             card.innerHTML = `
-              <div class="cat-tool-card-top">
-                <div class="cat-tool-icon">${tool.icon}</div>
-                <span class="cat-tool-tag">${tool.badge}</span>
+              <div>
+                <div class="tool-card-header">
+                  <div class="tool-card-icon-wrap">
+                    <span>${tool.icon}</span>
+                  </div>
+                  <div class="tool-card-meta-top">
+                    <span class="tool-card-badge">${escapeHtml(tool.badge)}</span>
+                    <span class="tool-card-status">
+                      <span class="status-pulse-dot"></span>
+                      <span>Listo</span>
+                    </span>
+                  </div>
+                </div>
+                <div class="tool-card-body">
+                  <h3 class="tool-card-title">${escapeHtml(tool.title)}</h3>
+                  <p class="tool-card-desc">${escapeHtml(tool.sub)}</p>
+                  <div class="tool-card-tags">${tagsHtml}</div>
+                </div>
               </div>
-              <div class="cat-tool-body">
-                <h4 class="cat-tool-title">${escapeHtml(tool.title)}</h4>
-                <p class="cat-tool-sub">${escapeHtml(tool.sub)}</p>
-              </div>
-              <div class="cat-tool-footer">
-                <button class="btn-execute-tool">
-                  <span>Abrir Utilidad</span>
-                  <span class="arrow">→</span>
+              <div class="tool-card-footer">
+                <div class="tool-card-hint">
+                  <span class="hint-icon">⚡</span>
+                  <span>${escapeHtml(tool.quickMeta || cat.title)}</span>
+                </div>
+                <button class="btn-tool-action">
+                  <span>${escapeHtml(tool.actionText || 'Ejecutar')}</span>
+                  <span class="btn-action-arrow">→</span>
                 </button>
               </div>
             `;
@@ -4062,7 +4082,7 @@ function performSearch(query) {
       });
 
       if (count === 0) {
-        grid.innerHTML = `<div style="padding: 20px; color: var(--text-secondary); text-align: center; grid-column: 1 / -1; font-size: 14px;">No se encontraron utilidades para "${escapeHtml(query)}". Intenta buscar por RAM, GPU, Speedtest, SFC, DISM...</div>`;
+        grid.innerHTML = `<div style="padding: 36px 20px; color: var(--text-secondary); text-align: center; grid-column: 1 / -1; font-size: 14px; background: var(--card); border: 1px dashed var(--card-border); border-radius: 14px;">No se encontraron utilidades para "<strong>${escapeHtml(query)}</strong>". Prueba buscando por RAM, GPU, Speedtest, SFC, DISM, Temporales...</div>`;
       }
       resultsBox.appendChild(grid);
     } else {
@@ -4214,61 +4234,200 @@ const CATEGORIES_CONFIG = {
   pc: {
     key: 'pc',
     title: 'PC & Diagnóstico de Hardware',
-    desc: 'Escaneo y auditoría técnica de procesador, memoria RAM, GPU, discos, monitores, periféricos y plan de rendimiento.',
+    desc: 'Escaneo y auditoría técnica integral de procesador, memoria RAM, GPU, discos y plan de rendimiento.',
     icon: '🖥️',
     themeClass: 'pc-theme',
     btnId: 'btn-open-pc',
     tools: [
-      { id: 'btn-informes-pc', title: 'Informe de Instalación', sub: 'Ficha y checklist oficial de alta para equipos nuevos o reciclados', icon: '📋', badge: 'INFORMES', run: runInformesUtility },
-      { id: 'btn-info-equipo', title: 'Información del Equipo', sub: 'Nombre NetBIOS/DNS, Dominio / Grupo y Contraseña', icon: '🏷️', badge: 'IDENTIFICACIÓN', run: runInfoEquipo },
-      { id: 'btn-diagnostico', title: 'Diagnóstico del PC', sub: 'RAM, CPU, GPU y disco duro en tiempo real', icon: '🩺', badge: 'AUDITORÍA', run: runDiagnostico },
-      { id: 'btn-monitores', title: 'Monitores y Pantallas', sub: 'Resolución, Hz (actual y máx), Fabricante, Modelo y Detección PnP', icon: '🖥️', badge: 'PANTALLAS', run: renderMonitoresUtility },
-      { id: 'btn-perifericos', title: 'Periféricos del Sistema', sub: 'Prueba y selección de Teclado, Ratón, Micrófono, Auriculares y Webcams', icon: '⌨️', badge: 'HARDWARE', run: renderPerifericosUtility },
-      { id: 'btn-healthcheck', title: 'Evaluar Estado del Equipo', sub: 'Puntuación global 1-10, informe de salud y recomendaciones', icon: '⭐', badge: 'EVALUACIÓN', run: runHealthCheck },
-      { id: 'btn-highperf', title: 'Activar Alto Rendimiento', sub: 'Configura el plan de máxima energía de Windows', icon: '⚡', badge: 'ENERGÍA', run: runHighPerf }
+      {
+        id: 'btn-informes-pc',
+        title: 'Informe de Instalación',
+        sub: 'Ficha y checklist oficial de alta técnica para puestos nuevos o reciclados con exportación a PDF.',
+        icon: '📋',
+        badge: 'INFORMES',
+        tags: ['Checklist Puesto', 'Exportar PDF', 'Ficha de Alta', 'Sedes HCP'],
+        quickMeta: 'Acta oficial de entrega',
+        actionText: 'Generar Informe',
+        run: runInformesUtility
+      },
+      {
+        id: 'btn-diagnostico',
+        title: 'Información del Equipo',
+        sub: 'Auditoría en tiempo real de CPU, memoria RAM, tarjeta gráfica GPU y almacenamiento en disco.',
+        icon: '🖥️',
+        badge: 'HARDWARE EN VIVO',
+        tags: ['CPU & Frecuencia', 'RAM en Vivo', 'GPU & VRAM', 'Discos & Espacio'],
+        quickMeta: 'Escaneo instantáneo',
+        actionText: 'Auditar Hardware',
+        run: runDiagnostico
+      },
+      {
+        id: 'btn-healthcheck',
+        title: 'Evaluar Estado del Equipo',
+        sub: 'Algoritmo de diagnóstico global con puntuación del 1 al 10 y recomendaciones de optimización.',
+        icon: '⭐',
+        badge: 'EVALUACIÓN',
+        tags: ['Puntuación 1-10', 'Salud Global', 'Consejos TI', 'Test Rápido'],
+        quickMeta: 'Diagnóstico inteligente',
+        actionText: 'Evaluar Salud',
+        run: runHealthCheck
+      },
+      {
+        id: 'btn-highperf',
+        title: 'Activar Alto Rendimiento',
+        sub: 'Aplica el plan de máxima energía de Windows para eliminar restricciones de reloj de CPU.',
+        icon: '⚡',
+        badge: 'ENERGÍA & POTENCIA',
+        tags: ['Plan Máxima Energía', 'CPU 100%', 'Cero Suspensión', 'Baja Latencia'],
+        quickMeta: 'Configuración nativa',
+        actionText: 'Activar Perfil',
+        run: runHighPerf
+      }
     ]
   },
   mantenimiento: {
     key: 'mantenimiento',
     title: 'Mantenimiento del Sistema',
-    desc: 'Controladores gráficos, actualizaciones de Windows & HP, visor de eventos y limpiador de temporales.',
+    desc: 'Controladores gráficos, actualizaciones de Windows & HP, análisis de visor de eventos y limpieza de temporales.',
     icon: '⚙️',
     themeClass: 'maint-theme',
     btnId: 'btn-open-maint',
     tools: [
-      { id: 'btn-gpudrivers', title: 'Actualizar Drivers de GPU', sub: 'Detecta la tarjeta gráfica y comprueba la versión del controlador', icon: '🎮', badge: 'DRIVERS', run: runGpuDrivers },
-      { id: 'btn-sysupdates', title: 'Actualizaciones del Sistema', sub: 'Windows Update, HP Support Assistant y diagnóstico de parches', icon: '🔄', badge: 'UPDATES', run: runSysUpdates },
-      { id: 'btn-eventlog', title: 'Analizar Visor de Eventos', sub: 'Registro de apagados inesperados, BSODs y errores críticos', icon: '📋', badge: 'LOGS', run: () => runEventAnalysis('7') },
-      { id: 'btn-cleantemp', title: 'Limpiar Archivos Temporales', sub: 'Escaneo y eliminación de temporales, cachés y liberador de espacio', icon: '🧹', badge: 'LIMPIEZA', run: runCleanTemp }
+      {
+        id: 'btn-gpudrivers',
+        title: 'Actualizar Drivers de GPU',
+        sub: 'Detección exacta de modelo de GPU y versión de controlador con enlaces de descarga de soporte oficial.',
+        icon: '🎮',
+        badge: 'CONTROLADORES',
+        tags: ['Detección GPU', 'Versión Driver', 'NVIDIA / AMD / Intel', 'Descarga Oficial'],
+        quickMeta: 'Soporte de fabricantes',
+        actionText: 'Ver Drivers',
+        run: runGpuDrivers
+      },
+      {
+        id: 'btn-sysupdates',
+        title: 'Actualizaciones del Sistema',
+        sub: 'Comprobación de Windows Update y diagnóstico de soporte técnico HP con detección de parches pendientes.',
+        icon: '🔄',
+        badge: 'UPDATES & SO',
+        tags: ['Windows Update', 'HP Support', 'Parches Pendientes', 'Seguridad'],
+        quickMeta: 'Canal oficial Microsoft',
+        actionText: 'Comprobar Updates',
+        run: runSysUpdates
+      },
+      {
+        id: 'btn-eventlog',
+        title: 'Analizar Visor de Eventos',
+        sub: 'Extracción forense de apagados repentinos, pantallas azules (BSOD) y registros críticos del sistema.',
+        icon: '📋',
+        badge: 'LOGS DE SISTEMA',
+        tags: ['Eventos Críticos', 'Pantallazos BSOD', 'Apagados Inesperados', 'Filtro 7 Días'],
+        quickMeta: 'Auditoría forense',
+        actionText: 'Analizar Registros',
+        run: () => runEventAnalysis('7')
+      },
+      {
+        id: 'btn-cleantemp',
+        title: 'Limpiar Archivos Temporales',
+        sub: 'Purga rápida y segura de cachés de Windows, temporales de usuario y archivos residuales del sistema.',
+        icon: '🧹',
+        badge: 'LIMPIEZA DE DISCO',
+        tags: ['Liberar Espacio', 'Temporales Windows', 'Caché Sistema', 'Papelera & Logs'],
+        quickMeta: 'Espacio recuperable',
+        actionText: 'Limpiar Temporales',
+        run: runCleanTemp
+      }
     ]
   },
   red: {
     key: 'red',
     title: 'Red & Conectividad',
-    desc: 'Test de velocidad a tiempo real, prueba de latencia Ping y herramientas de configuración IP/DNS.',
+    desc: 'Test de velocidad en tiempo real, latencia Ping hacia servidores e infraestructura de red IP/DNS.',
     icon: '🌐',
     themeClass: 'net-theme',
     btnId: 'btn-open-net',
     tools: [
-      { id: 'btn-speedtest', title: 'Test de Velocidad', sub: 'Descarga, subida, ping y latencia con medidor de aguja interactivo', icon: '🌐', badge: 'VELOCIDAD', run: runSpeedTest },
-      { id: 'btn-ping', title: 'Realizar Ping', sub: 'Informe de latencia y pérdida de paquetes hacia servidores clave', icon: '📡', badge: 'LATENCIA', run: () => renderPingUtilityUI() },
-      { id: 'btn-netoptions', title: 'Opciones de Red', sub: 'Configuración IP (DHCP/Manual), Liberar/Renovar IP y vaciar DNS', icon: '⚙️', badge: 'CONFIG IP', run: runNetOptions }
+      {
+        id: 'btn-speedtest',
+        title: 'Test de Velocidad',
+        sub: 'Medición interactiva con velocidad de bajada, subida, ping y jitter mediante medidor de aguja en vivo.',
+        icon: '🌐',
+        badge: 'ANCHO DE BANDA',
+        tags: ['Descarga Mb/s', 'Subida Mb/s', 'Latencia Ping', 'Medidor de Aguja'],
+        quickMeta: 'Medición en tiempo real',
+        actionText: 'Iniciar Speedtest',
+        run: runSpeedTest
+      },
+      {
+        id: 'btn-ping',
+        title: 'Realizar Ping',
+        sub: 'Comprobación de latencia y estabilidad hacia la puerta de enlace, DNS corporativos y servidores web.',
+        icon: '📡',
+        badge: 'LATENCIA & CONEXIÓN',
+        tags: ['Puerta de Enlace', 'Servidores DNS', 'Pérdida Paquetes', 'Estabilidad ICMP'],
+        quickMeta: 'Diagnóstico de paquetes',
+        actionText: 'Abrir Test Ping',
+        run: () => renderPingUtilityUI()
+      },
+      {
+        id: 'btn-netoptions',
+        title: 'Opciones de Red',
+        sub: 'Gestión de direccionamiento IP (DHCP o Manual), renovación de concesión de red y vaciado de DNS.',
+        icon: '⚙️',
+        badge: 'CONFIGURACIÓN IP',
+        tags: ['DHCP / IP Fija', 'Liberar & Renovar IP', 'Flush DNS', 'Adaptadores'],
+        quickMeta: 'Herramientas de red',
+        actionText: 'Configurar Red',
+        run: runNetOptions
+      }
     ]
   },
   reparacion: {
     key: 'reparacion',
     title: 'Reparación de Windows',
-    desc: 'Comprobación de archivos del sistema SFC, reparación de imagen DISM y diagnóstico de memoria RAM mdsched.',
+    desc: 'Comprobación de integridad de archivos SFC, reparación de imagen DISM y diagnóstico de memoria física RAM.',
     icon: '🛡️',
     themeClass: 'repair-theme',
     btnId: 'btn-open-repair',
     tools: [
-      { id: 'btn-sfc', title: 'Ejecutar SFC /SCANNOW', sub: 'Comprueba la integridad de los archivos protegidos del sistema', icon: '🧩', badge: 'SFC SCANNOW', run: runSfc },
-      { id: 'btn-dism', title: 'Reparar Windows (DISM)', sub: 'DISM /Online /Cleanup-Image /RestoreHealth desde Windows Update', icon: '🛡️', badge: 'DISM FIX', run: runDism },
-      { id: 'btn-mdsched', title: 'Diagnóstico de Memoria', sub: 'Comprobar errores físicos en RAM mediante mdsched.exe', icon: '🧠', badge: 'TEST RAM', run: runMdsched }
+      {
+        id: 'btn-sfc',
+        title: 'Ejecutar SFC /SCANNOW',
+        sub: 'Comprobación exhaustiva de integridad en archivos protegidos de Windows con reparación automática.',
+        icon: '🧩',
+        badge: 'SFC SCANNOW',
+        tags: ['Archivos Protegidos', 'Reparación DLLs', 'Consola Elevada', 'Integridad SO'],
+        quickMeta: 'Reparación nativa Windows',
+        actionText: 'Ejecutar SFC',
+        run: runSfc
+      },
+      {
+        id: 'btn-dism',
+        title: 'Reparar Windows (DISM)',
+        sub: 'Reparación profunda del almacén de componentes (Component Store) de Windows con RestoreHealth.',
+        icon: '🛡️',
+        badge: 'DISM RESTOREHEALTH',
+        tags: ['Imagen de Windows', 'Component Store', 'Reparación Online', 'RestoreHealth'],
+        quickMeta: 'Servicio avanzado',
+        actionText: 'Ejecutar DISM',
+        run: runDism
+      },
+      {
+        id: 'btn-mdsched',
+        title: 'Diagnóstico de Memoria',
+        sub: 'Herramienta oficial de Windows para analizar errores físicos en los módulos de memoria RAM instalados.',
+        icon: '🧠',
+        badge: 'TEST RAM FÍSICA',
+        tags: ['Errores Físicos RAM', 'mdsched.exe', 'Test Módulos', 'Reinicio Programado'],
+        quickMeta: 'Diagnóstico profundo',
+        actionText: 'Programar Test',
+        run: runMdsched
+      }
     ]
   }
 };
+
+let currentCategoryViewMode = 'grid'; // 'grid' | 'list'
 
 function renderCategoryPanel(categoryKey) {
   const catConfig = CATEGORIES_CONFIG[categoryKey];
@@ -4276,69 +4435,235 @@ function renderCategoryPanel(categoryKey) {
 
   setActiveSidebarButton(catConfig.btnId);
 
-  clearResults(`${catConfig.title} — Menú de Utilidades`);
+  // Ocultar el h2 plano tradicional para mostrar el Hero Banner ejecutivo
+  clearResults(catConfig.title, false);
 
   const container = document.createElement('div');
   container.className = 'category-view-container panel-fade-in';
 
-  const header = document.createElement('div');
-  header.className = `category-header-card ${catConfig.themeClass}`;
-  header.innerHTML = `
-    <div class="cat-header-top">
-      <div class="cat-header-left">
-        <div class="cat-header-icon">${catConfig.icon}</div>
-        <div>
-          <h3 class="cat-header-title">${catConfig.title}</h3>
-          <p class="cat-header-sub">${catConfig.desc}</p>
+  // Hero Banner Ejecutivo de la Categoría
+  const hero = document.createElement('div');
+  hero.className = `cat-hero-banner ${catConfig.themeClass}`;
+  hero.innerHTML = `
+    <div class="cat-hero-top-row">
+      <div class="cat-hero-breadcrumb">
+        <button class="cat-hero-btn-home" id="btn-cat-back-home" title="Regresar al Panel Principal">
+          <span>← Panel Principal</span>
+        </button>
+        <span class="cat-hero-crumb-sep">/</span>
+        <span class="cat-hero-crumb-active">${escapeHtml(catConfig.title)}</span>
+      </div>
+      <div class="cat-hero-controls">
+        <div class="cat-search-wrap">
+          <span class="cat-search-icon">🔍</span>
+          <input type="text" class="cat-search-input" id="cat-search-filter" placeholder="Filtrar utilidades..." autocomplete="off" />
+        </div>
+        <div class="cat-view-switch">
+          <button class="cat-view-btn ${currentCategoryViewMode === 'grid' ? 'active' : ''}" id="btn-view-grid" title="Vista en Cuadrícula">⊞</button>
+          <button class="cat-view-btn ${currentCategoryViewMode === 'list' ? 'active' : ''}" id="btn-view-list" title="Vista en Lista Detallada">☰</button>
         </div>
       </div>
-      <span class="cat-header-badge">${catConfig.tools.length} Utilidades</span>
+    </div>
+
+    <div class="cat-hero-main">
+      <div class="cat-hero-icon-box">${catConfig.icon}</div>
+      <div class="cat-hero-info">
+        <div class="cat-hero-title-row">
+          <h2 class="cat-hero-title">${escapeHtml(catConfig.title)}</h2>
+          <span class="cat-hero-count-pill">${catConfig.tools.length} Utilidades Activas</span>
+        </div>
+        <p class="cat-hero-desc">${escapeHtml(catConfig.desc)}</p>
+        <div class="cat-hero-meta-chips">
+          <span class="cat-meta-chip"><span class="chip-dot"></span> Entorno Local</span>
+          <span class="cat-meta-chip">🛡️ Modo Administrador</span>
+          <span class="cat-meta-chip">⚡ Ejecución Inmediata</span>
+        </div>
+      </div>
     </div>
   `;
-  container.appendChild(header);
+  container.appendChild(hero);
 
   if (categoryKey === 'reparacion') {
     const warnNotice = document.createElement('div');
     warnNotice.className = 'category-warn-notice';
     warnNotice.innerHTML = `
-      <span style="font-size:20px;">⚠️</span>
-      <span><b>Atención Técnica:</b> Estas utilidades ejecutan procesos con permisos de administrador en ventana CMD. Se recomienda mantener abierta la ventana hasta que finalicen las comprobaciones.</span>
+      <span style="font-size:22px; flex-shrink:0;">⚠️</span>
+      <div><b>Atención Técnica:</b> Estas utilidades ejecutan procesos con permisos de administrador en ventana CMD. Se recomienda mantener abierta la ventana hasta que finalicen las comprobaciones y reparaciones del sistema.</div>
     `;
     container.appendChild(warnNotice);
   }
 
-  const grid = document.createElement('div');
-  grid.className = 'category-tools-grid';
+  // Contenedor dinámico de herramientas
+  const contentWrapper = document.createElement('div');
+  contentWrapper.id = 'cat-tools-content';
+  container.appendChild(contentWrapper);
 
-  catConfig.tools.forEach(tool => {
-    const card = document.createElement('div');
-    card.className = 'category-tool-card';
-    card.id = `cat-card-${tool.id}`;
-    card.innerHTML = `
-      <div class="cat-tool-card-top">
-        <div class="cat-tool-icon">${tool.icon}</div>
-        <span class="cat-tool-tag">${tool.badge}</span>
-      </div>
-      <div class="cat-tool-body">
-        <h4 class="cat-tool-title">${escapeHtml(tool.title)}</h4>
-        <p class="cat-tool-sub">${escapeHtml(tool.sub)}</p>
-      </div>
-      <div class="cat-tool-footer">
-        <button class="btn-execute-tool">
-          <span>Abrir Utilidad</span>
-          <span class="arrow">→</span>
-        </button>
-      </div>
-    `;
-
-    card.addEventListener('click', () => {
-      tool.run();
+  function renderTools(filterText = '') {
+    contentWrapper.innerHTML = '';
+    const q = filterText.trim().toLowerCase();
+    const filteredTools = catConfig.tools.filter(tool => {
+      if (!q) return true;
+      const haystack = `${tool.title} ${tool.sub} ${tool.badge} ${(tool.tags || []).join(' ')}`.toLowerCase();
+      return haystack.includes(q);
     });
 
-    grid.appendChild(card);
-  });
+    if (filteredTools.length === 0) {
+      const emptyBox = document.createElement('div');
+      emptyBox.style.cssText = 'padding: 42px 20px; text-align: center; color: var(--text-secondary); background: var(--card); border: 1px dashed var(--card-border); border-radius: 16px; margin-top: 8px;';
+      emptyBox.innerHTML = `
+        <div style="font-size: 36px; margin-bottom: 10px;">🔍</div>
+        <div style="font-weight: 800; font-size: 16px; color: var(--text-primary); margin-bottom: 6px;">No se encontraron utilidades</div>
+        <div style="font-size: 13.5px;">No hay herramientas que coincidan con "<strong>${escapeHtml(filterText)}</strong>".</div>
+      `;
+      contentWrapper.appendChild(emptyBox);
+      return;
+    }
 
-  container.appendChild(grid);
+    if (currentCategoryViewMode === 'grid') {
+      const grid = document.createElement('div');
+      // Si son 4 herramientas: 2x2. Si son 3 herramientas: 3 columnas.
+      const gridClass = filteredTools.length % 2 === 0 ? 'grid-2x2' : 'grid-3col';
+      grid.className = `category-tools-grid ${gridClass}`;
+
+      filteredTools.forEach(tool => {
+        const card = document.createElement('div');
+        card.className = 'category-tool-card';
+        card.id = `cat-card-${tool.id}`;
+
+        const tagsHtml = (tool.tags || [])
+          .map(t => `<span class="tool-tag-item">${escapeHtml(t)}</span>`)
+          .join('');
+
+        card.innerHTML = `
+          <div>
+            <div class="tool-card-header">
+              <div class="tool-card-icon-wrap">
+                <span>${tool.icon}</span>
+              </div>
+              <div class="tool-card-meta-top">
+                <span class="tool-card-badge">${escapeHtml(tool.badge)}</span>
+                <span class="tool-card-status">
+                  <span class="status-pulse-dot"></span>
+                  <span>Listo</span>
+                </span>
+              </div>
+            </div>
+            <div class="tool-card-body">
+              <h3 class="tool-card-title">${escapeHtml(tool.title)}</h3>
+              <p class="tool-card-desc">${escapeHtml(tool.sub)}</p>
+              <div class="tool-card-tags">${tagsHtml}</div>
+            </div>
+          </div>
+          <div class="tool-card-footer">
+            <div class="tool-card-hint">
+              <span class="hint-icon">⚡</span>
+              <span>${escapeHtml(tool.quickMeta || 'Acceso directo')}</span>
+            </div>
+            <button class="btn-tool-action">
+              <span>${escapeHtml(tool.actionText || 'Ejecutar Módulo')}</span>
+              <span class="btn-action-arrow">→</span>
+            </button>
+          </div>
+        `;
+
+        card.addEventListener('click', () => {
+          tool.run();
+        });
+
+        grid.appendChild(card);
+      });
+
+      contentWrapper.appendChild(grid);
+    } else {
+      // Vista en Lista Detallada (Tabla de Operaciones TI)
+      const list = document.createElement('div');
+      list.className = 'category-tools-list';
+
+      filteredTools.forEach(tool => {
+        const item = document.createElement('div');
+        item.className = 'category-list-item';
+        item.id = `cat-list-${tool.id}`;
+
+        const tagsHtml = (tool.tags || [])
+          .map(t => `<span class="tool-tag-item">${escapeHtml(t)}</span>`)
+          .join('');
+
+        item.innerHTML = `
+          <div class="list-item-left">
+            <div class="list-item-icon">${tool.icon}</div>
+            <div class="list-item-text">
+              <div class="list-item-title-row">
+                <h4 class="list-item-title">${escapeHtml(tool.title)}</h4>
+                <span class="list-item-badge">${escapeHtml(tool.badge)}</span>
+              </div>
+              <p class="list-item-desc">${escapeHtml(tool.sub)}</p>
+              <div class="list-item-tags">${tagsHtml}</div>
+            </div>
+          </div>
+          <div class="list-item-right">
+            <span class="tool-card-status">
+              <span class="status-pulse-dot"></span>
+              <span>Listo</span>
+            </span>
+            <button class="btn-tool-action">
+              <span>${escapeHtml(tool.actionText || 'Ejecutar')}</span>
+              <span class="btn-action-arrow">→</span>
+            </button>
+          </div>
+        `;
+
+        item.addEventListener('click', () => {
+          tool.run();
+        });
+
+        list.appendChild(item);
+      });
+
+      contentWrapper.appendChild(list);
+    }
+  }
+
+  // Render inicial
+  renderTools();
+
+  // Enlazar eventos de control
+  const btnBackHome = hero.querySelector('#btn-cat-back-home');
+  if (btnBackHome) {
+    btnBackHome.addEventListener('click', () => {
+      renderHomeDashboard();
+    });
+  }
+
+  const searchInput = hero.querySelector('#cat-search-filter');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      renderTools(e.target.value);
+    });
+  }
+
+  const btnViewGrid = hero.querySelector('#btn-view-grid');
+  const btnViewList = hero.querySelector('#btn-view-list');
+
+  if (btnViewGrid && btnViewList) {
+    btnViewGrid.addEventListener('click', () => {
+      if (currentCategoryViewMode !== 'grid') {
+        currentCategoryViewMode = 'grid';
+        btnViewGrid.classList.add('active');
+        btnViewList.classList.remove('active');
+        renderTools(searchInput ? searchInput.value : '');
+      }
+    });
+
+    btnViewList.addEventListener('click', () => {
+      if (currentCategoryViewMode !== 'list') {
+        currentCategoryViewMode = 'list';
+        btnViewList.classList.add('active');
+        btnViewGrid.classList.remove('active');
+        renderTools(searchInput ? searchInput.value : '');
+      }
+    });
+  }
+
   resultsEl.appendChild(container);
 }
 
