@@ -1,6 +1,6 @@
 {
   "name": "HCPToolKit",
-  "description": "Herramienta de diagnóstico, mantenimiento, evaluación de hardware y optimización del sistema.",
+  "description": "HCPToolKit: Plataforma corporativa de diagnóstico, mantenimiento y soporte técnico para Architecture, Engineering y Urban Planning.",
   "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

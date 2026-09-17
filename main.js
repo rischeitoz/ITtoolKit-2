@@ -71,12 +71,12 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1150, height: 750, minWidth: 950, minHeight: 620,
     show: false, // Inicio optimizado: no mostrar hasta que el renderizado esté listo
-    title: 'HCPToolKit - Diagnóstico y Mantenimiento',
+    title: 'HCPToolKit - Architecture · Engineering · Urban Planning',
     frame: false,
     titleBarStyle: 'hidden',
     titleBarOverlay: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#000000',
     ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -2075,6 +2075,84 @@ function xmlVal(xml, tag) {
   return m ? m[1].trim() : '';
 }
 
+// Base de conocimiento para diagnóstico técnico y motivo detallado de cierres de programas
+function getCrashDiagnosis(appName = '', faultModule = '', errCode = '') {
+  const normCode = (errCode || '').toLowerCase().replace(/^0x/, '');
+  const code = normCode.length < 8 ? normCode.padStart(8, '0') : normCode;
+  const app = (appName || '').toLowerCase();
+  const mod = (faultModule || '').toLowerCase();
+
+  let errCodeName = 'Error de Ejecución de Aplicación';
+  let motivo = 'La aplicación finalizó de forma anómala debido a una excepción interna no interceptada durante el ciclo de procesamiento.';
+  let diagnostico = 'Interrupción del hilo principal del proceso. No se pudo completar la operación en memoria.';
+  let solucion = '1. Reiniciar la aplicación y comprobar actualizaciones disponibles.\n2. Si el fallo persiste, verificar la integridad de las librerías con SFC /scannow.';
+  let severity = 'alto';
+
+  if (code.includes('c0000005')) {
+    errCodeName = '0xc0000005 — STATUS_ACCESS_VIOLATION (Violación de Acceso a Memoria)';
+    severity = 'critico';
+    if (app.includes('acad') || app.includes('autocad') || mod.includes('accore') || mod.includes('acdb')) {
+      motivo = 'AutoCAD intentó leer o escribir en una dirección de memoria virtual no asignada o protegida (Null Pointer Dereference). Habitualmente ocurre durante la regeneración de geometrías 3D complejas, procesamiento de capas con referencias externas (XRefs) corruptas o conflictos con el acelerador DirectX.';
+      diagnostico = 'Corrupción de puntero en tiempo de dibujo en el motor geométrico de Autodesk. Elevado riesgo de pérdida de cambios si el archivo no tiene guardado automático (.sv$).';
+      solucion = '1. Desactivar temporalmente la aceleración por hardware en AutoCAD (comando GRAPHICSCONFIG > Aceleración por hardware: Desactivar).\n2. Abrir el archivo problemático utilizando RECUPERARTODO (RECOVERALL) o REVISAR (AUDIT).\n3. Instalar la actualización acumulativa más reciente desde Autodesk Access o la cuenta de Autodesk.\n4. Actualizar el controlador de vídeo a la versión certificada NVIDIA Studio o AMD Software PRO Edition.';
+    } else if (app.includes('revit')) {
+      motivo = 'Revit encontró una referencia nula o colisión de memoria al procesar familias paramétricas BIM complejas o al comunicarse con complementos externos (.Addin).';
+      diagnostico = 'Inestabilidad en la sesión de modelado BIM. Frecuentemente causado por plugins de terceros no compatibles con la compilación actual de Revit o agotamiento de memoria RAM en proyectos extensos.';
+      solucion = '1. Deshabilitar temporalmente los complementos de Revit en %AppData%\\Autodesk\\Revit\\Addins.\n2. Realizar una auditoría del modelo central (Audit) al abrir el proyecto con "Desenlazar de archivo central".\n3. Purgar elementos no utilizados (Purge Unused) para reducir el consumo de memoria.';
+    } else if (app.includes('excel') || app.includes('word') || mod.includes('mso')) {
+      motivo = 'Microsoft Office intentó acceder a memoria protegida en el motor de interfaz COM (mso40uiwin32client.dll), típicamente causado por un complemento COM defectuoso (Acrobat PDF Maker, complementos de ERP o firmas digitales).';
+      diagnostico = 'Fallo de acceso en la biblioteca compartida de Microsoft Office. Afecta a la sesión de trabajo del documento abierto.';
+      solucion = '1. Iniciar la aplicación en Modo Seguro (manteniendo pulsada la tecla CTRL al abrir o ejecutando "excel /safe").\n2. Desactivar complementos sospechosos en Archivo > Opciones > Complementos > Administrar: Complementos COM.\n3. Ejecutar una Reparación Rápida de Microsoft 365 desde Configuración > Aplicaciones instaladas.';
+    } else if (app.includes('explorer') || mod.includes('twinui') || mod.includes('shell32')) {
+      motivo = 'El proceso del Explorador de Windows colisionó al intentar generar miniaturas, leer metadatos de archivos multimedia o procesar elementos inyectados en el menú contextual.';
+      diagnostico = 'Inestabilidad del Shell de Windows. Usualmente ocasionada por códecs de vídeo obsoletos, visores de previsualización PDF de terceros o clientes de sincronización en la nube.';
+      solucion = '1. Limpiar la caché de iconos y miniaturas con la opción de limpieza de temporales de HCPToolKit.\n2. Desactivar extensiones del menú contextual de terceros con la herramienta ShellExView.\n3. Ejecutar SFC /scannow en el terminal de administrador.';
+    } else {
+      motivo = 'El hilo de ejecución intentó acceder a una dirección de memoria a la que no tenía privilegios (puntero nulo o memoria ya desasignada por otro hilo).';
+      diagnostico = 'Violación de acceso estándar (Segmentation Fault). Indica un fallo en el código fuente de la aplicación o una incompatibilidad de DLLs dinámicas.';
+      solucion = '1. Reinstalar o reparar los paquetes Microsoft Visual C++ Redistributable (2015-2022 x64 y x86).\n2. Comprobar parches o actualizaciones recientes del software afectado.\n3. Ejecutar la aplicación en modo de compatibilidad si es una versión anterior.';
+    }
+  } else if (code.includes('c0000409')) {
+    errCodeName = '0xc0000409 — STATUS_STACK_BUFFER_OVERRUN (Desbordamiento de Búfer Detectado - Fail Fast)';
+    severity = 'critico';
+    motivo = 'El compilador detectó que una variable local superó los límites de su búfer en la pila de llamadas (Stack Canary). El sistema forzó el cierre preventivo del proceso para neutralizar un posible riesgo de seguridad.';
+    diagnostico = 'Mecanismo de seguridad Fail-Fast activado. Protege al sistema operativo contra desbordamientos de pila que podrían ser explotados.';
+    solucion = '1. Actualizar el programa a su compilación más reciente.\n2. Ejecutar DISM /Online /Cleanup-Image /RestoreHealth y sfc /scannow para reparar archivos del sistema operativo.\n3. Desactivar software de inyección de código o capas de captura (overlays) que puedan interactuar con el proceso.';
+  } else if (code.includes('e0434352')) {
+    errCodeName = '0xe0434352 — CLR_EXCEPTION (Excepción No Controlada de .NET Framework)';
+    severity = 'alto';
+    motivo = 'El entorno de ejecución Common Language Runtime (.NET) generó una excepción de software que no fue capturada por la aplicación (p.ej.: System.IO.FileNotFoundException o System.NullReferenceException).';
+    diagnostico = 'Incompatibilidad o dependencia ausente en el entorno .NET Framework. Muy común en complementos de arquitectura, extensiones BIM y utilidades basadas en C#/.NET.';
+    solucion = '1. Ejecutar la herramienta oficial Microsoft .NET Framework Repair Tool.\n2. Comprobar que .NET Framework 3.5 y 4.8.1 estén habilitados e íntegros en Características de Windows.\n3. Reinstalar el plugin o extensión de software que desencadena el cierre.';
+  } else if (code.includes('c00000fd')) {
+    errCodeName = '0xc00000fd — STATUS_STACK_OVERFLOW (Desbordamiento de Pila de Ejecución)';
+    severity = 'critico';
+    motivo = 'El hilo consumió la totalidad de la memoria reservada para su pila de llamadas, producido generalmente por un bucle recursivo infinito o asignación excesiva de memoria estática.';
+    diagnostico = 'Agotamiento del espacio de pila del proceso (1 MB por hilo en Windows). El proceso no puede continuar sin corromper la memoria del sistema.';
+    solucion = '1. Revisar si el proyecto abierto contiene dependencias circulares, bloques o familias recursivas.\n2. Limpiar los archivos de caché del proyecto en %TEMP% y reiniciar el equipo.';
+  } else if (code.includes('c0000374')) {
+    errCodeName = '0xc0000374 — STATUS_HEAP_CORRUPTION (Corrupción del Montón de Memoria / Heap)';
+    severity = 'critico';
+    motivo = 'El subsistema de asignación dinámica de memoria de Windows detectó que los metadatos de un bloque de memoria (Heap) fueron corrompidos por una doble liberación (Double Free) o escritura fuera de límites.';
+    diagnostico = 'Inestabilidad grave en la gestión de memoria interna. Obliga al sistema operativo a terminar el proceso de inmediato.';
+    solucion = '1. Reinstalar la aplicación limpiando previamente sus carpetas de configuración en %AppData% y %LocalAppData%.\n2. Ejecutar un diagnóstico de memoria RAM de Windows (mdsched.exe) para descartar fallos en los módulos físicos.';
+  } else if (code.includes('c0000142')) {
+    errCodeName = '0xc0000142 — STATUS_DLL_INIT_FAILED (Fallo al Inicializar Bibliotecas DLL)';
+    severity = 'alto';
+    motivo = 'El programa no pudo iniciarse porque una biblioteca DLL indispensable no se pudo cargar o falló en la rutina DllMain de inicialización.';
+    diagnostico = 'Dependencia de biblioteca ausente o bloqueo por permisos de seguridad o software antivirus.';
+    solucion = '1. Reinstalar todos los paquetes Microsoft Visual C++ Redistributable (2012 a 2022).\n2. Comprobar si el antivirus corporativo o Windows Defender ha puesto en cuarentena archivos de la aplicación.';
+  } else if (code.includes('80000003')) {
+    errCodeName = '0x80000003 — STATUS_BREAKPOINT (Punto de Interrupción / Aserción Fallida)';
+    severity = 'medio';
+    motivo = 'El software alcanzó una instrucción intencionada de parada (DebugBreak / Assertion Failure) programada por los desarrolladores al detectar un estado interno imprevisto.';
+    diagnostico = 'Aserción defensiva del software. Evita operaciones erróneas cerrando el proceso de forma controlada.';
+    solucion = '1. Consultar el archivo de registro (log) de la aplicación para identificar la causa específica de la aserción.\n2. Enviar el volcado minidump (.dmp) al soporte técnico del desarrollador.';
+  }
+
+  return { errCodeName, motivo, diagnostico, solucion, severity };
+}
+
 // Parsear cierres inesperados de aplicaciones del XML de wevtutil
 function parseAppCrashXml(xmlText) {
   const crashes = [];
@@ -2082,18 +2160,28 @@ function parseAppCrashXml(xmlText) {
   for (const block of eventBlocks) {
     try {
       const timeRaw = block.match(/TimeCreated\s+SystemTime=['"]([^'"]+)['"]/i)?.[1] || '';
-      const appName = block.match(/<Data\s+Name=['"]AppName['"]>([^<]*)<\/Data>/i)?.[1] || 'Aplicación desconocida';
-      const appPath = block.match(/<Data\s+Name=['"]AppPath['"]>([^<]*)<\/Data>/i)?.[1] || '';
-      const errCode = block.match(/<Data\s+Name=['"]ExceptionCode['"]>([^<]*)<\/Data>/i)?.[1] || '';
+      const appName = block.match(/<Data\s+Name=['"](?:AppName|ApplicationName)['"]>([^<]*)<\/Data>/i)?.[1] || 'Aplicación desconocida';
+      const appPath = block.match(/<Data\s+Name=['"](?:AppPath|ApplicationPath)['"]>([^<]*)<\/Data>/i)?.[1] || '';
+      const faultModule = block.match(/<Data\s+Name=['"](?:FaultingModuleName|ModuleName)['"]>([^<]*)<\/Data>/i)?.[1] || '';
+      const faultModulePath = block.match(/<Data\s+Name=['"](?:FaultingModulePath|ModulePath)['"]>([^<]*)<\/Data>/i)?.[1] || '';
+      const faultOffset = block.match(/<Data\s+Name=['"](?:FaultingOffset|Offset)['"]>([^<]*)<\/Data>/i)?.[1] || '';
+      const errCode = block.match(/<Data\s+Name=['"](?:ExceptionCode)['"]>([^<]*)<\/Data>/i)?.[1] || '';
 
       const time = timeRaw ? new Date(timeRaw) : null;
       if (!time || isNaN(time.getTime())) continue;
 
+      const formattedErrCode = errCode ? (errCode.startsWith('0x') ? errCode : `0x${errCode}`) : '0xc0000005';
+      const diag = getCrashDiagnosis(appName, faultModule, formattedErrCode);
+
       crashes.push({
         appName,
         appPath,
-        errCode: errCode ? `0x${errCode}` : '0xc0000005',
+        faultModule: faultModule || 'Módulo principal del proceso',
+        faultModulePath,
+        faultOffset: faultOffset ? `0x${faultOffset}` : '0x00000000',
+        errCode: formattedErrCode,
         time: time.toISOString(),
+        ...diag,
       });
     } catch {}
   }

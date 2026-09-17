@@ -2992,8 +2992,14 @@ async function runEventAnalysis(range = '7') {
       runEventAnalysis(e.target.value);
     });
 
+    const powerEvents = report.powerEvents || [];
+    const appCrashes = report.appCrashes || [];
+    const hardwareEvents = report.hardwareEvents || [];
+    const serviceEvents = report.serviceEvents || [];
+    const allEvents = [...powerEvents, ...hardwareEvents, ...serviceEvents].sort((a, b) => new Date(b.time) - new Date(a.time));
+
     const stats = report.powerStats || {
-      totalEvents: (report.powerEvents || []).length,
+      totalEvents: powerEvents.length,
       totalReboots: 0,
       cleanShutdowns: 0,
       unexpectedShutdowns: 0,
@@ -3002,19 +3008,19 @@ async function runEventAnalysis(range = '7') {
       statusLabel: 'Estable'
     };
 
-    // ── HERO: INFORME DE REINICIOS Y APAGADOS ───────────────────────────────
+    // ── HERO: INFORME DE ESTABILIDAD Y SALUD DEL SISTEMA ───────────────────
     const hero = document.createElement('div');
     hero.className = 'power-summary-hero panel-fade-in';
-    const isUnstable = stats.unexpectedShutdowns > 0;
+    const isUnstable = stats.unexpectedShutdowns > 0 || appCrashes.length > 5;
     hero.innerHTML = `
       <div class="power-hero-header">
         <div>
           <span class="power-hero-badge ${isUnstable ? 'warning' : 'ok'}">
-            ${isUnstable ? '⚠️ APAGADOS INESPERADOS DETECTADOS' : '🟢 ESTABILIDAD ÓPTIMA — 100% APAGADOS LIMPIOS'}
+            ${isUnstable ? '⚠️ ATENCIÓN REQUERIDA — INCIDENCIAS DETECTADAS' : '🟢 ESTABILIDAD ÓPTIMA — SISTEMA SALUDABLE'}
           </span>
-          <h2 class="power-hero-title">Informe de Reinicios y Apagados del Sistema</h2>
+          <h2 class="power-hero-title">Auditoría del Visor de Eventos de Windows</h2>
           <div style="font-size:12px; color:#94A3B8; margin-top:4px;">
-            Auditoría de eventos oficiales de Windows (Event ID 1074, 6005, 6006, 6008, 41 Kernel-Power)
+            Análisis clasificado por historiales: Alimentación, Cierres de Programas, Hardware y Servicios
           </div>
         </div>
         <div style="text-align:right;">
@@ -3032,7 +3038,7 @@ async function runEventAnalysis(range = '7') {
         </div>
         <div class="power-stat-item">
           <span class="power-stat-num" style="color:#818CF8;">${stats.totalReboots}</span>
-          <span class="power-stat-label">🔄 Reinicios Registrados</span>
+          <span class="power-stat-label">🔄 Reinicios</span>
         </div>
         <div class="power-stat-item">
           <span class="power-stat-num" style="color:#34D399;">${stats.cleanShutdowns}</span>
@@ -3042,20 +3048,68 @@ async function runEventAnalysis(range = '7') {
           <span class="power-stat-num" style="color:${stats.unexpectedShutdowns > 0 ? '#EF4444' : '#94A3B8'};">
             ${stats.unexpectedShutdowns}
           </span>
-          <span class="power-stat-label">⚠️ Inesperados / Cortes</span>
+          <span class="power-stat-label">⚠️ Cortes / Inesperados</span>
         </div>
         <div class="power-stat-item">
-          <span class="power-stat-num" style="color:#A78BFA;">${stats.totalBootEvents}</span>
-          <span class="power-stat-label">🚀 Arranques (Boots)</span>
+          <span class="power-stat-num" style="color:${appCrashes.length > 0 ? '#F59E0B' : '#34D399'};">
+            ${appCrashes.length}
+          </span>
+          <span class="power-stat-label">💥 Errores de Programas</span>
+        </div>
+        <div class="power-stat-item">
+          <span class="power-stat-num" style="color:${hardwareEvents.length > 0 ? '#EF4444' : '#34D399'};">
+            ${hardwareEvents.length}
+          </span>
+          <span class="power-stat-label">🛡️ Fallos Críticos / HW</span>
         </div>
       </div>
     `;
     resultsEl.appendChild(hero);
 
-    // ── CARD: ÚLTIMO CICLO DE ENERGÍA ───────────────────────────────────────
+    // ── NAVEGACIÓN POR PESTAÑAS (SEPARACIÓN DE HISTORIALES) ─────────────────
+    const tabsContainer = document.createElement('div');
+    tabsContainer.className = 'event-nav-tabs panel-fade-in';
+    tabsContainer.innerHTML = `
+      <button class="event-tab-btn active" data-tab="tab-power">
+        <span>⚡ Historial de Energía</span>
+        <span class="event-tab-badge">${powerEvents.length}</span>
+      </button>
+      <button class="event-tab-btn" data-tab="tab-crashes">
+        <span>💥 Errores de Programas</span>
+        <span class="event-tab-badge">${appCrashes.length}</span>
+      </button>
+      <button class="event-tab-btn" data-tab="tab-hardware">
+        <span>🛡️ Fallos Críticos & Hardware</span>
+        <span class="event-tab-badge">${hardwareEvents.length}</span>
+      </button>
+      <button class="event-tab-btn" data-tab="tab-services">
+        <span>⚙️ Servicios del Sistema</span>
+        <span class="event-tab-badge">${serviceEvents.length}</span>
+      </button>
+      <button class="event-tab-btn" data-tab="tab-all">
+        <span>📋 Registro Cronológico Global</span>
+        <span class="event-tab-badge">${allEvents.length}</span>
+      </button>
+    `;
+    resultsEl.appendChild(tabsContainer);
+
+    // Contenedor principal de contenidos de pestañas
+    const tabPanesContainer = document.createElement('div');
+    tabPanesContainer.className = 'event-tab-panes-wrapper';
+    resultsEl.appendChild(tabPanesContainer);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PESTAÑA 1: HISTORIAL DE ENERGÍA Y ALIMENTACIÓN
+    // ─────────────────────────────────────────────────────────────────────────
+    const panePower = document.createElement('div');
+    panePower.className = 'event-tab-pane active';
+    panePower.id = 'tab-power';
+
+    // Tarjeta del último ciclo de energía
     const lastShutdown = report.lastShutdownInfo || {};
     const cycleCard = document.createElement('div');
     cycleCard.className = 'power-last-cycle-card panel-fade-in';
+    cycleCard.style.marginBottom = '16px';
     cycleCard.innerHTML = `
       <div style="font-size:14px; font-weight:800; color:var(--text-primary); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
         <span>⚡</span> Ciclo de Alimentación y Última Operación del Equipo
@@ -3067,7 +3121,7 @@ async function runEventAnalysis(range = '7') {
             ${report.lastBootTime ? fmtDateTime(report.lastBootTime) : 'No disponible'}
           </div>
           <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-            Servicio Registro de Eventos (EventID 6005) iniciado correctamente por el Kernel.
+            Servicio Registro de Eventos (EventID 6005) iniciado correctamente por el Kernel de Windows.
           </div>
         </div>
         <div class="power-cycle-col">
@@ -3085,17 +3139,35 @@ async function runEventAnalysis(range = '7') {
         </div>
       </div>
     `;
-    resultsEl.appendChild(cycleCard);
+    panePower.appendChild(cycleCard);
 
-    // ── TABLA: HISTORIAL DETALLADO DE EVENTOS DE ENERGÍA ────────────────────
-    const events = report.powerEvents || [];
-    if (events.length > 0) {
-      addSectionTitle(`Historial Detallado de Eventos de Energía (${events.length} registrados)`);
+    // Barra de filtro rápido para eventos de energía
+    if (powerEvents.length > 0) {
+      const filterBar = document.createElement('div');
+      filterBar.style.display = 'flex';
+      filterBar.style.alignItems = 'center';
+      filterBar.style.justifyContent = 'space-between';
+      filterBar.style.flexWrap = 'wrap';
+      filterBar.style.gap = '8px';
+      filterBar.style.marginBottom = '12px';
+      filterBar.innerHTML = `
+        <div style="font-size:13px; font-weight:800; color:var(--text-primary);">
+          Registro de Eventos de Alimentación (${powerEvents.length} operaciones)
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;" id="power-quick-filters">
+          <button class="mini-filter-btn active" data-filter="all" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:var(--text-primary);">Todos (${powerEvents.length})</button>
+          <button class="mini-filter-btn" data-filter="reboot" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Reinicios (${stats.totalReboots})</button>
+          <button class="mini-filter-btn" data-filter="shutdown" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Apagados Limpios (${stats.cleanShutdowns})</button>
+          <button class="mini-filter-btn" data-filter="unexpected" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Inesperados (${stats.unexpectedShutdowns})</button>
+          <button class="mini-filter-btn" data-filter="boot" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Arranques (${stats.totalBootEvents})</button>
+        </div>
+      `;
+      panePower.appendChild(filterBar);
 
       const tableWrap = document.createElement('div');
       tableWrap.className = 'power-events-table-wrap panel-fade-in';
       tableWrap.innerHTML = `
-        <table class="power-events-table">
+        <table class="power-events-table" id="power-events-table">
           <thead>
             <tr>
               <th style="width:17%;">Fecha y Hora</th>
@@ -3105,53 +3177,430 @@ async function runEventAnalysis(range = '7') {
               <th style="width:28%;">Motivo / Diagnóstico</th>
             </tr>
           </thead>
-          <tbody>
-            ${events.map(ev => {
-              const badgeClass = ev.typeCode === 'boot' ? 'boot'
-                : ev.typeCode === 'reboot' ? 'reboot'
-                : ev.typeCode === 'shutdown' ? 'shutdown'
-                : 'unexpected';
-
-              return `
-                <tr>
-                  <td>
-                    <strong style="color:var(--text-primary); font-size:12.5px;">${fmtDateTime(ev.time)}</strong>
-                  </td>
-                  <td>
-                    <span style="font-family:monospace; font-weight:700; font-size:12px; color:var(--text-secondary);">
-                      #${ev.id || ev.eventId}
-                    </span>
-                  </td>
-                  <td>
-                    <span class="power-badge-type ${badgeClass}">
-                      ${ev.typeCode === 'boot' ? '🚀' : ev.typeCode === 'reboot' ? '🔄' : ev.typeCode === 'shutdown' ? '🛑' : '⚠️'}
-                      ${escapeHtml(ev.type)}
-                    </span>
-                  </td>
-                  <td>
-                    <div style="font-size:12px; font-weight:600; color:var(--text-primary);">${escapeHtml(ev.user || 'Sistema')}</div>
-                    <div style="font-size:11px; color:var(--text-secondary); font-family:monospace; word-break:break-all;">${escapeHtml(ev.process || 'services.exe')}</div>
-                  </td>
-                  <td>
-                    <div style="font-size:12px; color:var(--text-primary);">${escapeHtml(ev.reason || ev.detail || 'Operación del sistema')}</div>
-                    ${ev.detail && ev.detail !== ev.reason ? `<div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(ev.detail)}</div>` : ''}
-                  </td>
-                </tr>
-              `;
-            }).join('')}
+          <tbody id="power-events-tbody">
+            ${renderPowerTableRows(powerEvents)}
           </tbody>
         </table>
       `;
-      resultsEl.appendChild(tableWrap);
+      panePower.appendChild(tableWrap);
+
+      // Handler para filtros rápidos de energía
+      filterBar.querySelectorAll('.mini-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterBar.querySelectorAll('.mini-filter-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'rgba(255,255,255,0.03)';
+            b.style.color = 'var(--text-secondary)';
+          });
+          btn.classList.add('active');
+          btn.style.background = 'rgba(37,99,235,0.3)';
+          btn.style.borderColor = 'rgba(96,165,250,0.5)';
+          btn.style.color = '#FFFFFF';
+
+          const filt = btn.getAttribute('data-filter');
+          let subset = powerEvents;
+          if (filt === 'reboot') subset = powerEvents.filter(e => e.typeCode === 'reboot');
+          else if (filt === 'shutdown') subset = powerEvents.filter(e => e.typeCode === 'shutdown');
+          else if (filt === 'unexpected') subset = powerEvents.filter(e => e.typeCode === 'unexpected' || e.typeCode === 'kernel_power' || e.typeCode === 'bsod');
+          else if (filt === 'boot') subset = powerEvents.filter(e => e.typeCode === 'boot');
+
+          const tbody = panePower.querySelector('#power-events-tbody');
+          if (tbody) tbody.innerHTML = renderPowerTableRows(subset);
+        });
+      });
     } else {
-      addBanner('✔ No se han detectado eventos de alimentación anormales en el registro del período seleccionado.', 'ok');
+      const banner = document.createElement('div');
+      banner.className = 'clean-breakdown-card';
+      banner.style.padding = '18px';
+      banner.style.color = '#34D399';
+      banner.innerHTML = '✔ No se han detectado eventos de alimentación anormales en el registro del período seleccionado.';
+      panePower.appendChild(banner);
     }
 
-    // ── RECOMENDACIONES DE ESTABILIDAD ──────────────────────────────────────
+    tabPanesContainer.appendChild(panePower);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PESTAÑA 2: ERRORES DE PROGRAMAS Y CIERRES DETALLADOS (MOTIVO Y DIAGNÓSTICO)
+    // ─────────────────────────────────────────────────────────────────────────
+    const paneCrashes = document.createElement('div');
+    paneCrashes.className = 'event-tab-pane';
+    paneCrashes.id = 'tab-crashes';
+
+    if (appCrashes.length === 0) {
+      const emptyCard = document.createElement('div');
+      emptyCard.className = 'power-summary-hero panel-fade-in';
+      emptyCard.style.padding = '24px';
+      emptyCard.innerHTML = `
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div style="font-size:36px;">🟢</div>
+          <div>
+            <h3 style="font-size:16px; font-weight:800; color:#34D399; margin:0 0 4px 0;">Sin Errores de Programas Registrados</h3>
+            <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">
+              No se han registrado fallos de aplicaciones (Event ID 1000, 1002 ni 1026) en el registro de Windows durante el período analizado. Todas las aplicaciones han finalizado y procesado sus tareas de manera ordenada.
+            </div>
+          </div>
+        </div>
+      `;
+      paneCrashes.appendChild(emptyCard);
+    } else {
+      // Cabecera descriptiva de la sección de errores de programas
+      const crashHeader = document.createElement('div');
+      crashHeader.style.display = 'flex';
+      crashHeader.style.justifyContent = 'space-between';
+      crashHeader.style.alignItems = 'center';
+      crashHeader.style.flexWrap = 'wrap';
+      crashHeader.style.gap = '10px';
+      crashHeader.style.marginBottom = '14px';
+      crashHeader.innerHTML = `
+        <div>
+          <div style="font-size:15px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
+            <span>💥</span> Cierres Inesperados y Fallos de Aplicaciones (${appCrashes.length} detectados)
+          </div>
+          <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">
+            Cada incidencia ha sido analizada técnicamente identificando el <strong>motivo de origen (causa raíz)</strong>, su <strong>diagnóstico de impacto</strong> y las <strong>soluciones recomendadas</strong>.
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="text" id="crash-search-input" class="info-text-input" placeholder="🔍 Filtrar por programa o dll..." style="padding:6px 12px; font-size:12.5px; width:220px;">
+        </div>
+      `;
+      paneCrashes.appendChild(crashHeader);
+
+      const crashesContainer = document.createElement('div');
+      crashesContainer.className = 'crash-events-list';
+      crashesContainer.id = 'crash-cards-list';
+
+      function renderCrashCards(list) {
+        if (list.length === 0) {
+          return `
+            <div class="clean-breakdown-card" style="padding:20px; text-align:center; color:var(--text-secondary);">
+              No se encontraron cierres de aplicaciones que coincidan con la búsqueda.
+            </div>
+          `;
+        }
+
+        return list.map((c, idx) => {
+          const sevClass = c.severity === 'critico' ? 'critico' : (c.severity === 'medio' ? 'medio' : 'alto');
+          const sevLabel = c.severity === 'critico' ? '🔴 Fallo Crítico' : (c.severity === 'medio' ? '🔵 Advertencia' : '🟠 Fallo Elevado');
+
+          // Solución en lista
+          const solLines = (c.solucion || '')
+            .split('\n')
+            .filter(Boolean)
+            .map(l => `<li>${escapeHtml(l.replace(/^\d+\.\s*/, ''))}</li>`)
+            .join('');
+
+          return `
+            <div class="crash-event-card panel-fade-in" data-app="${escapeHtml((c.appName || '').toLowerCase())}" data-mod="${escapeHtml((c.faultModule || '').toLowerCase())}">
+              <div class="crash-card-header">
+                <div class="crash-icon-box">
+                  ${c.appName.toLowerCase().includes('acad') ? '📐' : (c.appName.toLowerCase().includes('revit') ? '🏢' : (c.appName.toLowerCase().includes('excel') ? '📊' : '💥'))}
+                </div>
+                <div class="crash-title-group">
+                  <div class="crash-app-title-row">
+                    <span class="crash-app-name">${escapeHtml(c.appName)}</span>
+                    <span class="crash-severity-badge ${sevClass}">${sevLabel}</span>
+                    <span style="font-family:monospace; font-size:11.5px; color:#F87171; background:rgba(239,68,68,0.12); padding:2px 8px; border-radius:4px; font-weight:700;">
+                      ${escapeHtml(c.errCode)}
+                    </span>
+                  </div>
+                  <div style="font-size:12px; font-weight:600; color:#E2E8F0; margin-top:3px;">
+                    ${escapeHtml(c.errCodeName || 'Excepción no interceptada')}
+                  </div>
+                  <div class="crash-app-path">${escapeHtml(c.appPath || 'Ruta del ejecutable no especificada en el evento')}</div>
+                </div>
+              </div>
+
+              <!-- Metadatos técnicos del módulo y proceso -->
+              <div class="crash-meta-grid">
+                <div class="crash-meta-item">
+                  <span class="crash-meta-label">Módulo con errores</span>
+                  <span class="crash-meta-val" style="color:#60A5FA;">${escapeHtml(c.faultModule || 'Proceso principal')}</span>
+                </div>
+                <div class="crash-meta-item">
+                  <span class="crash-meta-label">Desplazamiento / Offset</span>
+                  <span class="crash-meta-val">${escapeHtml(c.faultOffset || '0x00000000')}</span>
+                </div>
+                <div class="crash-meta-item">
+                  <span class="crash-meta-label">Ruta del Módulo</span>
+                  <span class="crash-meta-val" style="font-size:11px;">${escapeHtml(c.faultModulePath || 'Ubicación estándar del sistema / binarios')}</span>
+                </div>
+              </div>
+
+              <!-- Bloques detallados de Motivo, Diagnóstico y Solución -->
+              <div class="crash-explanation-container">
+                <div class="crash-block crash-block-motivo">
+                  <div class="crash-block-title">
+                    <span>🔍</span> Motivo del Fallo (Causa Raíz)
+                  </div>
+                  <div>${escapeHtml(c.motivo || 'La aplicación finalizó de forma anómala.')}</div>
+                </div>
+
+                <div class="crash-block crash-block-diag">
+                  <div class="crash-block-title">
+                    <span>🩺</span> Diagnóstico Técnico e Impacto
+                  </div>
+                  <div>${escapeHtml(c.diagnostico || 'Interrupción de hilo principal.')}</div>
+                </div>
+
+                <div class="crash-block crash-block-sol">
+                  <div class="crash-block-title">
+                    <span>🛠️</span> Solución y Recomendaciones Técnicas
+                  </div>
+                  <ul class="crash-sol-list">
+                    ${solLines}
+                  </ul>
+                </div>
+              </div>
+
+              <div class="crash-card-footer">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span class="crash-time">📅 ${fmtDateTime(c.time)}</span>
+                  <span style="color:var(--text-secondary); font-size:11px;">EventID 1000 (Application Error)</span>
+                </div>
+                <button class="btn-copy-crash-diag" data-index="${idx}" title="Copiar informe técnico para soporte">
+                  <span>📋</span> Copiar Diagnóstico
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      crashesContainer.innerHTML = renderCrashCards(appCrashes);
+      paneCrashes.appendChild(crashesContainer);
+
+      // Evento de búsqueda / filtrado de cierres
+      crashHeader.querySelector('#crash-search-input')?.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        const filtered = appCrashes.filter(c => {
+          return (c.appName || '').toLowerCase().includes(query) ||
+                 (c.faultModule || '').toLowerCase().includes(query) ||
+                 (c.errCode || '').toLowerCase().includes(query);
+        });
+        crashesContainer.innerHTML = renderCrashCards(filtered);
+        attachCopyButtons(crashesContainer, filtered);
+      });
+
+      function attachCopyButtons(container, currentList) {
+        container.querySelectorAll('.btn-copy-crash-diag').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const idx = parseInt(btn.getAttribute('data-index'), 10);
+            const crash = currentList[idx];
+            if (!crash) return;
+
+            const diagReport = [
+              `=============================================================`,
+              `REPORTE TÉCNICO DE CIERRE DE APLICACIÓN — HCPTOOLKIT`,
+              `=============================================================`,
+              `Programa Afectado : ${crash.appName}`,
+              `Fecha del Fallo   : ${fmtDateTime(crash.time)}`,
+              `Código Excepción  : ${crash.errCode} (${crash.errCodeName || 'Error'})`,
+              `Módulo Causante   : ${crash.faultModule} (Offset: ${crash.faultOffset || 'N/D'})`,
+              `Ruta Ejecutable   : ${crash.appPath || 'N/D'}`,
+              `Ruta Módulo       : ${crash.faultModulePath || 'N/D'}`,
+              ``,
+              `[MOTIVO - CAUSA RAÍZ]`,
+              crash.motivo || 'N/D',
+              ``,
+              `[DIAGNÓSTICO TÉCNICO]`,
+              crash.diagnostico || 'N/D',
+              ``,
+              `[SOLUCIÓN Y RECOMENDACIONES]`,
+              crash.solucion || 'N/D',
+              `=============================================================`
+            ].join('\n');
+
+            navigator.clipboard.writeText(diagReport).then(() => {
+              showToast(`📋 Diagnóstico de ${crash.appName} copiado al portapapeles.`, 'success');
+            }).catch(() => {
+              showToast('No se pudo copiar al portapapeles.', 'error');
+            });
+          });
+        });
+      }
+
+      attachCopyButtons(crashesContainer, appCrashes);
+    }
+
+    tabPanesContainer.appendChild(paneCrashes);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PESTAÑA 3: FALLOS CRÍTICOS & HARDWARE (WHEA, BSOD, DISCO)
+    // ─────────────────────────────────────────────────────────────────────────
+    const paneHardware = document.createElement('div');
+    paneHardware.className = 'event-tab-pane';
+    paneHardware.id = 'tab-hardware';
+
+    if (hardwareEvents.length === 0) {
+      const hwClean = document.createElement('div');
+      hwClean.className = 'power-summary-hero panel-fade-in';
+      hwClean.style.padding = '24px';
+      hwClean.innerHTML = `
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div style="font-size:36px;">🟢</div>
+          <div>
+            <h3 style="font-size:16px; font-weight:800; color:#34D399; margin:0 0 4px 0;">Hardware y Kernel Completamente Íntegros</h3>
+            <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">
+              ✔ Cero comprobaciones de error de volcado de memoria (BSOD BugCheck Event ID 1001).<br>
+              ✔ Cero eventos de la Arquitectura de Errores de Hardware de Windows (WHEA-Logger Event ID 17, 18, 19, 47).<br>
+              ✔ Cero incidencias críticas de bloques defectuosos o degradación SMART en subsistemas de almacenamiento (Disk, NTFS, storahci).
+            </div>
+          </div>
+        </div>
+      `;
+      paneHardware.appendChild(hwClean);
+    } else {
+      const hwWrap = document.createElement('div');
+      hwWrap.className = 'power-events-table-wrap panel-fade-in';
+      hwWrap.innerHTML = `
+        <table class="power-events-table">
+          <thead>
+            <tr>
+              <th style="width:20%;">Fecha</th>
+              <th style="width:12%;">ID / Nivel</th>
+              <th style="width:25%;">Componente / Proveedor</th>
+              <th style="width:43%;">Diagnóstico y Detalle de Hardware</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${hardwareEvents.map(h => `
+              <tr>
+                <td><strong>${fmtDateTime(h.time)}</strong></td>
+                <td><span class="power-badge-type unexpected">${escapeHtml(h.level || 'Crítico')}</span></td>
+                <td><strong>${escapeHtml(h.provider || 'Hardware')}</strong><div style="font-size:11px; color:var(--text-secondary);">${escapeHtml(h.title || 'Evento')}</div></td>
+                <td>
+                  <div style="font-size:12.5px; color:var(--text-primary); font-weight:600;">${escapeHtml(h.diagnostic || h.detail)}</div>
+                  <div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(h.detail || '')}</div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      paneHardware.appendChild(hwWrap);
+    }
+
+    tabPanesContainer.appendChild(paneHardware);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PESTAÑA 4: SERVICIOS DEL SISTEMA (SERVICE CONTROL MANAGER)
+    // ─────────────────────────────────────────────────────────────────────────
+    const paneServices = document.createElement('div');
+    paneServices.className = 'event-tab-pane';
+    paneServices.id = 'tab-services';
+
+    if (serviceEvents.length === 0) {
+      const srvClean = document.createElement('div');
+      srvClean.className = 'clean-breakdown-card';
+      srvClean.style.padding = '18px';
+      srvClean.style.color = '#34D399';
+      srvClean.innerHTML = '✔ Todos los servicios de Windows han arrancado y respondido en tiempo y forma sin caídas registradas.';
+      paneServices.appendChild(srvClean);
+    } else {
+      const srvWrap = document.createElement('div');
+      srvWrap.className = 'power-events-table-wrap panel-fade-in';
+      srvWrap.innerHTML = `
+        <table class="power-events-table">
+          <thead>
+            <tr>
+              <th style="width:20%;">Fecha y Hora</th>
+              <th style="width:12%;">ID Evento</th>
+              <th style="width:28%;">Servicio de Windows</th>
+              <th style="width:40%;">Motivo y Detalle Registrado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${serviceEvents.map(s => `
+              <tr>
+                <td><strong>${fmtDateTime(s.time)}</strong></td>
+                <td><span style="font-family:monospace; font-weight:700; color:var(--text-secondary);">#${s.id || s.eventId}</span></td>
+                <td>
+                  <div style="font-weight:700; color:var(--text-primary); font-size:12.5px;">${escapeHtml(s.serviceName || s.provider || 'Servicio')}</div>
+                  <div style="font-size:11px; color:#F59E0B;">${escapeHtml(s.type || s.level || 'Aviso')}</div>
+                </td>
+                <td>
+                  <div style="font-size:12px; color:var(--text-primary);">${escapeHtml(s.reason || s.detail || '')}</div>
+                  ${s.diagnostic ? `<div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(s.diagnostic)}</div>` : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      paneServices.appendChild(srvWrap);
+    }
+
+    tabPanesContainer.appendChild(paneServices);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PESTAÑA 5: REGISTRO CRONOLÓGICO GLOBAL (CONSOLIDADO)
+    // ─────────────────────────────────────────────────────────────────────────
+    const paneAll = document.createElement('div');
+    paneAll.className = 'event-tab-pane';
+    paneAll.id = 'tab-all';
+
+    const allWrap = document.createElement('div');
+    allWrap.className = 'power-events-table-wrap panel-fade-in';
+    allWrap.innerHTML = `
+      <table class="power-events-table">
+        <thead>
+          <tr>
+            <th style="width:18%;">Fecha</th>
+            <th style="width:10%;">Categoría</th>
+            <th style="width:10%;">ID</th>
+            <th style="width:24%;">Origen / Proceso</th>
+            <th style="width:38%;">Descripción / Diagnóstico</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allEvents.map(ev => {
+            const isPower = ev.typeCode !== undefined;
+            const isHw = ev.title !== undefined && !isPower;
+            const categoryLabel = isPower ? '⚡ Energía' : (isHw ? '🛡️ Hardware' : '⚙️ Servicio');
+            const badgeClass = isPower ? (ev.typeCode === 'boot' ? 'boot' : (ev.typeCode === 'shutdown' ? 'shutdown' : (ev.typeCode === 'reboot' ? 'reboot' : 'unexpected'))) : 'unexpected';
+
+            return `
+              <tr>
+                <td><strong>${fmtDateTime(ev.time)}</strong></td>
+                <td><span style="font-size:11px; font-weight:700; color:var(--text-secondary);">${categoryLabel}</span></td>
+                <td><span style="font-family:monospace; font-weight:700; color:var(--text-secondary);">#${ev.id || ev.eventId}</span></td>
+                <td>
+                  <div style="font-size:12px; font-weight:600; color:var(--text-primary);">${escapeHtml(ev.user || ev.serviceName || ev.provider || 'Sistema')}</div>
+                  <div style="font-size:11px; color:var(--text-secondary); font-family:monospace; word-break:break-all;">${escapeHtml(ev.process || ev.provider || '')}</div>
+                </td>
+                <td>
+                  <span class="power-badge-type ${badgeClass}" style="margin-bottom:4px; display:inline-block;">${escapeHtml(ev.type || ev.title || 'Evento')}</span>
+                  <div style="font-size:12px; color:var(--text-primary);">${escapeHtml(ev.reason || ev.diagnostic || ev.detail || '')}</div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+    paneAll.appendChild(allWrap);
+    tabPanesContainer.appendChild(paneAll);
+
+    // Lógica para cambiar de pestaña
+    tabsContainer.querySelectorAll('.event-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabsContainer.querySelectorAll('.event-tab-btn').forEach(b => b.classList.remove('active'));
+        tabPanesContainer.querySelectorAll('.event-tab-pane').forEach(p => p.classList.remove('active'));
+
+        btn.classList.add('active');
+        const targetId = btn.getAttribute('data-tab');
+        const targetPane = tabPanesContainer.querySelector(`#${targetId}`);
+        if (targetPane) targetPane.classList.add('active');
+      });
+    });
+
+    // ── RECOMENDACIONES DE ESTABILIDAD GENERALES ─────────────────────────────
     if (report.recommendations && report.recommendations.length > 0) {
-      addSectionTitle('Recomendaciones de Estabilidad');
+      addSectionTitle('Recomendaciones de Estabilidad y Mantenimiento');
       const recCard = document.createElement('div');
       recCard.className = 'clean-breakdown-card panel-fade-in';
+      recCard.style.marginTop = '20px';
       recCard.innerHTML = `
         <ul style="margin:0; padding-left:20px; font-size:13px; line-height:1.6; color:var(--text-primary);">
           ${report.recommendations.map(r => `<li style="margin-bottom:6px;">${escapeHtml(r)}</li>`).join('')}
@@ -3160,35 +3609,7 @@ async function runEventAnalysis(range = '7') {
       resultsEl.appendChild(recCard);
     }
 
-    // ── SECCIÓN 2: CIERRES INESPERADOS DE PROGRAMAS (SI EXISTEN) ───────────
-    const crashCount = (report.appCrashes || []).length;
-    if (crashCount > 0) {
-      addSectionTitle(`Cierres inesperados de aplicaciones (${crashCount} detectados)`);
-      const crashesContainer = document.createElement('div');
-      crashesContainer.className = 'crash-events-list';
-      report.appCrashes.forEach(c => {
-        const card = document.createElement('div');
-        card.className = 'crash-event-card';
-        card.innerHTML = `
-          <div class="crash-card-header">
-            <span class="crash-icon">💥</span>
-            <div class="crash-title-group">
-              <div class="crash-app-name">${c.appName}</div>
-              <div class="crash-app-path">${c.appPath || 'Ruta no especificada'}</div>
-            </div>
-            <span class="crash-err-code">${c.errCode}</span>
-          </div>
-          <div class="crash-card-footer">
-            <span class="crash-time">📅 ${fmtDateTime(c.time)}</span>
-            <span class="crash-badge">Application Error</span>
-          </div>
-        `;
-        crashesContainer.appendChild(card);
-      });
-      resultsEl.appendChild(crashesContainer);
-    }
-
-    // ── EVENTO: EXPORTAR INFORME DETALLADO ──────────────────────────────────
+    // ── EVENTO: EXPORTAR INFORME DETALLADO MULTI-HISTORIAL ───────────────────
     topBar.querySelector('#btn-export-power-report')?.addEventListener('click', () => {
       const dateStr = new Date().toLocaleString('es-ES');
       const meta = report.systemMeta || {};
@@ -3197,7 +3618,8 @@ async function runEventAnalysis(range = '7') {
       const osName = meta.os || 'Windows';
 
       let text = `========================================================================\n`;
-      text += `    HCPTOOLKIT — INFORME DETALLADO DE REINICIOS Y APAGADOS DEL SISTEMA  \n`;
+      text += `    HCPTOOLKIT — INFORME TÉCNICO COMPLETO DEL VISOR DE EVENTOS          \n`;
+      text += `    ARQUITECTURA · INGENIERÍA · URBAN PLANNING                         \n`;
       text += `========================================================================\n\n`;
       text += `Fecha del informe   : ${dateStr}\n`;
       text += `Equipo / Host       : ${host}\n`;
@@ -3209,15 +3631,17 @@ async function runEventAnalysis(range = '7') {
       text += `Índice estabilidad  : ${stats.stabilityScore || '100%'} (${stats.statusLabel || 'Estable'})\n\n`;
 
       text += `------------------------------------------------------------------------\n`;
-      text += `1. RESUMEN ESTADÍSTICO DE ALIMENTACIÓN\n`;
+      text += `1. RESUMEN ESTADÍSTICO DE ESTABILIDAD\n`;
       text += `------------------------------------------------------------------------\n`;
       text += `• Total reinicios registrados      : ${stats.totalReboots}\n`;
       text += `• Total apagados limpios           : ${stats.cleanShutdowns}\n`;
       text += `• Total apagados inesperados/cortes: ${stats.unexpectedShutdowns}\n`;
-      text += `• Total arranques registrados      : ${stats.totalBootEvents}\n\n`;
+      text += `• Total arranques registrados      : ${stats.totalBootEvents}\n`;
+      text += `• Total errores de aplicaciones    : ${appCrashes.length}\n`;
+      text += `• Total fallos de hardware/críticos: ${hardwareEvents.length}\n\n`;
 
       text += `------------------------------------------------------------------------\n`;
-      text += `2. ÚLTIMO CICLO DE APAGADO REGISTRADO\n`;
+      text += `2. ÚLTIMO CICLO DE ALIMENTACIÓN REGISTRADO\n`;
       text += `------------------------------------------------------------------------\n`;
       text += `• Fecha y hora    : ${lastShutdown.time ? fmtDateTime(lastShutdown.time) : 'N/D'}\n`;
       text += `• Tipo de ciclo   : ${lastShutdown.type || 'Apagado'}\n`;
@@ -3226,12 +3650,35 @@ async function runEventAnalysis(range = '7') {
       text += `• Motivo oficial  : ${lastShutdown.reason || 'Sin motivo especificado'}\n\n`;
 
       text += `------------------------------------------------------------------------\n`;
-      text += `3. HISTORIAL CRONOLÓGICO DE EVENTOS DE ENERGÍA\n`;
+      text += `3. HISTORIAL DE ERRORES DE PROGRAMAS Y DIAGNÓSTICO DETALLADO (${appCrashes.length})\n`;
       text += `------------------------------------------------------------------------\n`;
-      if (events.length === 0) {
+      if (appCrashes.length === 0) {
+        text += `✔ No se registraron fallos ni cierres anormales de aplicaciones en el período.\n\n`;
+      } else {
+        appCrashes.forEach((c, idx) => {
+          text += `[FALLO #${idx + 1}] ${fmtDateTime(c.time)} — ${c.appName}\n`;
+          text += `  • Código Excepción  : ${c.errCode} (${c.errCodeName || 'Fallo de aplicación'})\n`;
+          text += `  • Severidad         : ${(c.severity || 'alto').toUpperCase()}\n`;
+          text += `  • Módulo Causante   : ${c.faultModule} (Offset: ${c.faultOffset || '0x00000000'})\n`;
+          text += `  • Ruta Aplicación   : ${c.appPath || 'N/D'}\n`;
+          text += `  • Ruta Módulo       : ${c.faultModulePath || 'N/D'}\n`;
+          text += `  • MOTIVO (CAUSA)    : ${c.motivo || 'No disponible'}\n`;
+          text += `  • DIAGNÓSTICO TÉCN. : ${c.diagnostico || 'No disponible'}\n`;
+          text += `  • SOLUCIÓN SUGERIDA : \n`;
+          (c.solucion || '').split('\n').forEach(line => {
+            text += `      ${line}\n`;
+          });
+          text += `\n`;
+        });
+      }
+
+      text += `------------------------------------------------------------------------\n`;
+      text += `4. HISTORIAL DE EVENTOS DE ENERGÍA (${powerEvents.length})\n`;
+      text += `------------------------------------------------------------------------\n`;
+      if (powerEvents.length === 0) {
         text += `No hay registros de eventos en el período seleccionado.\n\n`;
       } else {
-        events.forEach((ev, i) => {
+        powerEvents.forEach((ev, i) => {
           text += `[${i + 1}] ${fmtDateTime(ev.time)} | EventID: ${ev.id || ev.eventId}\n`;
           text += `    Tipo    : ${ev.type}\n`;
           text += `    Usuario : ${ev.user || 'Sistema'} (Proceso: ${ev.process || 'services.exe'})\n`;
@@ -3244,22 +3691,12 @@ async function runEventAnalysis(range = '7') {
       }
 
       text += `------------------------------------------------------------------------\n`;
-      text += `4. RECOMENDACIONES DE ESTABILIDAD\n`;
+      text += `5. RECOMENDACIONES DE ESTABILIDAD\n`;
       text += `------------------------------------------------------------------------\n`;
       (report.recommendations || []).forEach(r => {
         text += `• ${r}\n`;
       });
       text += `\n`;
-
-      if (crashCount > 0) {
-        text += `------------------------------------------------------------------------\n`;
-        text += `5. CIERRES INESPERADOS DE APLICACIONES (${crashCount})\n`;
-        text += `------------------------------------------------------------------------\n`;
-        report.appCrashes.forEach(c => {
-          text += `• ${fmtDateTime(c.time)} | ${c.appName} (${c.errCode}) - ${c.appPath || ''}\n`;
-        });
-        text += `\n`;
-      }
 
       text += `========================================================================\n`;
       text += `Informe emitido por HCPToolKit — Auditoría de Visor de Eventos de Windows\n`;
@@ -3269,15 +3706,55 @@ async function runEventAnalysis(range = '7') {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Informe_Reinicios_Apagados_${host}_${new Date().toISOString().slice(0, 10)}.txt`;
+      a.download = `Informe_Eventos_Diagnostico_${host}_${new Date().toISOString().slice(0, 10)}.txt`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast('📄 Informe completo de reinicios y apagados exportado.', 'success');
+      showToast('📄 Informe técnico completo exportado con éxito.', 'success');
     });
 
-    statusText.textContent = '✔ Informe de reinicios y apagados generado correctamente';
+    // Función auxiliar para renderizar filas de la tabla de energía
+    function renderPowerTableRows(list) {
+      if (list.length === 0) {
+        return `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-secondary);">No hay eventos de energía que coincidan con el filtro seleccionado.</td></tr>`;
+      }
+      return list.map(ev => {
+        const badgeClass = ev.typeCode === 'boot' ? 'boot'
+          : ev.typeCode === 'reboot' ? 'reboot'
+          : ev.typeCode === 'shutdown' ? 'shutdown'
+          : 'unexpected';
+
+        return `
+          <tr>
+            <td>
+              <strong style="color:var(--text-primary); font-size:12.5px;">${fmtDateTime(ev.time)}</strong>
+            </td>
+            <td>
+              <span style="font-family:monospace; font-weight:700; font-size:12px; color:var(--text-secondary);">
+                #${ev.id || ev.eventId}
+              </span>
+            </td>
+            <td>
+              <span class="power-badge-type ${badgeClass}">
+                ${ev.typeCode === 'boot' ? '🚀' : ev.typeCode === 'reboot' ? '🔄' : ev.typeCode === 'shutdown' ? '🛑' : '⚠️'}
+                ${escapeHtml(ev.type)}
+              </span>
+            </td>
+            <td>
+              <div style="font-size:12px; font-weight:600; color:var(--text-primary);">${escapeHtml(ev.user || 'Sistema')}</div>
+              <div style="font-size:11px; color:var(--text-secondary); font-family:monospace; word-break:break-all;">${escapeHtml(ev.process || 'services.exe')}</div>
+            </td>
+            <td>
+              <div style="font-size:12px; color:var(--text-primary);">${escapeHtml(ev.reason || ev.detail || 'Operación del sistema')}</div>
+              ${ev.detail && ev.detail !== ev.reason ? `<div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(ev.detail)}</div>` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    statusText.textContent = '✔ Informe de eventos y diagnóstico de errores generado correctamente';
   } catch (e) {
     statusText.textContent = `❌ Error: ${e.message}`;
   } finally {
@@ -4242,14 +4719,16 @@ function renderHomeDashboard() {
   const userDisplay = (window.process && window.process.env && window.process.env.USERNAME) || 'Administrador TI';
 
   container.innerHTML = `
-    <!-- Hero Banner Ejecutivo -->
+    <!-- Hero Banner Ejecutivo HCP+ -->
     <div class="dash-hero-banner">
       <div class="dash-hero-left">
-        <div class="dash-hero-avatar">⚡</div>
+        <div class="dash-hero-avatar">
+          <img src="logo.svg" alt="HCP+ Suite" style="width: 44px; height: 44px; border-radius: 9px; object-fit: contain;" />
+        </div>
         <div>
-          <h2 class="dash-hero-title">HCPToolKit Suite TI</h2>
+          <h2 class="dash-hero-title">HCP<span style="color:var(--brand-lime);">+</span> Suite TI</h2>
           <p class="dash-hero-subtitle">
-            <span>Sistema listo para diagnóstico y gestión</span>
+            <span style="color:var(--brand-violet); font-weight:700;">ARCHITECTURE · ENGINEERING · URBAN PLANNING</span>
             <span class="dash-hero-tag">Host: ${escapeHtml(hostDisplay)}</span>
             <span class="dash-hero-tag">Operador: ${escapeHtml(userDisplay)}</span>
           </p>
@@ -4484,20 +4963,20 @@ function renderHomeDashboard() {
 // ═══════════════════════════════════════════════════════════════════════════════
 const themeBtn = document.getElementById('btn-theme-toggle');
 if (themeBtn) {
-  const savedTheme = localStorage.getItem('hcptoolkit-theme') || 'light';
-  if (savedTheme === 'dark') {
+  const savedTheme = localStorage.getItem('hcptoolkit-theme') || 'oled';
+  if (savedTheme === 'oled') {
     document.body.classList.add('dark-theme');
-    themeBtn.textContent = '☀️ Tema Claro';
+    themeBtn.textContent = '🖤 OLED';
   } else {
     document.body.classList.remove('dark-theme');
-    themeBtn.textContent = '🌙 Tema Oscuro';
+    themeBtn.textContent = '🌑 Negro Deep';
   }
 
   themeBtn.addEventListener('click', () => {
     document.body.classList.toggle('dark-theme');
-    const isDark = document.body.classList.contains('dark-theme');
-    localStorage.setItem('hcptoolkit-theme', isDark ? 'dark' : 'light');
-    themeBtn.textContent = isDark ? '☀️ Tema Claro' : '🌙 Tema Oscuro';
+    const isOled = document.body.classList.contains('dark-theme');
+    localStorage.setItem('hcptoolkit-theme', isOled ? 'oled' : 'deep');
+    themeBtn.textContent = isOled ? '🖤 OLED' : '🌑 Negro Deep';
   });
 }
 
@@ -4727,6 +5206,346 @@ if (startBtn && welcomeOverlay) {
 
 // Carga inicial e instantánea del Dashboard Principal
 renderHomeDashboard();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GESTOR DE INTRODUCCIÓN HCP+ (VÍDEO DE LOGO Y ANIMACIÓN OFICIAL)
+// ═══════════════════════════════════════════════════════════════════════════════
+const hcpIntroManager = {
+  overlay: null,
+  video: null,
+  cross: null,
+  dynamicWord: null,
+  subtag: null,
+  progressBar: null,
+  btnSkip: null,
+  btnAudio: null,
+  audioIcon: null,
+  timeouts: [],
+  intervalProgress: null,
+  audioCtx: null,
+  audioMuted: true,
+  isPlaying: false,
+
+  init() {
+    this.overlay = document.getElementById('hcp-intro-overlay');
+    if (!this.overlay) return;
+
+    this.video = document.getElementById('hcp-intro-video');
+    this.cross = document.getElementById('hcp-intro-cross');
+    this.dynamicWord = document.getElementById('hcp-dynamic-word');
+    this.subtag = document.getElementById('hcp-intro-subtag');
+    this.progressBar = document.getElementById('hcp-intro-progress-bar');
+    this.btnSkip = document.getElementById('btn-intro-skip');
+    this.btnAudio = document.getElementById('btn-intro-audio');
+    this.audioIcon = document.getElementById('intro-audio-icon');
+
+    // Botones de interacción
+    if (this.btnSkip) {
+      this.btnSkip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.close();
+      });
+    }
+
+    if (this.btnAudio) {
+      this.btnAudio.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleAudio();
+      });
+    }
+
+    const replayBtn = document.getElementById('btn-replay-intro');
+    if (replayBtn) {
+      replayBtn.addEventListener('click', () => {
+        this.play(true);
+      });
+    }
+
+    const brandBtn = document.getElementById('btn-topbar-brand');
+    if (brandBtn) {
+      brandBtn.addEventListener('dblclick', () => {
+        this.play(true);
+      });
+    }
+
+    // Tecla Escape para saltar rápidamente
+    window.addEventListener('keydown', (e) => {
+      if (this.overlay && !this.overlay.classList.contains('fade-out')) {
+        if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') {
+          this.close();
+        }
+      }
+    });
+
+    // Soporte para arrastrar archivo de vídeo local sobre la ventana
+    window.addEventListener('dragover', (e) => e.preventDefault());
+    window.addEventListener('drop', (e) => {
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length > 0 && files[0].type && files[0].type.includes('video')) {
+        e.preventDefault();
+        const videoUrl = URL.createObjectURL(files[0]);
+        this.loadAndPlayVideo(videoUrl);
+      }
+    });
+
+    // Reproducción al abrir la aplicación
+    this.play(false);
+  },
+
+  play(forceReplay = false) {
+    this.clearAll();
+    this.isPlaying = true;
+
+    if (!this.overlay) return;
+    this.overlay.classList.remove('fade-out');
+    this.overlay.style.display = 'flex';
+
+    // Resetear estados visuales
+    if (this.cross) {
+      this.cross.className = 'hcp-intro-cross';
+      this.cross.style.color = '#FFFFFF';
+    }
+    if (this.dynamicWord) {
+      this.dynamicWord.className = 'hcp-intro-dynamic-word';
+      this.dynamicWord.textContent = '';
+    }
+    if (this.subtag) {
+      this.subtag.className = 'hcp-intro-subtag';
+    }
+    if (this.progressBar) {
+      this.progressBar.style.width = '0%';
+    }
+
+    // Comprobar si existe un archivo de vídeo real
+    this.checkVideoFile((hasVideo, videoUrl) => {
+      if (hasVideo && this.video) {
+        this.loadAndPlayVideo(videoUrl);
+      } else {
+        this.runMotionSequence();
+      }
+    });
+  },
+
+  checkVideoFile(callback) {
+    const candidates = ['intro.mp4', './intro.mp4', '../intro.mp4', 'build/intro.mp4'];
+    let checked = 0;
+    let found = false;
+
+    candidates.forEach(url => {
+      const testVideo = document.createElement('video');
+      testVideo.src = url;
+      testVideo.oncanplay = () => {
+        if (!found) {
+          found = true;
+          callback(true, url);
+        }
+      };
+      testVideo.onerror = () => {
+        checked++;
+        if (checked === candidates.length && !found) {
+          callback(false, null);
+        }
+      };
+    });
+
+    setTimeout(() => {
+      if (!found) callback(false, null);
+    }, 280);
+  },
+
+  loadAndPlayVideo(url) {
+    if (!this.video) return;
+    this.video.src = url;
+    this.video.style.display = 'block';
+    this.video.currentTime = 0;
+    this.video.muted = this.audioMuted;
+    this.video.play().catch(() => {
+      this.video.style.display = 'none';
+      this.runMotionSequence();
+    });
+
+    this.video.onended = () => {
+      this.close();
+    };
+
+    this.intervalProgress = setInterval(() => {
+      if (this.video && this.video.duration && this.progressBar) {
+        const pct = (this.video.currentTime / this.video.duration) * 100;
+        this.progressBar.style.width = `${pct}%`;
+      }
+    }, 50);
+  },
+
+  runMotionSequence() {
+    const totalDuration = 7300;
+    const startTime = Date.now();
+
+    this.intervalProgress = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(100, (elapsed / totalDuration) * 100);
+      if (this.progressBar) {
+        this.progressBar.style.width = `${pct}%`;
+      }
+    }, 30);
+
+    // Escena 1: T = 0ms -> HCP + Blanco puro (Pág. 18 Manual)
+
+    // Escena 2: T = 1000ms -> Cruz LIMA (#D8FF00) + "Architecture" (Pág. 19 y 29)
+    this.timeouts.push(setTimeout(() => {
+      if (!this.isPlaying) return;
+      if (this.cross) {
+        this.cross.className = 'hcp-intro-cross cross-lime';
+      }
+      if (this.dynamicWord) {
+        this.dynamicWord.textContent = 'Architecture';
+        this.dynamicWord.className = 'hcp-intro-dynamic-word word-visible';
+      }
+      this.playChime(440, 'sine', 0.35);
+    }, 1000));
+
+    // Transición intermedia
+    this.timeouts.push(setTimeout(() => {
+      if (!this.isPlaying) return;
+      if (this.dynamicWord) {
+        this.dynamicWord.classList.remove('word-visible');
+      }
+    }, 2400));
+
+    // Escena 3: T = 2700ms -> Cruz ROSA (#FF006E) + "Engineering" (Pág. 21 y 31)
+    this.timeouts.push(setTimeout(() => {
+      if (!this.isPlaying) return;
+      if (this.cross) {
+        this.cross.className = 'hcp-intro-cross cross-pink';
+      }
+      if (this.dynamicWord) {
+        this.dynamicWord.textContent = 'Engineering';
+        this.dynamicWord.className = 'hcp-intro-dynamic-word word-visible';
+      }
+      this.playChime(554.37, 'sine', 0.4);
+    }, 2700));
+
+    // Transición intermedia
+    this.timeouts.push(setTimeout(() => {
+      if (!this.isPlaying) return;
+      if (this.dynamicWord) {
+        this.dynamicWord.classList.remove('word-visible');
+      }
+    }, 4100));
+
+    // Escena 4: T = 4400ms -> Cruz VIOLET (#6B35FF) + "Urban Planning"
+    this.timeouts.push(setTimeout(() => {
+      if (!this.isPlaying) return;
+      if (this.cross) {
+        this.cross.className = 'hcp-intro-cross cross-violet';
+      }
+      if (this.dynamicWord) {
+        this.dynamicWord.textContent = 'Urban Planning';
+        this.dynamicWord.className = 'hcp-intro-dynamic-word word-visible';
+      }
+      this.playChime(659.25, 'sine', 0.45);
+    }, 4400));
+
+    // Transición a Clímax
+    this.timeouts.push(setTimeout(() => {
+      if (!this.isPlaying) return;
+      if (this.dynamicWord) {
+        this.dynamicWord.classList.remove('word-visible');
+      }
+    }, 5800));
+
+    // Escena 5: T = 6100ms -> Clímax Tríada (Lima, Rosa, Violeta) con Branded House Completo y Claim
+    this.timeouts.push(setTimeout(() => {
+      if (!this.isPlaying) return;
+      if (this.cross) {
+        this.cross.className = 'hcp-intro-cross cross-trio';
+      }
+      if (this.subtag) {
+        this.subtag.className = 'hcp-intro-subtag subtag-visible';
+      }
+      this.playChime(880, 'triangle', 0.8);
+    }, 6100));
+
+    // Escena 6: T = 7300ms -> Cierre suave hacia el Dashboard Ejecutivo
+    this.timeouts.push(setTimeout(() => {
+      this.close();
+    }, totalDuration));
+  },
+
+  toggleAudio() {
+    this.audioMuted = !this.audioMuted;
+    if (this.audioIcon) {
+      this.audioIcon.textContent = this.audioMuted ? '🔇' : '🔊';
+    }
+    if (this.video) {
+      this.video.muted = this.audioMuted;
+    }
+    if (!this.audioMuted) {
+      this.playChime(523.25, 'sine', 0.2);
+    }
+  },
+
+  playChime(freq, type = 'sine', duration = 0.4) {
+    if (this.audioMuted) return;
+    try {
+      if (!this.audioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) this.audioCtx = new AudioCtx();
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+      if (!this.audioCtx) return;
+
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+
+      gain.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + duration);
+
+      osc.connect(gain);
+      gain.connect(this.audioCtx.destination);
+
+      osc.start();
+      osc.stop(this.audioCtx.currentTime + duration);
+    } catch (e) {}
+  },
+
+  close() {
+    this.isPlaying = false;
+    this.clearAll();
+
+    if (this.video) {
+      try {
+        this.video.pause();
+        this.video.style.display = 'none';
+      } catch (e) {}
+    }
+
+    if (this.overlay) {
+      this.overlay.classList.add('fade-out');
+      setTimeout(() => {
+        if (this.overlay && this.overlay.classList.contains('fade-out')) {
+          this.overlay.style.display = 'none';
+        }
+      }, 700);
+    }
+  },
+
+  clearAll() {
+    this.timeouts.forEach(t => clearTimeout(t));
+    this.timeouts = [];
+    if (this.intervalProgress) {
+      clearInterval(this.intervalProgress);
+      this.intervalProgress = null;
+    }
+  }
+};
+
+// Inicializar el sistema de introducción
+hcpIntroManager.init();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MÓDULO DE TUTORIALES EN PDF Y DOCX (Ruta: \\cielo\INFORMATICA\TUTORIALES)
