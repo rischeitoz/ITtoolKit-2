@@ -12696,20 +12696,42 @@ body.dark-theme .dash-quick-card:hover {
 .dot-pink { color: var(--brand-pink); }
 .dot-violet { color: var(--brand-violet); }
 
-/* Barra Inferior Verde Lima Oficial del Vídeo */
+/* Barra Inferior Sincronizada Dinámicamente con el Isotipo "+" */
+.hcp-intro-bottom-bar,
 .hcp-intro-bottom-lime-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 15px;
-  background: var(--brand-lime);
-  box-shadow: 0 -4px 35px rgba(204, 255, 0, 0.8), 0 0 70px rgba(204, 255, 0, 0.4);
+  height: 9px;
   z-index: 5;
   overflow: hidden;
   transform: scaleY(0);
   transform-origin: bottom;
-  animation: hcpBarRise 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards;
+  animation: hcpBarRise 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards;
+  transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sincronización cromática en tiempo real con el estado del "+" */
+.hcp-intro-bottom-bar.bar-lime,
+.hcp-intro-bottom-lime-bar {
+  background: var(--brand-lime);
+  box-shadow: 0 -4px 28px rgba(216, 255, 0, 0.75), 0 0 55px rgba(216, 255, 0, 0.4);
+}
+
+.hcp-intro-bottom-bar.bar-pink {
+  background: var(--brand-pink);
+  box-shadow: 0 -4px 28px rgba(255, 0, 110, 0.75), 0 0 55px rgba(255, 0, 110, 0.4);
+}
+
+.hcp-intro-bottom-bar.bar-violet {
+  background: var(--brand-violet);
+  box-shadow: 0 -4px 28px rgba(107, 53, 255, 0.75), 0 0 55px rgba(107, 53, 255, 0.4);
+}
+
+.hcp-intro-bottom-bar.bar-trio {
+  background: linear-gradient(90deg, var(--brand-lime) 0%, var(--brand-pink) 50%, var(--brand-violet) 100%);
+  box-shadow: 0 -4px 32px rgba(216, 255, 0, 0.5), 0 0 65px rgba(107, 53, 255, 0.35);
 }
 
 @keyframes hcpBarRise {
@@ -12724,7 +12746,7 @@ body.dark-theme .dash-quick-card:hover {
   left: -20%;
   width: 25%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, #FFFFFF, transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
   animation: hcpLimeTracer 2s infinite ease-in-out;
 }
 
@@ -12733,64 +12755,13 @@ body.dark-theme .dash-quick-card:hover {
   100% { left: 125%; }
 }
 
-.hcp-intro-controls {
-  position: absolute;
-  top: 26px;
-  right: 32px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  z-index: 10;
-}
-
-.hcp-intro-btn-audio,
-.hcp-intro-btn-skip {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #FFFFFF;
-  border-radius: 99px;
-  padding: 8px 18px;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  backdrop-filter: blur(12px);
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.hcp-intro-btn-audio {
-  padding: 8px 12px;
-  font-size: 15px;
-}
-
-.hcp-intro-btn-skip:hover,
-.hcp-intro-btn-audio:hover {
-  background: rgba(204, 255, 0, 0.18);
-  border-color: var(--brand-lime);
-  color: var(--brand-lime);
-  box-shadow: 0 0 18px rgba(204, 255, 0, 0.35);
-  transform: translateY(-1px);
-}
-
-.hcp-skip-arrow {
-  font-size: 12px;
-  transition: transform 0.2s ease;
-}
-
-.hcp-intro-btn-skip:hover .hcp-skip-arrow {
-  transform: translateX(3px);
-}
-
 .hcp-intro-progress {
   position: absolute;
-  bottom: 15px;
+  bottom: 9px;
   left: 0;
   width: 100%;
   height: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   z-index: 6;
 }
 

@@ -5213,8 +5213,8 @@ const hcpIntroAnimationManager = {
   crossEl: null,
   wordEl: null,
   subtagEl: null,
+  bottomBarEl: null,
   progressBar: null,
-  btnSkip: null,
   isFinished: false,
   timers: [],
 
@@ -5225,17 +5225,10 @@ const hcpIntroAnimationManager = {
     this.crossEl = document.getElementById('hcp-intro-cross');
     this.wordEl = document.getElementById('hcp-intro-word');
     this.subtagEl = document.getElementById('hcp-intro-subtag');
+    this.bottomBarEl = document.getElementById('hcp-intro-bottom-bar');
     this.progressBar = document.getElementById('hcp-intro-progress-bar');
-    this.btnSkip = document.getElementById('btn-skip-intro');
 
-    // Manejo de salida manual (botón omitir, clic o teclas)
-    if (this.btnSkip) {
-      this.btnSkip.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.finish();
-      });
-    }
-
+    // Desvanecer al hacer clic o pulsar teclas si el usuario desea entrar de inmediato
     this.overlay.addEventListener('click', () => this.finish());
 
     window.addEventListener('keydown', (e) => {
@@ -5257,72 +5250,84 @@ const hcpIntroAnimationManager = {
   },
 
   startSequence() {
-    // Fase 1: Arquitectura (HCP Lime #D8FF00)
+    // Fase 1: Arquitectura (HCP Lime #D8FF00) - "+" y barra inferior sincronizados
     this.setTimer(() => {
       if (this.crossEl) {
         this.crossEl.className = 'hcp-intro-cross cross-lime';
+      }
+      if (this.bottomBarEl) {
+        this.bottomBarEl.className = 'hcp-intro-bottom-bar bar-lime';
       }
       if (this.wordEl) {
         this.wordEl.textContent = 'architecture';
         this.wordEl.classList.add('word-visible');
       }
       if (this.progressBar) this.progressBar.style.width = '28%';
-    }, 450);
+    }, 380);
 
     // Transición intermedia a Ingeniería
     this.setTimer(() => {
       if (this.wordEl) this.wordEl.classList.remove('word-visible');
-    }, 1250);
+    }, 1100);
 
-    // Fase 2: Ingeniería (HCP Pink #FF006E)
+    // Fase 2: Ingeniería (HCP Pink #FF006E) - "+" y barra inferior sincronizados
     this.setTimer(() => {
       if (this.crossEl) {
         this.crossEl.className = 'hcp-intro-cross cross-pink';
+      }
+      if (this.bottomBarEl) {
+        this.bottomBarEl.className = 'hcp-intro-bottom-bar bar-pink';
       }
       if (this.wordEl) {
         this.wordEl.textContent = 'engineering';
         this.wordEl.classList.add('word-visible');
       }
       if (this.progressBar) this.progressBar.style.width = '58%';
-    }, 1450);
+    }, 1280);
 
     // Transición intermedia a Urbanismo
     this.setTimer(() => {
       if (this.wordEl) this.wordEl.classList.remove('word-visible');
-    }, 2250);
+    }, 2000);
 
-    // Fase 3: Urbanismo (HCP Violet #6B35FF - Urban Planning)
+    // Fase 3: Urbanismo (HCP Violet #6B35FF) - "+" y barra inferior sincronizados
     this.setTimer(() => {
       if (this.crossEl) {
         this.crossEl.className = 'hcp-intro-cross cross-violet';
+      }
+      if (this.bottomBarEl) {
+        this.bottomBarEl.className = 'hcp-intro-bottom-bar bar-violet';
       }
       if (this.wordEl) {
         this.wordEl.textContent = 'urban planning';
         this.wordEl.classList.add('word-visible');
       }
       if (this.progressBar) this.progressBar.style.width = '84%';
-    }, 2450);
+    }, 2180);
 
     // Transición intermedia a la Tríada Unificada
     this.setTimer(() => {
       if (this.wordEl) this.wordEl.classList.remove('word-visible');
-    }, 3250);
+    }, 2900);
 
-    // Fase 4: Tríada Oficial Completa (Architecture · Engineering · Urban Planning)
+    // Fase 4: Tríada Oficial Completa - "+" y barra inferior sincronizados en gradiente de la tríada
     this.setTimer(() => {
       if (this.crossEl) {
         this.crossEl.className = 'hcp-intro-cross cross-trio';
+      }
+      if (this.bottomBarEl) {
+        this.bottomBarEl.className = 'hcp-intro-bottom-bar bar-trio';
       }
       if (this.subtagEl) {
         this.subtagEl.classList.add('subtag-visible');
       }
       if (this.progressBar) this.progressBar.style.width = '100%';
-    }, 3450);
+    }, 3080);
 
-    // Cierre suave revelando la aplicación
+    // Cierre fluido de splash screen revelando el dashboard de la app
     this.setTimer(() => {
       this.finish();
-    }, 4300);
+    }, 3800);
   },
 
   finish() {
@@ -5340,7 +5345,7 @@ const hcpIntroAnimationManager = {
         if (this.overlay) {
           this.overlay.style.display = 'none';
         }
-      }, 500);
+      }, 450);
     }
   }
 };
