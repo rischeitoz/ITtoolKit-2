@@ -1996,11 +1996,12 @@ app.post('/api/event-log-analysis', async (req, res) => {
           });
         }
 
-        // Consultar eventos de Application (Crashes ID 1000, 1002, 1026)
+        // Consultar eventos de Application (Crashes ID 1000, 1002, 1026) con codificación UTF-8
         const psAppScript = `
-          $ErrorActionPreference = 'SilentlyContinue';
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
+          $OutputEncoding = [System.Text.Encoding]::UTF8;
           $since = (Get-Date).AddDays(-${daysBack});
-          $crashes = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1002,1026; StartTime=$since} -MaxEvents 50 | ForEach-Object {
+          $crashes = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1002,1026; StartTime=$since} -MaxEvents 60 -ErrorAction SilentlyContinue | ForEach-Object {
             [PSCustomObject]@{
               Id = $_.Id
               TimeCreated = $_.TimeCreated.ToString('o')
@@ -2011,211 +2012,46 @@ app.post('/api/event-log-analysis', async (req, res) => {
         `;
         const resApp = await runPowershell(psAppScript);
         if (resApp.ok && resApp.stdout) {
-          const parsedApp = JSON.parse(resApp.stdout);
-          const rawAppList = Array.isArray(parsedApp) ? parsedApp : [parsedApp];
-          rawAppList.filter(Boolean).forEach(c => {
-            const msg = c.Message || '';
-            const appMatch = msg.match(/(?:Nombre de la aplicación con errores|Faulting application name):\s*([^\s\r\n]+)/i);
-            const modMatch = msg.match(/(?:Nombre del módulo con errores|Faulting module name):\s*([^\s\r\n]+)/i);
-            const codeMatch = msg.match(/(?:Código de excepción|Exception code):\s*(0x[0-9a-fA-F]+|[0-9a-fA-F]+)/i);
-            const pathMatch = msg.match(/(?:Ruta de la aplicación con errores|Faulting application path):\s*([^\r\n]+)/i);
-            const modPathMatch = msg.match(/(?:Ruta del módulo con errores|Faulting module path):\s*([^\r\n]+)/i);
+          try {
+            const parsedApp = JSON.parse(resApp.stdout);
+            const rawAppList = Array.isArray(parsedApp) ? parsedApp : [parsedApp];
+            rawAppList.filter(Boolean).forEach(c => {
+              const msg = c.Message || '';
+              const appMatch = msg.match(/(?:Nombre de la aplicación con errores|Faulting application name):\s*([^\s\r\n]+)/i);
+              const modMatch = msg.match(/(?:Nombre del módulo con errores|Faulting module name):\s*([^\s\r\n]+)/i);
+              const codeMatch = msg.match(/(?:Código de excepción|Exception code):\s*(0x[0-9a-fA-F]+|[0-9a-fA-F]+)/i);
+              const pathMatch = msg.match(/(?:Ruta de la aplicación con errores|Faulting application path):\s*([^\r\n]+)/i);
+              const modPathMatch = msg.match(/(?:Ruta del módulo con errores|Faulting module path):\s*([^\r\n]+)/i);
 
-            const appName = appMatch ? appMatch[1] : 'Aplicación desconocida';
-            const faultModule = modMatch ? modMatch[1] : 'Módulo principal';
-            let errCode = codeMatch ? codeMatch[1] : '0xc0000005';
-            if (!errCode.startsWith('0x')) errCode = `0x${errCode}`;
+              let appName = appMatch ? appMatch[1] : 'Aplicación desconocida';
+              if (appName.includes('\\')) appName = appName.split('\\').pop();
 
-            const diag = getCrashDiagnosis(appName, faultModule, errCode);
-            appCrashes.push({
-              id: c.Id,
-              appName,
-              appPath: pathMatch ? pathMatch[1].trim() : '',
-              faultModule,
-              faultModulePath: modPathMatch ? modPathMatch[1].trim() : '',
-              errCode,
-              time: c.TimeCreated,
-              ...diag
+              let faultModule = modMatch ? modMatch[1] : 'Módulo principal';
+              if (faultModule.includes('\\')) faultModule = faultModule.split('\\').pop();
+
+              let errCode = codeMatch ? codeMatch[1] : (c.Id === 1002 ? '0x000003ea' : '0xc0000005');
+              if (!errCode.startsWith('0x')) errCode = `0x${errCode}`;
+
+              const diag = getCrashDiagnosis(appName, faultModule, errCode);
+              appCrashes.push({
+                id: c.Id,
+                appName,
+                appPath: pathMatch ? pathMatch[1].trim() : '',
+                faultModule,
+                faultModulePath: modPathMatch ? modPathMatch[1].trim() : '',
+                errCode,
+                time: c.TimeCreated,
+                ...diag
+              });
             });
-          });
+          } catch {}
         }
       } catch (err) {
         appLog('WARN', `[Visor] Error al leer eventos de Windows: ${err.message}`);
       }
     }
 
-    // Datos representativos técnicos si no estamos en Windows o no hay registros
-    if (powerEvents.length === 0) {
-      const bootTs = now - (uptimeSec * 1000);
-      const prevShutdownTs = bootTs - (85 * 1000);
-      const prevBootTs = prevShutdownTs - (4.2 * 86400 * 1000);
-      const oldShutdownTs = prevBootTs - (110 * 1000);
-      const oldBootTs = oldShutdownTs - (6.8 * 86400 * 1000);
-
-      powerEvents = [
-        {
-          id: 1,
-          eventId: 6005,
-          provider: 'EventLog',
-          time: new Date(bootTs).toISOString(),
-          type: 'Inicio del Sistema (Arranque Limpio)',
-          typeCode: 'boot',
-          category: 'normal',
-          level: 'Información',
-          levelBadge: 'ok',
-          user: 'NT AUTHORITY\\SYSTEM',
-          process: 'C:\\Windows\\System32\\services.exe',
-          reason: 'El servicio Registro de eventos se inició. El sistema operativo ha arrancado de forma limpia.',
-          detail: 'Inicialización de los subsistemas del kernel y servicios de Windows tras arranque.'
-        },
-        {
-          id: 2,
-          eventId: 1074,
-          provider: 'USER32',
-          time: new Date(prevShutdownTs).toISOString(),
-          type: 'Reinicio Planificado',
-          typeCode: 'reboot',
-          category: 'normal',
-          level: 'Información',
-          levelBadge: 'info',
-          user: 'NT AUTHORITY\\SYSTEM',
-          process: 'C:\\Windows\\System32\\svchost.exe (WindowsUpdate)',
-          reason: 'Instalación de actualizaciones de calidad y seguridad de Windows (Código de motivo: 0x80020010).',
-          detail: 'El proceso svchost.exe inició el reinicio del equipo en nombre de NT AUTHORITY\\SYSTEM para completar la instalación de actualizaciones.'
-        },
-        {
-          id: 3,
-          eventId: 6006,
-          provider: 'EventLog',
-          time: new Date(prevShutdownTs - 15000).toISOString(),
-          type: 'Apagado Limpio de Servicios',
-          typeCode: 'shutdown',
-          category: 'normal',
-          level: 'Información',
-          levelBadge: 'ok',
-          user: 'NT AUTHORITY\\SYSTEM',
-          process: 'C:\\Windows\\System32\\services.exe',
-          reason: 'El servicio Registro de eventos se detuvo de forma ordenada para completar el ciclo de reinicio.',
-          detail: 'Todos los servicios en segundo plano fueron sincronizados y cerrados sin errores.'
-        },
-        {
-          id: 4,
-          eventId: 6005,
-          provider: 'EventLog',
-          time: new Date(prevBootTs).toISOString(),
-          type: 'Inicio del Sistema (Arranque Limpio)',
-          typeCode: 'boot',
-          category: 'normal',
-          level: 'Información',
-          levelBadge: 'ok',
-          user: 'NT AUTHORITY\\SYSTEM',
-          process: 'C:\\Windows\\System32\\services.exe',
-          reason: 'Arranque del sistema tras encendido por el usuario.',
-          detail: 'El servicio Registro de eventos se inició correctamente.'
-        },
-        {
-          id: 5,
-          eventId: 1074,
-          provider: 'USER32',
-          time: new Date(oldShutdownTs).toISOString(),
-          type: 'Apagado Manual Ordenado',
-          typeCode: 'shutdown',
-          category: 'normal',
-          level: 'Información',
-          levelBadge: 'info',
-          user: (process.env.USERNAME || 'Usuario_Corporativo').toUpperCase(),
-          process: 'C:\\Windows\\System32\\shutdown.exe',
-          reason: 'Apagado ordenado por el usuario al finalizar la jornada de trabajo (Código: 0x00000000).',
-          detail: 'El usuario solicitó apagar el equipo desde el menú Inicio de Windows.'
-        },
-        {
-          id: 6,
-          eventId: 6006,
-          provider: 'EventLog',
-          time: new Date(oldShutdownTs - 12000).toISOString(),
-          type: 'Apagado Limpio de Servicios',
-          typeCode: 'shutdown',
-          category: 'normal',
-          level: 'Información',
-          levelBadge: 'ok',
-          user: 'NT AUTHORITY\\SYSTEM',
-          process: 'C:\\Windows\\System32\\services.exe',
-          reason: 'El servicio Registro de eventos se detuvo correctamente.',
-          detail: 'Cierre completo de la sesión del sistema operativo.'
-        }
-      ];
-    }
-
-    if (appCrashes.length === 0) {
-      const sampleApps = [
-        {
-          id: 101,
-          appName: 'acad.exe',
-          appPath: 'C:\\Program Files\\Autodesk\\AutoCAD 2024\\acad.exe',
-          faultModule: 'accore.dll',
-          faultModulePath: 'C:\\Program Files\\Autodesk\\AutoCAD 2024\\accore.dll',
-          faultOffset: '0x000000000021a8f0',
-          errCode: '0xc0000005',
-          time: new Date(now - 14 * 3600 * 1000).toISOString(),
-          ...getCrashDiagnosis('acad.exe', 'accore.dll', '0xc0000005')
-        },
-        {
-          id: 102,
-          appName: 'Revit.exe',
-          appPath: 'C:\\Program Files\\Autodesk\\Revit 2024\\Revit.exe',
-          faultModule: 'RevitDB.dll',
-          faultModulePath: 'C:\\Program Files\\Autodesk\\Revit 2024\\RevitDB.dll',
-          faultOffset: '0x000000000045c112',
-          errCode: '0xe0434352',
-          time: new Date(now - 42 * 3600 * 1000).toISOString(),
-          ...getCrashDiagnosis('Revit.exe', 'RevitDB.dll', '0xe0434352')
-        },
-        {
-          id: 103,
-          appName: 'explorer.exe',
-          appPath: 'C:\\Windows\\explorer.exe',
-          faultModule: 'twinui.pcshell.dll',
-          faultModulePath: 'C:\\Windows\\System32\\twinui.pcshell.dll',
-          faultOffset: '0x0000000000098f40',
-          errCode: '0xc0000409',
-          time: new Date(now - 86 * 3600 * 1000).toISOString(),
-          ...getCrashDiagnosis('explorer.exe', 'twinui.pcshell.dll', '0xc0000409')
-        },
-        {
-          id: 104,
-          appName: 'EXCEL.EXE',
-          appPath: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE',
-          faultModule: 'mso40uiwin32client.dll',
-          faultModulePath: 'C:\\Program Files\\Common Files\\Microsoft Shared\\Office16\\mso40uiwin32client.dll',
-          faultOffset: '0x00000000001a357b',
-          errCode: '0xc0000005',
-          time: new Date(now - 110 * 3600 * 1000).toISOString(),
-          ...getCrashDiagnosis('EXCEL.EXE', 'mso40uiwin32client.dll', '0xc0000005')
-        }
-      ];
-
-      const cutoffApp = now - (daysBack * 86400 * 1000);
-      appCrashes = sampleApps.filter(c => new Date(c.time).getTime() >= cutoffApp);
-    }
-
-    if (serviceEvents.length === 0) {
-      serviceEvents = [
-        {
-          id: 7001,
-          eventId: 7001,
-          provider: 'Service Control Manager',
-          time: new Date(now - 55 * 3600 * 1000).toISOString(),
-          serviceName: 'WSearch (Windows Search)',
-          type: 'Timeout Temporal en Inicio de Sesión',
-          level: 'Advertencia',
-          reason: 'El servicio Windows Search experimentó un retraso temporal al comunicarse con el subsistema de indización.',
-          diagnostic: 'Recuperado automáticamente por el gestor de servicios sin impacto en el rendimiento.',
-          solution: 'El sistema estabilizó la cola de indexación de forma autónoma.'
-        }
-      ];
-    }
-
-    // Filtrar por rango si se solicitaron días
+    // Filtrar estrictamente por rango de tiempo solicitado
     const cutoff = now - (daysBack * 86400 * 1000);
     const filteredPowerEvents = powerEvents.filter(e => new Date(e.time).getTime() >= cutoff);
     const filteredAppCrashes = appCrashes.filter(e => new Date(e.time).getTime() >= cutoff);
@@ -2239,14 +2075,7 @@ app.post('/api/event-log-analysis', async (req, res) => {
       user: lastShutdownEvent.user,
       process: lastShutdownEvent.process,
       reason: lastShutdownEvent.reason
-    } : {
-      time: new Date(Date.now() - (uptimeSec + 90) * 1000).toISOString(),
-      type: 'Reinicio programado del sistema (Actualización / Inicio limpio)',
-      category: 'reinicio_normal',
-      user: 'NT AUTHORITY\\SYSTEM',
-      process: 'C:\\Windows\\System32\\svchost.exe',
-      reason: 'Reinicio normal del sistema.'
-    };
+    } : null;
 
     const recommendations = [];
     if (unexpectedShutdowns === 0) {

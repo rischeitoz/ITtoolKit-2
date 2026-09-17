@@ -3126,15 +3126,13 @@ async function runEventAnalysis(range = '7') {
         </div>
         <div class="power-cycle-col">
           <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-secondary); letter-spacing:0.5px;">Último Apagado o Reinicio Registrado</div>
-          <div style="font-size:15px; font-weight:800; color:${lastShutdown.category === 'reinicio_normal' ? '#34D399' : '#F59E0B'}; margin-top:4px;">
-            ${lastShutdown.time ? fmtDateTime(lastShutdown.time) : 'No disponible'}
+          <div style="font-size:15px; font-weight:800; color:${lastShutdown.time ? (lastShutdown.category === 'reinicio_normal' ? '#34D399' : '#F59E0B') : 'var(--text-secondary)'}; margin-top:4px;">
+            ${lastShutdown.time ? fmtDateTime(lastShutdown.time) : 'Sin apagados en el período'}
           </div>
           <div style="font-size:12.5px; color:var(--text-primary); font-weight:600; margin-top:4px;">
-            ${escapeHtml(lastShutdown.type || 'Apagado del sistema')}
+            ${escapeHtml(lastShutdown.type || (lastShutdown.time ? 'Apagado del sistema' : 'El equipo ha permanecido operativo continuamente'))}
           </div>
-          <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">
-            <strong>Iniciado por:</strong> ${escapeHtml(lastShutdown.user || 'Sistema')} (${escapeHtml(lastShutdown.process || 'services.exe')})
-          </div>
+          ${lastShutdown.user ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:2px;"><strong>Iniciado por:</strong> ${escapeHtml(lastShutdown.user)} (${escapeHtml(lastShutdown.process || 'Sistema')})</div>` : ''}
           ${lastShutdown.reason ? `<div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px; font-style:italic;">"${escapeHtml(lastShutdown.reason)}"</div>` : ''}
         </div>
       </div>
@@ -5208,344 +5206,147 @@ if (startBtn && welcomeOverlay) {
 renderHomeDashboard();
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// GESTOR DE INTRODUCCIÓN HCP+ (VÍDEO DE LOGO Y ANIMACIÓN OFICIAL)
+// GESTOR DE INTRO OFICIAL DE MARCA HCP+ (ANIMACIÓN CINEMATOGRÁFICA ADAPTADA)
 // ═══════════════════════════════════════════════════════════════════════════════
-const hcpIntroManager = {
+const hcpIntroAnimationManager = {
   overlay: null,
-  video: null,
-  cross: null,
-  dynamicWord: null,
-  subtag: null,
+  crossEl: null,
+  wordEl: null,
+  subtagEl: null,
   progressBar: null,
   btnSkip: null,
-  btnAudio: null,
-  audioIcon: null,
-  timeouts: [],
-  intervalProgress: null,
-  audioCtx: null,
-  audioMuted: true,
-  isPlaying: false,
+  isFinished: false,
+  timers: [],
 
   init() {
     this.overlay = document.getElementById('hcp-intro-overlay');
     if (!this.overlay) return;
 
-    this.video = document.getElementById('hcp-intro-video');
-    this.cross = document.getElementById('hcp-intro-cross');
-    this.dynamicWord = document.getElementById('hcp-dynamic-word');
-    this.subtag = document.getElementById('hcp-intro-subtag');
+    this.crossEl = document.getElementById('hcp-intro-cross');
+    this.wordEl = document.getElementById('hcp-intro-word');
+    this.subtagEl = document.getElementById('hcp-intro-subtag');
     this.progressBar = document.getElementById('hcp-intro-progress-bar');
-    this.btnSkip = document.getElementById('btn-intro-skip');
-    this.btnAudio = document.getElementById('btn-intro-audio');
-    this.audioIcon = document.getElementById('intro-audio-icon');
+    this.btnSkip = document.getElementById('btn-skip-intro');
 
-    // Botones de interacción
+    // Manejo de salida manual (botón omitir, clic o teclas)
     if (this.btnSkip) {
       this.btnSkip.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.close();
+        this.finish();
       });
     }
 
-    if (this.btnAudio) {
-      this.btnAudio.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.toggleAudio();
-      });
-    }
+    this.overlay.addEventListener('click', () => this.finish());
 
-    const replayBtn = document.getElementById('btn-replay-intro');
-    if (replayBtn) {
-      replayBtn.addEventListener('click', () => {
-        this.play(true);
-      });
-    }
-
-    const brandBtn = document.getElementById('btn-topbar-brand');
-    if (brandBtn) {
-      brandBtn.addEventListener('dblclick', () => {
-        this.play(true);
-      });
-    }
-
-    // Tecla Escape para saltar rápidamente
     window.addEventListener('keydown', (e) => {
       if (this.overlay && !this.overlay.classList.contains('fade-out')) {
         if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') {
-          this.close();
+          this.finish();
         }
       }
     });
 
-    // Soporte para arrastrar archivo de vídeo local sobre la ventana
-    window.addEventListener('dragover', (e) => e.preventDefault());
-    window.addEventListener('drop', (e) => {
-      const files = e.dataTransfer && e.dataTransfer.files;
-      if (files && files.length > 0 && files[0].type && files[0].type.includes('video')) {
-        e.preventDefault();
-        const videoUrl = URL.createObjectURL(files[0]);
-        this.loadAndPlayVideo(videoUrl);
-      }
-    });
-
-    // Reproducción al abrir la aplicación
-    this.play(false);
+    this.startSequence();
   },
 
-  play(forceReplay = false) {
-    this.clearAll();
-    this.isPlaying = true;
-
-    if (!this.overlay) return;
-    this.overlay.classList.remove('fade-out');
-    this.overlay.style.display = 'flex';
-
-    // Resetear estados visuales
-    if (this.cross) {
-      this.cross.className = 'hcp-intro-cross';
-      this.cross.style.color = '#FFFFFF';
-    }
-    if (this.dynamicWord) {
-      this.dynamicWord.className = 'hcp-intro-dynamic-word';
-      this.dynamicWord.textContent = '';
-    }
-    if (this.subtag) {
-      this.subtag.className = 'hcp-intro-subtag';
-    }
-    if (this.progressBar) {
-      this.progressBar.style.width = '0%';
-    }
-
-    // Comprobar si existe un archivo de vídeo real
-    this.checkVideoFile((hasVideo, videoUrl) => {
-      if (hasVideo && this.video) {
-        this.loadAndPlayVideo(videoUrl);
-      } else {
-        this.runMotionSequence();
-      }
-    });
+  setTimer(fn, delay) {
+    const id = setTimeout(() => {
+      if (!this.isFinished) fn();
+    }, delay);
+    this.timers.push(id);
   },
 
-  checkVideoFile(callback) {
-    const candidates = ['intro.mp4', './intro.mp4', '../intro.mp4', 'build/intro.mp4'];
-    let checked = 0;
-    let found = false;
+  startSequence() {
+    // Fase 1: Arquitectura (HCP Lime #D8FF00)
+    this.setTimer(() => {
+      if (this.crossEl) {
+        this.crossEl.className = 'hcp-intro-cross cross-lime';
+      }
+      if (this.wordEl) {
+        this.wordEl.textContent = 'architecture';
+        this.wordEl.classList.add('word-visible');
+      }
+      if (this.progressBar) this.progressBar.style.width = '28%';
+    }, 450);
 
-    candidates.forEach(url => {
-      const testVideo = document.createElement('video');
-      testVideo.src = url;
-      testVideo.oncanplay = () => {
-        if (!found) {
-          found = true;
-          callback(true, url);
-        }
-      };
-      testVideo.onerror = () => {
-        checked++;
-        if (checked === candidates.length && !found) {
-          callback(false, null);
-        }
-      };
-    });
+    // Transición intermedia a Ingeniería
+    this.setTimer(() => {
+      if (this.wordEl) this.wordEl.classList.remove('word-visible');
+    }, 1250);
 
-    setTimeout(() => {
-      if (!found) callback(false, null);
-    }, 280);
+    // Fase 2: Ingeniería (HCP Pink #FF006E)
+    this.setTimer(() => {
+      if (this.crossEl) {
+        this.crossEl.className = 'hcp-intro-cross cross-pink';
+      }
+      if (this.wordEl) {
+        this.wordEl.textContent = 'engineering';
+        this.wordEl.classList.add('word-visible');
+      }
+      if (this.progressBar) this.progressBar.style.width = '58%';
+    }, 1450);
+
+    // Transición intermedia a Urbanismo
+    this.setTimer(() => {
+      if (this.wordEl) this.wordEl.classList.remove('word-visible');
+    }, 2250);
+
+    // Fase 3: Urbanismo (HCP Violet #6B35FF - Urban Planning)
+    this.setTimer(() => {
+      if (this.crossEl) {
+        this.crossEl.className = 'hcp-intro-cross cross-violet';
+      }
+      if (this.wordEl) {
+        this.wordEl.textContent = 'urban planning';
+        this.wordEl.classList.add('word-visible');
+      }
+      if (this.progressBar) this.progressBar.style.width = '84%';
+    }, 2450);
+
+    // Transición intermedia a la Tríada Unificada
+    this.setTimer(() => {
+      if (this.wordEl) this.wordEl.classList.remove('word-visible');
+    }, 3250);
+
+    // Fase 4: Tríada Oficial Completa (Architecture · Engineering · Urban Planning)
+    this.setTimer(() => {
+      if (this.crossEl) {
+        this.crossEl.className = 'hcp-intro-cross cross-trio';
+      }
+      if (this.subtagEl) {
+        this.subtagEl.classList.add('subtag-visible');
+      }
+      if (this.progressBar) this.progressBar.style.width = '100%';
+    }, 3450);
+
+    // Cierre suave revelando la aplicación
+    this.setTimer(() => {
+      this.finish();
+    }, 4300);
   },
 
-  loadAndPlayVideo(url) {
-    if (!this.video) return;
-    this.video.src = url;
-    this.video.style.display = 'block';
-    this.video.currentTime = 0;
-    this.video.muted = this.audioMuted;
-    this.video.play().catch(() => {
-      this.video.style.display = 'none';
-      this.runMotionSequence();
-    });
+  finish() {
+    if (this.isFinished) return;
+    this.isFinished = true;
 
-    this.video.onended = () => {
-      this.close();
-    };
+    this.timers.forEach(clearTimeout);
+    this.timers = [];
 
-    this.intervalProgress = setInterval(() => {
-      if (this.video && this.video.duration && this.progressBar) {
-        const pct = (this.video.currentTime / this.video.duration) * 100;
-        this.progressBar.style.width = `${pct}%`;
-      }
-    }, 50);
-  },
-
-  runMotionSequence() {
-    const totalDuration = 7300;
-    const startTime = Date.now();
-
-    this.intervalProgress = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const pct = Math.min(100, (elapsed / totalDuration) * 100);
-      if (this.progressBar) {
-        this.progressBar.style.width = `${pct}%`;
-      }
-    }, 30);
-
-    // Escena 1: T = 0ms -> HCP + Blanco puro (Pág. 18 Manual)
-
-    // Escena 2: T = 1000ms -> Cruz LIMA (#D8FF00) + "Architecture" (Pág. 19 y 29)
-    this.timeouts.push(setTimeout(() => {
-      if (!this.isPlaying) return;
-      if (this.cross) {
-        this.cross.className = 'hcp-intro-cross cross-lime';
-      }
-      if (this.dynamicWord) {
-        this.dynamicWord.textContent = 'Architecture';
-        this.dynamicWord.className = 'hcp-intro-dynamic-word word-visible';
-      }
-      this.playChime(440, 'sine', 0.35);
-    }, 1000));
-
-    // Transición intermedia
-    this.timeouts.push(setTimeout(() => {
-      if (!this.isPlaying) return;
-      if (this.dynamicWord) {
-        this.dynamicWord.classList.remove('word-visible');
-      }
-    }, 2400));
-
-    // Escena 3: T = 2700ms -> Cruz ROSA (#FF006E) + "Engineering" (Pág. 21 y 31)
-    this.timeouts.push(setTimeout(() => {
-      if (!this.isPlaying) return;
-      if (this.cross) {
-        this.cross.className = 'hcp-intro-cross cross-pink';
-      }
-      if (this.dynamicWord) {
-        this.dynamicWord.textContent = 'Engineering';
-        this.dynamicWord.className = 'hcp-intro-dynamic-word word-visible';
-      }
-      this.playChime(554.37, 'sine', 0.4);
-    }, 2700));
-
-    // Transición intermedia
-    this.timeouts.push(setTimeout(() => {
-      if (!this.isPlaying) return;
-      if (this.dynamicWord) {
-        this.dynamicWord.classList.remove('word-visible');
-      }
-    }, 4100));
-
-    // Escena 4: T = 4400ms -> Cruz VIOLET (#6B35FF) + "Urban Planning"
-    this.timeouts.push(setTimeout(() => {
-      if (!this.isPlaying) return;
-      if (this.cross) {
-        this.cross.className = 'hcp-intro-cross cross-violet';
-      }
-      if (this.dynamicWord) {
-        this.dynamicWord.textContent = 'Urban Planning';
-        this.dynamicWord.className = 'hcp-intro-dynamic-word word-visible';
-      }
-      this.playChime(659.25, 'sine', 0.45);
-    }, 4400));
-
-    // Transición a Clímax
-    this.timeouts.push(setTimeout(() => {
-      if (!this.isPlaying) return;
-      if (this.dynamicWord) {
-        this.dynamicWord.classList.remove('word-visible');
-      }
-    }, 5800));
-
-    // Escena 5: T = 6100ms -> Clímax Tríada (Lima, Rosa, Violeta) con Branded House Completo y Claim
-    this.timeouts.push(setTimeout(() => {
-      if (!this.isPlaying) return;
-      if (this.cross) {
-        this.cross.className = 'hcp-intro-cross cross-trio';
-      }
-      if (this.subtag) {
-        this.subtag.className = 'hcp-intro-subtag subtag-visible';
-      }
-      this.playChime(880, 'triangle', 0.8);
-    }, 6100));
-
-    // Escena 6: T = 7300ms -> Cierre suave hacia el Dashboard Ejecutivo
-    this.timeouts.push(setTimeout(() => {
-      this.close();
-    }, totalDuration));
-  },
-
-  toggleAudio() {
-    this.audioMuted = !this.audioMuted;
-    if (this.audioIcon) {
-      this.audioIcon.textContent = this.audioMuted ? '🔇' : '🔊';
-    }
-    if (this.video) {
-      this.video.muted = this.audioMuted;
-    }
-    if (!this.audioMuted) {
-      this.playChime(523.25, 'sine', 0.2);
-    }
-  },
-
-  playChime(freq, type = 'sine', duration = 0.4) {
-    if (this.audioMuted) return;
-    try {
-      if (!this.audioCtx) {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) this.audioCtx = new AudioCtx();
-      }
-      if (this.audioCtx && this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      }
-      if (!this.audioCtx) return;
-
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
-
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
-
-      gain.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + duration);
-
-      osc.connect(gain);
-      gain.connect(this.audioCtx.destination);
-
-      osc.start();
-      osc.stop(this.audioCtx.currentTime + duration);
-    } catch (e) {}
-  },
-
-  close() {
-    this.isPlaying = false;
-    this.clearAll();
-
-    if (this.video) {
-      try {
-        this.video.pause();
-        this.video.style.display = 'none';
-      } catch (e) {}
-    }
+    if (this.progressBar) this.progressBar.style.width = '100%';
 
     if (this.overlay) {
       this.overlay.classList.add('fade-out');
       setTimeout(() => {
-        if (this.overlay && this.overlay.classList.contains('fade-out')) {
+        if (this.overlay) {
           this.overlay.style.display = 'none';
         }
-      }, 700);
-    }
-  },
-
-  clearAll() {
-    this.timeouts.forEach(t => clearTimeout(t));
-    this.timeouts = [];
-    if (this.intervalProgress) {
-      clearInterval(this.intervalProgress);
-      this.intervalProgress = null;
+      }, 500);
     }
   }
 };
 
-// Inicializar el sistema de introducción
-hcpIntroManager.init();
+// Inicializar la animación de intro oficial adaptada
+hcpIntroAnimationManager.init();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MÓDULO DE TUTORIALES EN PDF Y DOCX (Ruta: \\cielo\INFORMATICA\TUTORIALES)

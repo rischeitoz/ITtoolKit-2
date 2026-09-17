@@ -15,65 +15,54 @@
 </head>
 
 <body>
-  <!-- Overlay de Introducción de Marca HCP (Vídeo y Motion Graphics Oficial) -->
+  <!-- Intro Cinematográfica Adaptada a la App (Animación Oficial HCP+) -->
   <div class="hcp-intro-overlay" id="hcp-intro-overlay">
-    <div class="hcp-intro-container">
-      <!-- Reproductor de vídeo nativo en caso de existir o cargarse intro.mp4 -->
-      <video id="hcp-intro-video" class="hcp-intro-video" playsinline preload="auto" muted style="display:none;"></video>
-
-      <!-- Escena de Motion Graphics Idéntica al Vídeo de Presentación -->
+    <div class="hcp-intro-container" id="hcp-intro-container">
       <div class="hcp-intro-scene" id="hcp-intro-scene">
-        <!-- Rejilla y luces ambientales de fondo negro -->
+        <!-- Rejilla técnica y resplandor ambiental Dark Slate -->
         <div class="hcp-intro-grid-bg"></div>
-        <div class="hcp-intro-ambient-glow" id="hcp-ambient-glow"></div>
+        <div class="hcp-intro-ambient-glow" id="hcp-intro-glow"></div>
 
-        <!-- Escenario Central del Logo -->
-        <div class="hcp-intro-brand-stage" id="hcp-brand-stage">
-          <div class="hcp-intro-logo-row">
-            <span class="hcp-intro-letter hcp-letter-h">H</span>
-            <span class="hcp-intro-letter hcp-letter-c">C</span>
-            <span class="hcp-intro-letter hcp-letter-p">P</span>
-            <div class="hcp-intro-cross-wrap" id="hcp-cross-wrap">
-              <span class="hcp-intro-cross" id="hcp-intro-cross">+</span>
-            </div>
-            <!-- Disciplina dinámica que cambia según el vídeo -->
-            <div class="hcp-intro-word-wrap">
-              <span class="hcp-intro-dynamic-word" id="hcp-dynamic-word"></span>
-            </div>
-          </div>
-
-          <!-- Tagline Corporativo Oficial HCP (Pág. 28 y 38 del Manual) -->
-          <div class="hcp-intro-subtag" id="hcp-intro-subtag">
-            <div class="subtag-disciplines">
-              <span class="subtag-item subtag-arch">ARCHITECTURE</span>
-              <span class="subtag-dot dot-lime">✦</span>
-              <span class="subtag-item subtag-eng">ENGINEERING</span>
-              <span class="subtag-dot dot-pink">✦</span>
-              <span class="subtag-item subtag-land">URBAN PLANNING</span>
-            </div>
-            <div class="subtag-claim">BUILT ON EXPERIENCE · EST. 1986</div>
-          </div>
-        </div>
-
-        <!-- Barra Inferior Gruesa Verde Lima Oficial del Vídeo -->
-        <div class="hcp-intro-bottom-lime-bar" id="hcp-bottom-lime-bar">
-          <div class="hcp-lime-glow-tracer"></div>
-        </div>
-
-        <!-- Controles Superiores de la Introducción -->
+        <!-- Botón de omitir -->
         <div class="hcp-intro-controls">
-          <button type="button" class="hcp-intro-btn-audio" id="btn-intro-audio" title="Activar / Silenciar Sonido Cinemático">
-            <span id="intro-audio-icon">🔇</span>
-          </button>
-          <button type="button" class="hcp-intro-btn-skip" id="btn-intro-skip" title="Saltar intro (Esc)">
-            <span>Saltar intro</span>
+          <button class="hcp-intro-btn-skip" id="btn-skip-intro" title="Omitir animación de inicio">
+            <span>Omitir</span>
             <span class="hcp-skip-arrow">➔</span>
           </button>
         </div>
 
-        <!-- Barra de Progreso de la Secuencia -->
+        <!-- Escenario principal de marca -->
+        <div class="hcp-intro-brand-stage">
+          <div class="hcp-intro-logo-row">
+            <span class="hcp-intro-letter hcp-letter-h">H</span>
+            <span class="hcp-intro-letter hcp-letter-c">C</span>
+            <span class="hcp-intro-letter hcp-letter-p">P</span>
+            <div class="hcp-intro-cross-wrap">
+              <span class="hcp-intro-cross" id="hcp-intro-cross">+</span>
+            </div>
+            <div class="hcp-intro-word-wrap">
+              <span class="hcp-intro-dynamic-word" id="hcp-intro-word">architecture</span>
+            </div>
+          </div>
+
+          <!-- Subtítulo oficial con las 3 disciplinas -->
+          <div class="hcp-intro-subtag" id="hcp-intro-subtag">
+            <div class="subtag-disciplines">
+              <span class="subtag-item subtag-arch">ARCHITECTURE</span>
+              <span class="subtag-dot dot-lime">·</span>
+              <span class="subtag-item subtag-eng">ENGINEERING</span>
+              <span class="subtag-dot dot-pink">·</span>
+              <span class="subtag-item subtag-urb">URBAN PLANNING</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra inferior integrada con gradiente de la tríada -->
         <div class="hcp-intro-progress">
           <div class="hcp-intro-progress-bar" id="hcp-intro-progress-bar"></div>
+        </div>
+        <div class="hcp-intro-bottom-lime-bar">
+          <div class="hcp-lime-glow-tracer"></div>
         </div>
       </div>
     </div>
@@ -135,7 +124,7 @@
 
   <div class="topbar">
     <div class="topbar-left">
-      <div class="topbar-brand" id="btn-topbar-brand" title="HCP+ Suite TI • Ir al Panel Principal">
+      <div class="topbar-brand" id="btn-topbar-brand" title="HCPToolKit • Ir al Panel Principal">
         <div class="topbar-hcp-badge">
           <img src="logo.svg" alt="HCP+ Toolkit" class="topbar-hcp-icon-img" width="22" height="22" />
           <span class="tb-hcp-letters">HCP</span>
@@ -149,9 +138,6 @@
           <span class="topbar-corp-label">ARCHITECTURE · ENGINEERING · URBAN PLANNING</span>
         </div>
       </div>
-      <button class="btn-topbar-intro" id="btn-replay-intro" title="Reproducir vídeo / animación del logo">
-        🎬 Intro
-      </button>
       <span class="topbar-version-badge">v1.0.0</span>
       <div class="topbar-breadcrumb-nav" id="topbar-breadcrumb">
         <span class="breadcrumb-item active" id="current-view-name">Panel Principal</span>

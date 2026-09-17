@@ -1,95 +1,96 @@
 :root {
-  /* ─── HCP MANUAL DE MARCA v1.0: Colores Corporativos Oficiales ─── */
-  --bg: #000000;
-  --panel-bg: #06070A;
-  --topbar: #07080B;
-  --topbar-text: #FFFFFF;
-  --topbar-border: rgba(107, 53, 255, 0.25);
-  --card: #0B0C12;
-  --card-border: #181B26;
-  --card-hover-border: #2B3045;
-  --sidebar-bg: #040507;
+  /* ─── Paleta Dark Slate Profesional con Alto Contraste ─── */
+  --bg: #0F172A;
+  --panel-bg: #151F32;
+  --topbar: #131B2E;
+  --topbar-text: #F8FAFC;
+  --topbar-border: rgba(139, 92, 246, 0.35);
+  --card: #1E293B;
+  --card-border: #334155;
+  --card-hover-border: #475569;
+  --sidebar-bg: #0C1322;
 
   /* 5.2 Paleta Oficial HCP (Pág. 50 Manual de Marca) */
   /* HCP LIME - Pantone 389 C - Architecture */
   --brand-lime: #D8FF00;
   --brand-lime-hover: #C5EA00;
   --brand-lime-glow: rgba(216, 255, 0, 0.38);
-  --brand-lime-subtle: rgba(216, 255, 0, 0.12);
+  --brand-lime-subtle: rgba(216, 255, 0, 0.14);
   --brand-lime-text: #D8FF00;
 
   /* HCP PINK - Pantone 213 C - Engineering */
   --brand-pink: #FF006E;
   --brand-pink-hover: #E50063;
   --brand-pink-glow: rgba(255, 0, 110, 0.38);
-  --brand-pink-subtle: rgba(255, 0, 110, 0.12);
+  --brand-pink-subtle: rgba(255, 0, 110, 0.14);
   --brand-pink-text: #FF2E87;
 
   /* HCP VIOLET - Pantone 2725 C - Landscape */
-  --brand-violet: #6B35FF;
-  --brand-violet-hover: #5A24E6;
-  --brand-violet-glow: rgba(107, 53, 255, 0.38);
-  --brand-violet-subtle: rgba(107, 53, 255, 0.14);
-  --brand-violet-text: #8F66FF;
-  --brand-lilac: #6B35FF; /* Alias para compatibilidad */
+  --brand-violet: #8B5CF6;
+  --brand-violet-hover: #7C3AED;
+  --brand-violet-glow: rgba(139, 92, 246, 0.38);
+  --brand-violet-subtle: rgba(139, 92, 246, 0.16);
+  --brand-violet-text: #A78BFA;
+  --brand-lilac: #8B5CF6; /* Alias para compatibilidad */
 
   /* HCP GRAY - Pantone Cool Gray 6 C - Base Neutra */
-  --brand-gray: #888888;
-  --brand-gray-light: #B4B4B4;
-  --brand-gray-dark: #333333;
+  --brand-gray: #94A3B8;
+  --brand-gray-light: #CBD5E1;
+  --brand-gray-dark: #475569;
 
   /* Tipografía Oficial HCP (Pág. 42-45) */
   --font-px-grotesk: 'Px Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-narrative: 'HCP Narrative', 'APK Narrative', system-ui, -apple-system, sans-serif;
   --font-mono: 'HCP N. Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Aliases del Sistema */
+  /* Aliases del Sistema - Alto Contraste Legible */
   --accent: #D8FF00;
-  --accent-light: rgba(216, 255, 0, 0.14);
-  --accent-secondary: #6B35FF;
+  --accent-light: rgba(216, 255, 0, 0.16);
+  --accent-secondary: #8B5CF6;
   --accent-tertiary: #FF006E;
-  --text-primary: #FFFFFF;
-  --text-secondary: #888888;
-  --text-muted: #666666;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
 
   --ok: #D8FF00;
   --warn: #F59E0B;
   --error: #FF006E;
-  --repair-accent: #6B35FF;
+  --repair-accent: #8B5CF6;
 
-  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.7);
-  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.9);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.55);
 }
 
 body.dark-theme {
-  --bg: #000000;
-  --panel-bg: #030406;
-  --topbar: #040507;
-  --topbar-text: #FFFFFF;
-  --topbar-border: rgba(216, 255, 0, 0.25);
-  --card: #08090E;
-  --card-border: #141722;
-  --card-hover-border: #232738;
-  --sidebar-bg: #020304;
+  --bg: #0F172A;
+  --panel-bg: #151F32;
+  --topbar: #131B2E;
+  --topbar-text: #F8FAFC;
+  --topbar-border: rgba(216, 255, 0, 0.35);
+  --card: #1E293B;
+  --card-border: #334155;
+  --card-hover-border: #475569;
+  --sidebar-bg: #0C1322;
 
   --brand-lime: #D8FF00;
   --brand-pink: #FF006E;
-  --brand-violet: #6B35FF;
-  --brand-lilac: #6B35FF;
-  --brand-gray: #888888;
+  --brand-violet: #8B5CF6;
+  --brand-lilac: #8B5CF6;
+  --brand-gray: #94A3B8;
 
   --accent: #D8FF00;
   --accent-light: rgba(216, 255, 0, 0.18);
-  --text-primary: #FFFFFF;
-  --text-secondary: #888888;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
 
   --ok: #D8FF00;
   --warn: #F59E0B;
   --error: #FF006E;
-  --repair-accent: #6B35FF;
+  --repair-accent: #8B5CF6;
 
-  --shadow-sm: 0 2px 14px rgba(0, 0, 0, 0.8);
-  --shadow-md: 0 10px 38px rgba(0, 0, 0, 0.98);
+  --shadow-sm: 0 2px 14px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 10px 38px rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -12318,20 +12319,166 @@ body.dark-theme .dash-quick-card:hover {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
+   HCP REBRANDING OFICIAL: PANTALLA DE CARGA RÁPIDA (SPLASH SCREEN)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.hcp-splash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
+}
+
+.hcp-splash-overlay.fade-out {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.hcp-splash-container {
+  width: 100%;
+  max-width: 440px;
+  padding: 20px;
+}
+
+.hcp-splash-card {
+  background: #1E293B;
+  border: 1px solid #334155;
+  border-radius: 18px;
+  padding: 34px 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(216, 255, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+  animation: splashCardAppear 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes splashCardAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.hcp-splash-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.hcp-splash-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.hcp-splash-logo-img {
+  filter: drop-shadow(0 4px 14px rgba(216, 255, 0, 0.3));
+}
+
+.hcp-splash-brand-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.hcp-splash-title {
+  font-family: var(--font-px-grotesk), 'Segoe UI', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #F8FAFC;
+}
+
+.hcp-splash-toolkit-tag {
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(216, 255, 0, 0.14);
+  color: var(--brand-lime);
+  border: 1px solid rgba(216, 255, 0, 0.4);
+  border-radius: 4px;
+  padding: 2px 6px;
+  letter-spacing: 1px;
+  vertical-align: middle;
+}
+
+.hcp-splash-disciplines {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+}
+
+.hcp-splash-loading-box {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hcp-splash-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.hcp-splash-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--brand-lime) 0%, var(--brand-pink) 50%, var(--brand-violet) 100%);
+  border-radius: 99px;
+  transition: width 0.1s linear;
+}
+
+.hcp-splash-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.hcp-splash-status-text {
+  font-weight: 500;
+}
+
+.hcp-splash-status-pct {
+  font-weight: 700;
+  color: var(--brand-lime);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
    HCP REBRANDING OFICIAL: INTRO OVERLAY & MOTION GRAPHICS
    ═══════════════════════════════════════════════════════════════════════════════ */
 .hcp-intro-overlay {
   position: fixed;
   inset: 0;
   z-index: 999999;
-  background: #000000;
+  background: radial-gradient(circle at 50% 45%, #1E293B 0%, #0F172A 65%, #080D1A 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   opacity: 1;
   visibility: visible;
-  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.65s ease;
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s ease;
 }
 
 .hcp-intro-overlay.fade-out {
@@ -12347,17 +12494,11 @@ body.dark-theme .dash-quick-card:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000000;
+  background: transparent;
 }
 
 .hcp-intro-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 3;
-  background: #000000;
+  display: none;
 }
 
 .hcp-intro-scene {
@@ -12369,7 +12510,7 @@ body.dark-theme .dash-quick-card:hover {
   align-items: center;
   justify-content: center;
   z-index: 2;
-  background: #000000;
+  background: transparent;
 }
 
 .hcp-intro-grid-bg {
@@ -12412,19 +12553,19 @@ body.dark-theme .dash-quick-card:hover {
 }
 
 .hcp-intro-letter {
-  font-size: 80px;
+  font-size: clamp(52px, 6vw, 84px);
   font-weight: 900;
   color: #FFFFFF;
   line-height: 1;
   display: inline-block;
   opacity: 0;
   transform: translateY(20px) scale(0.95);
-  animation: hcpLetterEntrance 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: hcpLetterEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.hcp-letter-h { animation-delay: 0.08s; }
-.hcp-letter-c { animation-delay: 0.18s; }
-.hcp-letter-p { animation-delay: 0.28s; }
+.hcp-letter-h { animation-delay: 0.05s; }
+.hcp-letter-c { animation-delay: 0.14s; }
+.hcp-letter-p { animation-delay: 0.22s; }
 
 @keyframes hcpLetterEntrance {
   to {
@@ -12439,7 +12580,7 @@ body.dark-theme .dash-quick-card:hover {
   justify-content: center;
   margin: 0 16px 0 14px;
   opacity: 0;
-  animation: hcpCrossEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.4s forwards;
+  animation: hcpCrossEntrance 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.32s forwards;
 }
 
 @keyframes hcpCrossEntrance {
@@ -12450,12 +12591,12 @@ body.dark-theme .dash-quick-card:hover {
 }
 
 .hcp-intro-cross {
-  font-size: 78px;
+  font-size: clamp(50px, 5.8vw, 80px);
   font-weight: 900;
   line-height: 1;
   display: inline-block;
   color: #FFFFFF;
-  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hcp-intro-cross.cross-lime {
@@ -12488,19 +12629,21 @@ body.dark-theme .dash-quick-card:hover {
 .hcp-intro-word-wrap {
   display: inline-flex;
   align-items: baseline;
-  min-width: 320px;
+  min-width: clamp(300px, 35vw, 480px);
+  white-space: nowrap;
 }
 
 .hcp-intro-dynamic-word {
-  font-size: 72px;
-  font-weight: 500;
-  letter-spacing: -1.5px;
+  font-size: clamp(44px, 5.2vw, 74px);
+  font-weight: 600;
+  letter-spacing: -1px;
   color: #FFFFFF;
   line-height: 1;
   display: inline-block;
+  white-space: nowrap;
   opacity: 0;
-  transform: translateX(-18px);
-  transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(-16px);
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hcp-intro-dynamic-word.word-visible {
@@ -12515,7 +12658,7 @@ body.dark-theme .dash-quick-card:hover {
   gap: 10px;
   opacity: 0;
   transform: translateY(12px);
-  transition: all 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .hcp-intro-subtag.subtag-visible {
@@ -12527,9 +12670,10 @@ body.dark-theme .dash-quick-card:hover {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: 13px;
+  font-size: clamp(11px, 1.2vw, 13.5px);
   font-weight: 800;
   letter-spacing: 2.2px;
+  white-space: nowrap;
 }
 
 .subtag-claim {
@@ -12543,6 +12687,7 @@ body.dark-theme .dash-quick-card:hover {
 
 .subtag-item.subtag-arch { color: var(--brand-lime); text-shadow: 0 0 14px var(--brand-lime-glow); }
 .subtag-item.subtag-eng { color: var(--brand-pink); text-shadow: 0 0 14px var(--brand-pink-glow); }
+.subtag-item.subtag-urb,
 .subtag-item.subtag-land { color: var(--brand-violet); text-shadow: 0 0 14px var(--brand-violet-glow); }
 .subtag-item.subtag-tech { color: #FFFFFF; text-shadow: 0 0 14px rgba(255, 255, 255, 0.4); }
 
