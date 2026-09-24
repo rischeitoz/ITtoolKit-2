@@ -8,7 +8,7 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "build": "echo 'Build complete'",
+    "build": "node scripts/generate-icons.js",
     "dev": "node server.js",
     "start": "electron .",
     "start:web": "node server.js",
@@ -39,7 +39,8 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "fast-speedtest-api": "^0.3.2",
-    "mammoth": "^1.12.1"
+    "mammoth": "^1.12.1",
+    "png-to-ico": "^3.0.2"
   },
   "devDependencies": {
     "electron": "^33.2.1",

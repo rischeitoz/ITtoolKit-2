@@ -1,61 +1,98 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Gradiente de fondo blanco puro / ultra sutil oficial -->
+    <!-- Gradiente de fondo blanco cerámico / luminancia pura estilo Windows 11 Fluent -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#F8FAFC"/>
+      <stop offset="60%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#F1F5F9"/>
     </linearGradient>
 
-    <!-- Marco sutil con gradiente elegante -->
-    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#E2E8F0"/>
-      <stop offset="50%" stop-color="#CBD5E1"/>
+    <!-- Bisel de luz superior y marco perimetral metálico sutil -->
+    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="25%" stop-color="#E2E8F0"/>
+      <stop offset="80%" stop-color="#CBD5E1"/>
       <stop offset="100%" stop-color="#94A3B8"/>
     </linearGradient>
 
-    <!-- Sombra suave para el contenedor -->
-    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#0F172A" flood-opacity="0.08"/>
+    <!-- Resplandor interior suave para dar volumen táctil -->
+    <linearGradient id="innerGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.8"/>
+      <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Gradiente de la Tríada Oficial: Lima Arquitectura, Rosa Ingeniería, Violeta Urbanismo -->
+    <linearGradient id="triadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#84CC16"/>
+      <stop offset="15%" stop-color="#A3E635"/>
+      <stop offset="50%" stop-color="#FF006E"/>
+      <stop offset="85%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#6B35FF"/>
+    </linearGradient>
+
+    <!-- Sombra de profundidad multi-capa para destacar en cualquier fondo de Windows -->
+    <filter id="iconDepthShadow" x="-12%" y="-12%" width="124%" height="128%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0F172A" flood-opacity="0.14"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.08"/>
     </filter>
 
-    <!-- Gradiente de la Tríada Oficial: Lima, Rosa y Violeta -->
-    <linearGradient id="triadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#65A30D"/>
-      <stop offset="50%" stop-color="#FF006E"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
-    </linearGradient>
+    <!-- Sombra sutil para la barra de tríada -->
+    <filter id="triadGlow" x="-10%" y="-30%" width="120%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#FF006E" flood-opacity="0.28"/>
+    </filter>
   </defs>
 
-  <!-- Base del Icono con Squircle moderno sobre Fondo Blanco Luminoso -->
-  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="4" filter="url(#cardShadow)"/>
+  <!-- Base del Icono: Squircle de precisión moderna con acabado cerámico -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="3" filter="url(#iconDepthShadow)"/>
 
-  <!-- Rejilla arquitectónica técnica de fondo en positivo -->
-  <path d="M 64 160 H 448 M 64 256 H 448 M 64 352 H 448 M 160 64 V 448 M 256 64 V 448 M 352 64 V 448" stroke="#0F172A" stroke-opacity="0.05" stroke-width="1.5"/>
+  <!-- Capa de brillo superior de cristal / bisel sutil -->
+  <rect x="18" y="18" width="476" height="238" rx="110" fill="url(#innerGlow)" opacity="0.7" pointer-events="none"/>
 
-  <!-- Logotipo Oficial HCP + Vector Exacto (01_logo_positivo.png) -->
-  <g transform="translate(67, 180) scale(0.48)" fill="#0A0E1A">
-    <!-- H -->
+  <!-- Rejilla técnica arquitectónica de diseño (CAD / Blueprint Studio) -->
+  <g stroke="#0F172A" stroke-opacity="0.04" stroke-width="1.2">
+    <!-- Líneas de rejilla -->
+    <line x1="64" y1="160" x2="448" y2="160" />
+    <line x1="64" y1="256" x2="448" y2="256" />
+    <line x1="64" y1="352" x2="448" y2="352" />
+    <line x1="160" y1="64" x2="160" y2="448" />
+    <line x1="256" y1="64" x2="256" y2="448" />
+    <line x1="352" y1="64" x2="352" y2="448" />
+  </g>
+
+  <!-- Puntos de mira / cruces técnicas en intersecciones arquitectónicas -->
+  <g stroke="#0F172A" stroke-opacity="0.07" stroke-width="1">
+    <path d="M 156 160 H 164 M 160 156 V 164" />
+    <path d="M 348 160 H 356 M 352 156 V 164" />
+    <path d="M 156 352 H 164 M 160 348 V 356" />
+    <path d="M 348 352 H 356 M 352 348 V 356" />
+  </g>
+
+  <!-- Logotipo Oficial HCP + Vector Exacto y Proporciones Óptimas para Icono de App -->
+  <!-- Ancho total de glifos: 786px. Con scale=0.535 -> 420.5px. Centrado horizontal perfecto: (512 - 420.5)/2 = 45.75px -->
+  <g transform="translate(45.75, 170) scale(0.535)" fill="#0A0E1A">
+    <!-- H (Glifo arquitectónico oficial con curva seccionada) -->
     <g transform="translate(0, 0)">
       <path d="M 0,0 H 34 V 83 H 126 V 117 H 68 C 48,117 34,136 34,160 V 200 H 0 V 83 H 34 C 16,83 0,64 0,40 Z" />
       <path d="M 126,0 H 160 V 200 H 126 Z" />
     </g>
-    <!-- C -->
+    <!-- C (Glifo geométrico con apertura angular limpia) -->
     <g transform="translate(192, 0)">
       <path d="M 156,46 C 144,14 118,0 80,0 C 34,0 0,36 0,100 C 0,164 34,200 80,200 C 118,200 144,186 156,154 H 120 C 112,168 98,172 80,172 C 52,172 34,144 34,100 C 34,56 52,28 80,28 C 98,28 112,32 120,46 Z" />
     </g>
-    <!-- P -->
+    <!-- P (Glifo con asta izquierda continua y bucle proporcional) -->
     <g transform="translate(380, 0)">
       <path d="M 0,0 H 92 C 128,0 154,18 154,60 C 154,102 128,120 92,120 H 34 V 200 H 0 Z M 34,28 V 92 H 90 C 108,92 120,82 120,60 C 120,38 108,28 90,28 Z" />
     </g>
-    <!-- + (Con cortes arquitectónicos oficiales y simetría rotacional 180°) -->
+    <!-- + (Isotipo Oficial HCP con cortes arquitectónicos y simetría rotacional 180°) -->
     <g transform="translate(586, 0)">
       <path d="M 83,0 H 117 V 83 H 200 V 117 H 83 C 103,117 117,136 117,160 V 200 H 83 V 117 H 0 V 83 H 117 C 97,83 83,64 83,40 Z" />
     </g>
   </g>
 
-  <!-- Barra de Tríada de Marca (Architecture, Engineering, Urban Planning) -->
-  <rect x="156" y="398" width="200" height="8" rx="4" fill="url(#triadGrad)"/>
+  <!-- Barra de Tríada de Marca Oficial (Architecture, Engineering, Urban Planning) -->
+  <!-- Centrada ópticamente con resplandor cromático sutil -->
+  <rect x="151" y="318" width="210" height="8" rx="4" fill="url(#triadGrad)" filter="url(#triadGlow)"/>
 
-  <!-- Subtítulo de Urban Planning en gris neutro legible -->
-  <text x="256" y="432" fill="#64748B" font-family="'Segoe UI', -apple-system, sans-serif" font-size="13" font-weight="800" letter-spacing="4" text-anchor="middle">URBAN PLANNING</text>
+  <!-- Subtítulo Oficial URBAN PLANNING en tipografía técnica de alta legibilidad -->
+  <text x="256" y="356" fill="#475569" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13.5" font-weight="800" letter-spacing="4.5" text-anchor="middle">URBAN PLANNING</text>
 </svg>

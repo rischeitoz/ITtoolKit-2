@@ -1,4 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+const fs = require('fs');
+const path = require('path');
+const { Resvg } = require('@resvg/resvg-js');
+const pngToIcoModule = require('png-to-ico');
+const pngToIco = pngToIcoModule.default || pngToIcoModule;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// GENERADOR OFICIAL DEL ICONO DE APLICACIÓN WINDOWS PARA HCPTOOLKIT
+// Respeta estrictamente la fuente, glifos y el isotipo oficial del logo de HCP+
+// Optimizado para Windows 11 / 10 (.exe, acceso directo, barra de tareas, etc.)
+// ═════════════════════════════════════════════════════════════════════════════
+
+const masterSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <!-- Gradiente de fondo blanco cerámico / luminancia pura estilo Windows 11 Fluent -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -96,3 +108,79 @@
   <!-- Subtítulo Oficial URBAN PLANNING en tipografía técnica de alta legibilidad -->
   <text x="256" y="356" fill="#475569" font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif" font-size="13.5" font-weight="800" letter-spacing="4.5" text-anchor="middle">URBAN PLANNING</text>
 </svg>
+`.trim();
+
+async function main() {
+  console.log('== Iniciando generación de iconos oficiales para Windows ==');
+
+  // Guardar renderer/logo.svg actualizado
+  const outLogoSvg = path.join(__dirname, '..', 'renderer', 'logo.svg');
+  fs.writeFileSync(outLogoSvg, masterSvg + '\n', 'utf8');
+  console.log('✓ Escrito: renderer/logo.svg (Master Vector 512x512)');
+
+  // Guardar también renderer/logo-icon.svg
+  const outLogoIconSvg = path.join(__dirname, '..', 'renderer', 'logo-icon.svg');
+  fs.writeFileSync(outLogoIconSvg, masterSvg + '\n', 'utf8');
+  console.log('✓ Escrito: renderer/logo-icon.svg');
+
+  // Asegurar existencia de directorio build
+  const buildDir = path.join(__dirname, '..', 'build');
+  if (!fs.existsSync(buildDir)) {
+    fs.mkdirSync(buildDir, { recursive: true });
+    console.log('✓ Directorio build/ creado');
+  }
+
+  // Renderizar PNGs a múltiples resoluciones de alta fidelidad con Resvg
+  const sizes = [16, 24, 32, 48, 64, 128, 256, 512];
+  const pngBuffers = {};
+
+  for (const size of sizes) {
+    const resvg = new Resvg(masterSvg, {
+      fitTo: { mode: 'width', value: size }
+    });
+    const png = resvg.render().asPng();
+    pngBuffers[size] = png;
+    console.log(`✓ Renderizado PNG: ${size}x${size} (${png.length} bytes)`);
+  }
+
+  // Guardar renderer/logo.png (512x512)
+  fs.writeFileSync(path.join(__dirname, '..', 'renderer', 'logo.png'), pngBuffers[512]);
+  console.log('✓ Guardado: renderer/logo.png (512x512)');
+
+  // Guardar build/icon.png (512x512)
+  fs.writeFileSync(path.join(buildDir, 'icon.png'), pngBuffers[512]);
+  console.log('✓ Guardado: build/icon.png (512x512)');
+
+  // Guardar renderer/favicon.png (64x64)
+  fs.writeFileSync(path.join(__dirname, '..', 'renderer', 'favicon.png'), pngBuffers[64]);
+  console.log('✓ Guardado: renderer/favicon.png (64x64)');
+
+  // Generar build/icon.ico multi-resolución profesional para Windows
+  // Incluye 16x16, 24x24, 32x32, 48x48, 64x64, 128x128 y 256x256
+  const icoInputBuffers = [
+    pngBuffers[16],
+    pngBuffers[24],
+    pngBuffers[32],
+    pngBuffers[48],
+    pngBuffers[64],
+    pngBuffers[128],
+    pngBuffers[256]
+  ];
+
+  try {
+    const icoBuffer = await pngToIco(icoInputBuffers);
+    const outIcoPath = path.join(buildDir, 'icon.ico');
+    fs.writeFileSync(outIcoPath, icoBuffer);
+    console.log(`✓ Guardado con éxito: build/icon.ico (${icoBuffer.length} bytes, 7 resoluciones nativas)`);
+  } catch (err) {
+    console.error('Error generando ICO con pngToIco:', err);
+    process.exit(1);
+  }
+
+  console.log('== Generación de iconos completada exitosamente ==');
+}
+
+main().catch(err => {
+  console.error('Fatal error:', err);
+  process.exit(1);
+});
