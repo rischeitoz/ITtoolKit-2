@@ -5294,6 +5294,9 @@ const hcpIntroAnimationManager = {
   subtagEl: null,
   bottomBarEl: null,
   progressBar: null,
+  stepTextEl: null,
+  pctEl: null,
+  topStatusEl: null,
   isFinished: false,
   timers: [],
 
@@ -5306,6 +5309,9 @@ const hcpIntroAnimationManager = {
     this.subtagEl = document.getElementById('hcp-intro-subtag');
     this.bottomBarEl = document.getElementById('hcp-intro-bottom-bar');
     this.progressBar = document.getElementById('hcp-intro-progress-bar');
+    this.stepTextEl = document.getElementById('hcp-intro-step-text');
+    this.pctEl = document.getElementById('hcp-intro-pct');
+    this.topStatusEl = document.getElementById('hcp-intro-top-status');
 
     // Desvanecer al hacer clic o pulsar teclas si el usuario desea entrar de inmediato
     this.overlay.addEventListener('click', () => this.finish());
@@ -5329,6 +5335,11 @@ const hcpIntroAnimationManager = {
   },
 
   startSequence() {
+    // Estado Inicial de arranque de software
+    if (this.progressBar) this.progressBar.style.width = '12%';
+    if (this.pctEl) this.pctEl.textContent = '12%';
+    if (this.stepTextEl) this.stepTextEl.textContent = 'Inicializando espacio de trabajo HCP...';
+
     // Fase 1: Arquitectura (HCP Lime #D8FF00) - "+" y barra inferior sincronizados
     this.setTimer(() => {
       if (this.crossEl) {
@@ -5341,7 +5352,10 @@ const hcpIntroAnimationManager = {
         this.wordEl.textContent = 'architecture';
         this.wordEl.classList.add('word-visible');
       }
-      if (this.progressBar) this.progressBar.style.width = '28%';
+      if (this.progressBar) this.progressBar.style.width = '32%';
+      if (this.pctEl) this.pctEl.textContent = '32%';
+      if (this.stepTextEl) this.stepTextEl.textContent = 'Cargando arquitectura y entorno técnico...';
+      if (this.topStatusEl) this.topStatusEl.textContent = 'Módulo activo: Architecture [HCP+]';
     }, 380);
 
     // Transición intermedia a Ingeniería
@@ -5361,7 +5375,10 @@ const hcpIntroAnimationManager = {
         this.wordEl.textContent = 'engineering';
         this.wordEl.classList.add('word-visible');
       }
-      if (this.progressBar) this.progressBar.style.width = '58%';
+      if (this.progressBar) this.progressBar.style.width = '64%';
+      if (this.pctEl) this.pctEl.textContent = '64%';
+      if (this.stepTextEl) this.stepTextEl.textContent = 'Verificando subsistemas de ingeniería y hardware...';
+      if (this.topStatusEl) this.topStatusEl.textContent = 'Módulo activo: Engineering [HCP+]';
     }, 1280);
 
     // Transición intermedia a Urbanismo
@@ -5381,7 +5398,10 @@ const hcpIntroAnimationManager = {
         this.wordEl.textContent = 'urban planning';
         this.wordEl.classList.add('word-visible');
       }
-      if (this.progressBar) this.progressBar.style.width = '84%';
+      if (this.progressBar) this.progressBar.style.width = '88%';
+      if (this.pctEl) this.pctEl.textContent = '88%';
+      if (this.stepTextEl) this.stepTextEl.textContent = 'Sincronizando catálogo de impresoras y red corporativa...';
+      if (this.topStatusEl) this.topStatusEl.textContent = 'Módulo activo: Urban Planning [HCP+]';
     }, 2180);
 
     // Transición intermedia a la Tríada Unificada
@@ -5401,6 +5421,9 @@ const hcpIntroAnimationManager = {
         this.subtagEl.classList.add('subtag-visible');
       }
       if (this.progressBar) this.progressBar.style.width = '100%';
+      if (this.pctEl) this.pctEl.textContent = '100%';
+      if (this.stepTextEl) this.stepTextEl.textContent = 'HCPToolKit preparado. Abriendo panel principal...';
+      if (this.topStatusEl) this.topStatusEl.textContent = 'Sistema Listo • HCPToolKit';
     }, 3080);
 
     // Cierre fluido de splash screen revelando el dashboard de la app
@@ -5417,6 +5440,7 @@ const hcpIntroAnimationManager = {
     this.timers = [];
 
     if (this.progressBar) this.progressBar.style.width = '100%';
+    if (this.pctEl) this.pctEl.textContent = '100%';
 
     if (this.overlay) {
       this.overlay.classList.add('fade-out');

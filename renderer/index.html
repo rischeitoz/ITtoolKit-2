@@ -15,49 +15,108 @@
 </head>
 
 <body>
-  <!-- Intro Cinematográfica Adaptada a la App (Animación Oficial HCP+) -->
+  <!-- Intro Integrada en la Ventana de la App (HCPToolKit Software Suite) -->
   <div class="hcp-intro-overlay" id="hcp-intro-overlay">
-    <div class="hcp-intro-container" id="hcp-intro-container">
-      <div class="hcp-intro-scene" id="hcp-intro-scene">
-        <!-- Rejilla técnica y resplandor ambiental Dark Slate -->
-        <div class="hcp-intro-grid-bg"></div>
-        <div class="hcp-intro-ambient-glow" id="hcp-intro-glow"></div>
+    <div class="hcp-intro-window-frame">
+      <!-- Barra superior integrada de la ventana de la App -->
+      <div class="hcp-intro-topbar">
+        <div class="hcp-intro-top-left">
+          <span class="hcp-intro-app-icon">⚡</span>
+          <span class="hcp-intro-app-name">HCP<strong>ToolKit</strong></span>
+          <span class="hcp-intro-app-badge">v1.0.0</span>
+          <span class="hcp-intro-app-sep">/</span>
+          <span class="hcp-intro-app-edition">ARCHITECTURE · ENGINEERING · URBAN PLANNING</span>
+        </div>
+        <div class="hcp-intro-top-center">
+          <span class="hcp-intro-live-dot"></span>
+          <span class="hcp-intro-top-status" id="hcp-intro-top-status">Iniciando aplicación...</span>
+        </div>
+        <div class="hcp-intro-top-right">
+          <span class="hcp-intro-skip-hint">Pulse <kbd>Esc</kbd> o clic para saltar</span>
+        </div>
+      </div>
 
-        <!-- Escenario principal de marca -->
-        <div class="hcp-intro-brand-stage">
-          <div class="hcp-intro-logo-row">
-            <span class="hcp-intro-letter hcp-letter-h">H</span>
-            <span class="hcp-intro-letter hcp-letter-c">C</span>
-            <span class="hcp-intro-letter hcp-letter-p">P</span>
-            <div class="hcp-intro-cross-wrap">
-              <span class="hcp-intro-cross" id="hcp-intro-cross">+</span>
+      <!-- Esquinas técnicas de diseño arquitectónico y software -->
+      <div class="hcp-intro-corner corner-tl"></div>
+      <div class="hcp-intro-corner corner-tr"></div>
+      <div class="hcp-intro-corner corner-bl"></div>
+      <div class="hcp-intro-corner corner-br"></div>
+
+      <!-- Contenedor central de la escena de marca -->
+      <div class="hcp-intro-container" id="hcp-intro-container">
+        <div class="hcp-intro-scene" id="hcp-intro-scene">
+          <!-- Rejilla técnica CAD y resplandor ambiental sutil -->
+          <div class="hcp-intro-grid-bg"></div>
+          <div class="hcp-intro-ambient-glow" id="hcp-intro-glow"></div>
+
+          <!-- Escenario principal de marca HCP+ -->
+          <div class="hcp-intro-brand-stage">
+            <div class="hcp-intro-badge-pill">
+              <span class="intro-pill-dot"></span>
+              <span>HCP ARQUITECTOS · SISTEMA OPERATIVO CORPORATIVO</span>
             </div>
-            <div class="hcp-intro-word-wrap">
-              <span class="hcp-intro-dynamic-word" id="hcp-intro-word">architecture</span>
+
+            <div class="hcp-intro-logo-row">
+              <span class="hcp-intro-letter hcp-letter-h">H</span>
+              <span class="hcp-intro-letter hcp-letter-c">C</span>
+              <span class="hcp-intro-letter hcp-letter-p">P</span>
+              <div class="hcp-intro-cross-wrap">
+                <span class="hcp-intro-cross" id="hcp-intro-cross">+</span>
+              </div>
+              <div class="hcp-intro-word-wrap">
+                <span class="hcp-intro-dynamic-word" id="hcp-intro-word">architecture</span>
+              </div>
+            </div>
+
+            <!-- Subtítulo oficial con las 3 disciplinas -->
+            <div class="hcp-intro-subtag" id="hcp-intro-subtag">
+              <div class="subtag-disciplines">
+                <span class="subtag-item subtag-arch">ARCHITECTURE</span>
+                <span class="subtag-dot dot-lime">·</span>
+                <span class="subtag-item subtag-eng">ENGINEERING</span>
+                <span class="subtag-dot dot-pink">·</span>
+                <span class="subtag-item subtag-urb">URBAN PLANNING</span>
+              </div>
             </div>
           </div>
 
-          <!-- Subtítulo oficial con las 3 disciplinas -->
-          <div class="hcp-intro-subtag" id="hcp-intro-subtag">
-            <div class="subtag-disciplines">
-              <span class="subtag-item subtag-arch">ARCHITECTURE</span>
-              <span class="subtag-dot dot-lime">·</span>
-              <span class="subtag-item subtag-eng">ENGINEERING</span>
-              <span class="subtag-dot dot-pink">·</span>
-              <span class="subtag-item subtag-urb">URBAN PLANNING</span>
+          <!-- Módulo de carga e inicialización de la app -->
+          <div class="hcp-intro-app-loader">
+            <div class="hcp-intro-loader-header">
+              <div class="hcp-intro-step-box">
+                <span class="hcp-intro-loader-spinner"></span>
+                <span class="hcp-intro-step-text" id="hcp-intro-step-text">Inicializando componentes del sistema...</span>
+              </div>
+              <span class="hcp-intro-pct" id="hcp-intro-pct">0%</span>
+            </div>
+
+            <!-- Barra de progreso tecnológica de la aplicación -->
+            <div class="hcp-intro-progress-track">
+              <div class="hcp-intro-progress-bar" id="hcp-intro-progress-bar"></div>
+            </div>
+
+            <div class="hcp-intro-loader-footer">
+              <span class="hcp-intro-tech-badge">🖥️ CORE x64</span>
+              <span class="hcp-intro-tech-badge">🌐 RED IT HCP</span>
+              <span class="hcp-intro-tech-badge">🖨️ CATÁLOGO LISTO</span>
+              <span class="hcp-intro-tech-badge">🛡️ ENTORNO SEGURO</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Barra de progreso tecnológica de inicio -->
-        <div class="hcp-intro-progress">
-          <div class="hcp-intro-progress-bar" id="hcp-intro-progress-bar"></div>
+      <!-- Barra inferior integrada de estado de la aplicación -->
+      <div class="hcp-intro-bottom-bar bar-lime" id="hcp-intro-bottom-bar">
+        <div class="hcp-intro-statusbar-inner">
+          <div class="statusbar-left">
+            <span class="statusbar-dot"></span>
+            <span class="statusbar-label">HCPToolKit Suite • Entorno de Trabajo Verificado</span>
+          </div>
+          <div class="statusbar-right">
+            <span>Málaga · Madrid · Sevilla</span>
+          </div>
         </div>
-
-        <!-- Barra inferior sincronizada dinámicamente con el color del isotipo "+" -->
-        <div class="hcp-intro-bottom-bar bar-lime" id="hcp-intro-bottom-bar">
-          <div class="hcp-lime-glow-tracer"></div>
-        </div>
+        <div class="hcp-lime-glow-tracer"></div>
       </div>
     </div>
   </div>
