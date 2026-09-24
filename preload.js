@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('api', {
   scanCanonPrinters: () => ipcRenderer.invoke('scan-canon-printers'),
   installCanonPrinter: (data) => ipcRenderer.invoke('install-canon-printer', data),
   launchCanonInstaller: () => ipcRenderer.invoke('launch-canon-installer'),
+  launchPlotterInstaller: () => ipcRenderer.invoke('launch-plotter-installer'),
   openWindowsPrinters: () => ipcRenderer.invoke('open-windows-printers'),
   printTestPage: (printerName) => ipcRenderer.invoke('print-test-page', printerName),
 

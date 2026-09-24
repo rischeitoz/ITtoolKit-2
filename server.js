@@ -1862,10 +1862,269 @@ function getCrashDiagnosis(appName = '', faultModule = '', errCode = '') {
   return { errCodeName, motivo, diagnostico, solucion, severity };
 }
 
+// Extraer el valor de un elemento XML de forma simple (sin parseador externo)
+function xmlVal(xml, tag) {
+  const re = new RegExp(`<${tag}[^>]*>([^<]*)</${tag}>`, 'i');
+  const m  = re.exec(xml);
+  return m ? m[1].trim() : '';
+}
+
+// Parsear datos de elementos XML tanto por atributo Name como por posición secuencial (nativo Windows)
+function extractXmlData(block) {
+  const named = {};
+  const list = [];
+  const dataRegex = /<Data(?:\s+Name=['"]([^'"]+)['"])?>([^<]*)<\/Data>/gi;
+  let match;
+  while ((match = dataRegex.exec(block)) !== null) {
+    const val = (match[2] || '').trim();
+    list.push(val);
+    if (match[1]) {
+      named[match[1].toLowerCase()] = val;
+    }
+  }
+  return { named, list };
+}
+
+// Parsear cierres inesperados de aplicaciones del XML de wevtutil (SIN POWERSHELL)
+function parseAppCrashXml(xmlText) {
+  const crashes = [];
+  if (!xmlText) return crashes;
+  const eventBlocks = xmlText.split(/<Event\s/i).slice(1);
+
+  for (const block of eventBlocks) {
+    try {
+      const eventId = parseInt(xmlVal(block, 'EventID'), 10);
+      const timeRaw = block.match(/TimeCreated\s+SystemTime=['"]([^'"]+)['"]/i)?.[1] || '';
+      const time = timeRaw ? new Date(timeRaw) : null;
+      if (!time || isNaN(time.getTime())) continue;
+
+      const { named, list } = extractXmlData(block);
+
+      let appName = named.appname || named.applicationname || named.param1 || list[0] || 'Aplicación desconocida';
+      if (appName.includes('\\')) {
+        appName = appName.split('\\').pop();
+      }
+
+      let appPath = named.apppath || named.applicationpath || list[10] || list[0] || '';
+      let faultModule = named.faultingmodulename || named.modulename || list[3] || 'Módulo principal del proceso';
+      if (faultModule.includes('\\')) {
+        faultModule = faultModule.split('\\').pop();
+      }
+
+      let faultModulePath = named.faultingmodulepath || named.modulepath || list[11] || '';
+      let faultOffset = named.faultingoffset || named.offset || list[7] || '';
+      let errCode = named.exceptioncode || list[6] || '';
+
+      if (eventId === 1002) {
+        appName = named.appname || named.program || list[0] || appName;
+        appPath = named.apppath || list[5] || appPath;
+        faultModule = 'Hang / Bloqueo en hilo de interfaz (Sin respuesta)';
+        errCode = '0x000003ea';
+      } else if (eventId === 1026) {
+        appName = named.application || list[0] || appName;
+        faultModule = '.NET Runtime CLR';
+        errCode = '0xe0434352';
+      }
+
+      const formattedErrCode = errCode ? (errCode.startsWith('0x') ? errCode : `0x${errCode}`) : '0xc0000005';
+      const diag = getCrashDiagnosis(appName, faultModule, formattedErrCode);
+
+      crashes.push({
+        id: eventId,
+        appName,
+        appPath,
+        faultModule,
+        faultModulePath,
+        faultOffset: faultOffset ? (faultOffset.startsWith('0x') ? faultOffset : `0x${faultOffset}`) : '0x00000000',
+        errCode: formattedErrCode,
+        time: time.toISOString(),
+        ...diag,
+      });
+    } catch {}
+  }
+  return crashes;
+}
+
+// Parsear todos los historiales del registro del sistema (System Log) vía wevtutil (SIN POWERSHELL)
+function parseSystemEventsXml(xmlText) {
+  const powerEvents = [];
+  const hardwareEvents = [];
+  const serviceEvents = [];
+  let lastShutdownInfo = null;
+
+  if (!xmlText) {
+    return { powerEvents, hardwareEvents, serviceEvents, lastShutdownInfo, powerStats: calculatePowerStats([]) };
+  }
+
+  const eventBlocks = xmlText.split(/<Event\s/i).slice(1);
+
+  for (const block of eventBlocks) {
+    try {
+      const eventId = parseInt(xmlVal(block, 'EventID'), 10);
+      const timeRaw = block.match(/TimeCreated\s+SystemTime=['"]([^'"]+)['"]/i)?.[1] || '';
+      const time = timeRaw ? new Date(timeRaw) : null;
+      if (!time || isNaN(time.getTime())) continue;
+
+      const provider = xmlVal(block, 'Provider') || block.match(/Provider\s+Name=['"]([^'"]+)['"]/i)?.[1] || 'System';
+      const { named, list } = extractXmlData(block);
+      const isoTime = time.toISOString();
+
+      if ([41, 1074, 6005, 6006, 6008].includes(eventId)) {
+        let type = 'Evento de Alimentación';
+        let typeCode = 'system';
+        let category = 'normal';
+        let levelBadge = 'ok';
+        let user = named.user || named.param6 || list[5] || 'NT AUTHORITY\\SYSTEM';
+        let processName = named.process || named.param1 || list[0] || 'C:\\Windows\\System32\\services.exe';
+        let reason = 'Operación registrada en el visor de eventos del sistema.';
+        let detail = '';
+
+        if (eventId === 6005) {
+          type = 'Inicio del Sistema (Arranque Limpio)';
+          typeCode = 'boot';
+          category = 'normal';
+          levelBadge = 'ok';
+          reason = 'El servicio Registro de eventos se inició. El sistema operativo ha arrancado con normalidad.';
+          processName = 'C:\\Windows\\System32\\services.exe';
+          detail = 'Inicialización de los componentes del kernel y servicios en segundo plano.';
+        } else if (eventId === 6006) {
+          type = 'Apagado Limpio del Sistema';
+          typeCode = 'shutdown';
+          category = 'normal';
+          levelBadge = 'ok';
+          reason = 'El servicio Registro de eventos se detuvo de forma ordenada.';
+          processName = 'C:\\Windows\\System32\\services.exe';
+          detail = 'Cierre completo de la sesión de Windows.';
+        } else if (eventId === 1074) {
+          const actionText = (named.param3 || list[2] || '').toLowerCase();
+          const isReboot = actionText.includes('reinic') || actionText.includes('reboot') || actionText.includes('restart');
+          type = isReboot ? 'Reinicio Ordenado (User32)' : 'Apagado Ordenado (User32)';
+          typeCode = isReboot ? 'reboot' : 'shutdown';
+          category = 'normal';
+          levelBadge = 'info';
+          user = named.param6 || list[5] || user;
+          processName = named.param1 || list[0] || processName;
+          const userReason = named.param5 || list[4] || named.param3 || list[2];
+          reason = userReason ? `Motivo: ${userReason}` : (isReboot ? 'Reinicio planificado por el usuario o mantenimiento.' : 'Apagado planificado por el usuario.');
+          detail = `Iniciado por el proceso ${processName} en nombre de ${user}.`;
+        } else if (eventId === 6008) {
+          type = 'Apagado Inesperado (Corte / Sucio)';
+          typeCode = 'unexpected';
+          category = 'inesperado';
+          levelBadge = 'warn';
+          reason = 'El apagado anterior del equipo resultó inesperado (posible corte de alimentación o botón forzado).';
+          detail = 'El kernel detectó que el equipo no completó la secuencia de apagado limpio.';
+        } else if (eventId === 41) {
+          type = 'Reinicio sin Apagado Limpio (Kernel-Power)';
+          typeCode = 'unexpected';
+          category = 'critico';
+          levelBadge = 'err';
+          const bugcheck = named.bugcheckcode || list[0] || '0';
+          const isBsod = bugcheck !== '0';
+          reason = isBsod ? `Fallo grave del kernel (Bugcheck: 0x${parseInt(bugcheck, 10).toString(16)}).` : 'El equipo se reinició sin apagarse limpiamente (corte eléctrico o bloqueo completo).';
+          detail = 'Interrupción brusca de la alimentación de la placa base o fallo crítico no recuperado.';
+        }
+
+        const pEvent = {
+          id: eventId,
+          eventId,
+          time: isoTime,
+          type,
+          typeCode,
+          category,
+          level: (eventId === 41 || eventId === 6008) ? 'Advertencia' : 'Información',
+          levelBadge,
+          provider,
+          user,
+          process: processName,
+          reason,
+          detail
+        };
+
+        powerEvents.push(pEvent);
+
+        if (!lastShutdownInfo && (eventId === 1074 || eventId === 6006 || eventId === 6008 || eventId === 41)) {
+          lastShutdownInfo = {
+            time: isoTime,
+            type,
+            category: (eventId === 6008 || eventId === 41) ? 'apagado_inesperado' : 'reinicio_normal',
+            user,
+            process: processName,
+            reason
+          };
+        }
+      } else if ([1001, 7, 11, 51, 55, 153, 17, 18, 19, 47].includes(eventId)) {
+        const isBsod = eventId === 1001;
+        const isDisk = [7, 11, 51, 55, 153].includes(eventId);
+        const title = isBsod ? 'Comprobación de Error BSOD (BugCheck)' : (isDisk ? 'Alerta de Disco / Sistema de Archivos' : 'Fallo de Hardware WHEA-Logger');
+        const diagnostic = isBsod ? 'El kernel de Windows generó un volcado de memoria tras pantalla azul.' : (isDisk ? 'Sector defectuoso o error de E/S en almacenamiento.' : 'El subsistema WHEA detectó una anomalía en PCIe/CPU/RAM.');
+
+        hardwareEvents.push({
+          id: eventId,
+          eventId,
+          time: isoTime,
+          provider,
+          title,
+          level: 'Crítico',
+          levelBadge: 'err',
+          detail: named.param1 || list.join(' ') || title,
+          diagnostic
+        });
+      } else if ([7000, 7001, 7009, 7011, 7031, 7034].includes(eventId)) {
+        const sName = named.param1 || list[0] || 'Servicio de Windows';
+        serviceEvents.push({
+          id: eventId,
+          eventId,
+          time: isoTime,
+          provider: 'Service Control Manager',
+          serviceName: sName,
+          title: `Incidencia en Servicio (${sName})`,
+          level: 'Advertencia',
+          detail: named.param2 || list.slice(1).join(' ') || 'El servicio experimentó un timeout o detención imprevista.'
+        });
+      }
+    } catch {}
+  }
+
+  const powerStats = calculatePowerStats(powerEvents);
+  return { powerEvents, hardwareEvents, serviceEvents, lastShutdownInfo, powerStats };
+}
+
+// Cálculo matemático de estadísticas de estabilidad del sistema (SIN POWERSHELL)
+function calculatePowerStats(powerEvents = []) {
+  let totalReboots = 0;
+  let cleanShutdowns = 0;
+  let unexpectedShutdowns = 0;
+  let totalBootEvents = 0;
+
+  powerEvents.forEach(e => {
+    if (e.typeCode === 'reboot') totalReboots++;
+    else if (e.typeCode === 'shutdown') cleanShutdowns++;
+    else if (e.typeCode === 'unexpected' || e.typeCode === 'kernel_power') unexpectedShutdowns++;
+    else if (e.typeCode === 'boot') totalBootEvents++;
+  });
+
+  const totalOps = totalReboots + cleanShutdowns + unexpectedShutdowns + totalBootEvents;
+  let stabilityPct = 100;
+  if (totalOps > 0 && unexpectedShutdowns > 0) {
+    stabilityPct = Math.max(20, Math.round(100 - (unexpectedShutdowns * 25)));
+  }
+
+  return {
+    totalEvents: powerEvents.length,
+    totalReboots,
+    cleanShutdowns,
+    unexpectedShutdowns,
+    totalBootEvents,
+    stabilityScore: `${stabilityPct}%`,
+    statusLabel: unexpectedShutdowns === 0 ? 'Excelente - 100% Apagados Limpios' : `${unexpectedShutdowns} Fallos Inesperados Detectados`
+  };
+}
+
 app.post('/api/event-log-analysis', async (req, res) => {
   try {
     const range = req.body.range || '7';
-    appLog('INFO', `[Visor] Analizando registro de eventos del sistema (rango: ${range})...`);
+    appLog('INFO', `[Visor] Analizando registros reales del sistema con wevtutil.exe (sin PowerShell, rango: ${range})...`);
 
     const uptimeSec = os.uptime();
     const days = Math.floor(uptimeSec / 86400);
@@ -1875,9 +2134,10 @@ app.post('/api/event-log-analysis', async (req, res) => {
     const lastBootTime = new Date(Date.now() - uptimeSec * 1000).toISOString();
 
     let daysBack = 7;
-    if (range === 'today') daysBack = 1;
-    else if (range === 'yesterday') daysBack = 2;
-    else if (range === '30') daysBack = 30;
+    const rangeStr = String(range);
+    if (rangeStr === 'today') daysBack = 1;
+    else if (rangeStr === 'yesterday') daysBack = 2;
+    else if (rangeStr === '30') daysBack = 30;
     else if (!isNaN(parseInt(range, 10))) daysBack = parseInt(range, 10);
 
     const now = Date.now();
@@ -1885,169 +2145,44 @@ app.post('/api/event-log-analysis', async (req, res) => {
     let appCrashes = [];
     let hardwareEvents = [];
     let serviceEvents = [];
+    let lastShutdownInfo = null;
 
     if (process.platform === 'win32') {
       try {
-        const psScript = `
-          $ErrorActionPreference = 'SilentlyContinue';
-          $since = (Get-Date).AddDays(-${daysBack});
-          $evts = Get-WinEvent -FilterHashtable @{LogName='System'; Id=41,1074,6005,6006,6008,1001,7,11,51,55,153,17,18,19,47,7000,7001,7009,7011,7031,7034; StartTime=$since} -MaxEvents 80 | ForEach-Object {
-            [PSCustomObject]@{
-              Id = $_.Id
-              TimeCreated = $_.TimeCreated.ToString('o')
-              ProviderName = $_.ProviderName
-              LevelDisplayName = $_.LevelDisplayName
-              Message = $_.Message
-            }
-          };
-          if ($evts) { $evts | ConvertTo-Json -Compress } else { '[]' }
-        `;
-        const resEvents = await runPowershell(psScript);
-        if (resEvents.ok && resEvents.stdout) {
-          const parsed = JSON.parse(resEvents.stdout);
-          const rawList = Array.isArray(parsed) ? parsed : [parsed];
-          rawList.filter(Boolean).forEach(e => {
-            const msg = e.Message || '';
-            const id = e.Id;
-
-            // Clasificación por categoría
-            if ([41, 1074, 6005, 6006, 6008].includes(id)) {
-              let type = 'Evento del Sistema';
-              let typeCode = 'system';
-              let category = 'normal';
-              let levelBadge = 'ok';
-              let user = 'NT AUTHORITY\\SYSTEM';
-              let processName = 'Sistema';
-              let reason = 'Operación registrada en el visor de eventos.';
-
-              if (id === 6005) {
-                type = 'Inicio del Sistema (Boot)';
-                typeCode = 'boot';
-                reason = 'El servicio Registro de eventos se inició. El sistema operativo ha arrancado de forma limpia.';
-                processName = 'C:\\Windows\\System32\\services.exe';
-              } else if (id === 6006) {
-                type = 'Apagado Limpio del Sistema';
-                typeCode = 'shutdown';
-                reason = 'El servicio Registro de eventos se detuvo de forma ordenada.';
-                processName = 'C:\\Windows\\System32\\services.exe';
-              } else if (id === 1074) {
-                const isReboot = /reinicio|reiniciar|restart/i.test(msg);
-                type = isReboot ? 'Reinicio Ordenado (User32)' : 'Apagado Ordenado (User32)';
-                typeCode = isReboot ? 'reboot' : 'shutdown';
-                const userMatch = msg.match(/(?:usuario|user)\s+([^\s\r\n]+)/i);
-                if (userMatch) user = userMatch[1];
-                const procMatch = msg.match(/(?:proceso|process)\s+([^\s\r\n]+)/i);
-                if (procMatch) processName = procMatch[1];
-                const reasonMatch = msg.match(/(?:motivo|reason)[:\s]+([^\r\n]+)/i);
-                reason = reasonMatch ? reasonMatch[1] : (isReboot ? 'Reinicio planificado del sistema.' : 'Apagado planificado por el usuario o mantenimiento.');
-              } else if (id === 6008) {
-                type = 'Apagado Inesperado (Corte / Sucio)';
-                typeCode = 'unexpected';
-                category = 'inesperado';
-                levelBadge = 'warn';
-                reason = 'El apagado anterior del equipo resultó inesperado (posible corte de alimentación o botón presionado).';
-              } else if (id === 41) {
-                type = 'Reinicio sin Apagado Limpio (Kernel-Power)';
-                typeCode = 'kernel_power';
-                category = 'critico';
-                levelBadge = 'err';
-                reason = 'El sistema se reinició sin apagarse limpiamente primero. Posible fallo de alimentación, cuelgue o BSOD.';
-              }
-
-              powerEvents.push({
-                id,
-                eventId: id,
-                time: e.TimeCreated,
-                type,
-                typeCode,
-                category,
-                level: e.LevelDisplayName || 'Información',
-                levelBadge,
-                provider: e.ProviderName || 'System',
-                user,
-                process: processName,
-                reason,
-                detail: msg
-              });
-            } else if ([1001, 7, 11, 51, 55, 153, 17, 18, 19, 47].includes(id)) {
-              let title = id === 1001 ? 'Comprobación de Error BSOD (BugCheck)' : ([7, 11, 51, 55, 153].includes(id) ? 'Alerta de Disco / Sistema de Archivos' : 'Fallo de Hardware WHEA-Logger');
-              hardwareEvents.push({
-                id,
-                eventId: id,
-                time: e.TimeCreated,
-                provider: e.ProviderName || 'Hardware',
-                title,
-                level: e.LevelDisplayName || 'Crítico',
-                levelBadge: 'err',
-                detail: msg,
-                diagnostic: id === 1001 ? 'El kernel de Windows generó un volcado de memoria tras pantalla azul.' : 'Se detectó una anomalía en hardware o subsistema de almacenamiento.'
-              });
-            } else if ([7000, 7001, 7009, 7011, 7031, 7034].includes(id)) {
-              serviceEvents.push({
-                id,
-                eventId: id,
-                time: e.TimeCreated,
-                provider: e.ProviderName || 'Service Control Manager',
-                title: 'Incidencia en Servicio de Windows',
-                level: e.LevelDisplayName || 'Advertencia',
-                detail: msg
-              });
-            }
-          });
+        const nowDate = new Date();
+        let appTimeFilter = '';
+        if (rangeStr === 'today') {
+          const startOfToday = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).toISOString();
+          appTimeFilter = `TimeCreated[@SystemTime>='${startOfToday}']`;
+        } else if (rangeStr === 'yesterday') {
+          const startOfToday = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate());
+          const startOfYesterday = new Date(startOfToday.getTime() - 86400000);
+          appTimeFilter = `TimeCreated[@SystemTime>='${startOfYesterday.toISOString()}' and @SystemTime<'${startOfToday.toISOString()}']`;
+        } else {
+          const since = new Date(Date.now() - daysBack * 86400000).toISOString();
+          appTimeFilter = `TimeCreated[@SystemTime>='${since}']`;
         }
 
-        // Consultar eventos de Application (Crashes ID 1000, 1002, 1026) con codificación UTF-8
-        const psAppScript = `
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
-          $OutputEncoding = [System.Text.Encoding]::UTF8;
-          $since = (Get-Date).AddDays(-${daysBack});
-          $crashes = Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1002,1026; StartTime=$since} -MaxEvents 60 -ErrorAction SilentlyContinue | ForEach-Object {
-            [PSCustomObject]@{
-              Id = $_.Id
-              TimeCreated = $_.TimeCreated.ToString('o')
-              Message = $_.Message
-            }
-          };
-          if ($crashes) { $crashes | ConvertTo-Json -Compress } else { '[]' }
-        `;
-        const resApp = await runPowershell(psAppScript);
+        const appQuery = `*[System[(EventID=1000 or EventID=1002 or EventID=1026) and ${appTimeFilter}]]`;
+        const sysSince = new Date(Date.now() - daysBack * 86400000).toISOString();
+        const sysQuery = `*[System[(EventID=41 or EventID=1074 or EventID=6005 or EventID=6006 or EventID=6008 or EventID=1001 or EventID=7 or EventID=11 or EventID=51 or EventID=55 or EventID=153 or EventID=17 or EventID=18 or EventID=19 or EventID=47 or EventID=7000 or EventID=7001 or EventID=7009 or EventID=7011 or EventID=7031 or EventID=7034) and TimeCreated[@SystemTime>='${sysSince}']]]`;
+
+        // 100% Nativo Windows: wevtutil.exe sin PowerShell
+        const resApp = await runCmd('wevtutil', ['qe', 'Application', `/q:${appQuery}`, '/f:XML', '/c:100', '/rd:true'], 15000);
         if (resApp.ok && resApp.stdout) {
-          try {
-            const parsedApp = JSON.parse(resApp.stdout);
-            const rawAppList = Array.isArray(parsedApp) ? parsedApp : [parsedApp];
-            rawAppList.filter(Boolean).forEach(c => {
-              const msg = c.Message || '';
-              const appMatch = msg.match(/(?:Nombre de la aplicación con errores|Faulting application name):\s*([^\s\r\n]+)/i);
-              const modMatch = msg.match(/(?:Nombre del módulo con errores|Faulting module name):\s*([^\s\r\n]+)/i);
-              const codeMatch = msg.match(/(?:Código de excepción|Exception code):\s*(0x[0-9a-fA-F]+|[0-9a-fA-F]+)/i);
-              const pathMatch = msg.match(/(?:Ruta de la aplicación con errores|Faulting application path):\s*([^\r\n]+)/i);
-              const modPathMatch = msg.match(/(?:Ruta del módulo con errores|Faulting module path):\s*([^\r\n]+)/i);
+          appCrashes = parseAppCrashXml(resApp.stdout);
+        }
 
-              let appName = appMatch ? appMatch[1] : 'Aplicación desconocida';
-              if (appName.includes('\\')) appName = appName.split('\\').pop();
-
-              let faultModule = modMatch ? modMatch[1] : 'Módulo principal';
-              if (faultModule.includes('\\')) faultModule = faultModule.split('\\').pop();
-
-              let errCode = codeMatch ? codeMatch[1] : (c.Id === 1002 ? '0x000003ea' : '0xc0000005');
-              if (!errCode.startsWith('0x')) errCode = `0x${errCode}`;
-
-              const diag = getCrashDiagnosis(appName, faultModule, errCode);
-              appCrashes.push({
-                id: c.Id,
-                appName,
-                appPath: pathMatch ? pathMatch[1].trim() : '',
-                faultModule,
-                faultModulePath: modPathMatch ? modPathMatch[1].trim() : '',
-                errCode,
-                time: c.TimeCreated,
-                ...diag
-              });
-            });
-          } catch {}
+        const resSys = await runCmd('wevtutil', ['qe', 'System', `/q:${sysQuery}`, '/f:XML', '/c:200', '/rd:true'], 15000);
+        if (resSys.ok && resSys.stdout) {
+          const parsedSys = parseSystemEventsXml(resSys.stdout);
+          powerEvents = parsedSys.powerEvents;
+          hardwareEvents = parsedSys.hardwareEvents;
+          serviceEvents = parsedSys.serviceEvents;
+          lastShutdownInfo = parsedSys.lastShutdownInfo;
         }
       } catch (err) {
-        appLog('WARN', `[Visor] Error al leer eventos de Windows: ${err.message}`);
+        appLog('WARN', `[Visor] Error al consultar wevtutil.exe (sin PowerShell): ${err.message}`);
       }
     }
 
@@ -2059,23 +2194,26 @@ app.post('/api/event-log-analysis', async (req, res) => {
     const filteredServiceEvents = serviceEvents.filter(e => new Date(e.time).getTime() >= cutoff);
 
     // Calcular estadísticas
-    const totalReboots = filteredPowerEvents.filter(e => e.typeCode === 'reboot').length;
-    const cleanShutdowns = filteredPowerEvents.filter(e => e.typeCode === 'shutdown').length;
-    const unexpectedShutdowns = filteredPowerEvents.filter(e => e.typeCode === 'unexpected' || e.typeCode === 'kernel_power' || e.typeCode === 'bsod').length;
-    const totalBootEvents = filteredPowerEvents.filter(e => e.typeCode === 'boot').length;
+    const powerStats = calculatePowerStats(filteredPowerEvents);
+    const totalReboots = powerStats.totalReboots;
+    const cleanShutdowns = powerStats.cleanShutdowns;
+    const unexpectedShutdowns = powerStats.unexpectedShutdowns;
+    const totalBootEvents = powerStats.totalBootEvents;
+    const stabilityScore = powerStats.stabilityScore;
 
-    const totalCycles = totalReboots + cleanShutdowns + unexpectedShutdowns;
-    const stabilityScore = totalCycles > 0 ? Math.round(((totalCycles - unexpectedShutdowns) / totalCycles) * 100) : 100;
-
-    const lastShutdownEvent = powerEvents.find(e => e.typeCode === 'shutdown' || e.typeCode === 'reboot' || e.typeCode === 'unexpected' || e.typeCode === 'kernel_power');
-    const lastShutdownInfo = lastShutdownEvent ? {
-      time: lastShutdownEvent.time,
-      type: lastShutdownEvent.type,
-      category: lastShutdownEvent.category === 'normal' ? 'reinicio_normal' : 'inesperado',
-      user: lastShutdownEvent.user,
-      process: lastShutdownEvent.process,
-      reason: lastShutdownEvent.reason
-    } : null;
+    if (!lastShutdownInfo && powerEvents.length > 0) {
+      const lastShutdownEvent = powerEvents.find(e => e.typeCode === 'shutdown' || e.typeCode === 'reboot' || e.typeCode === 'unexpected' || e.typeCode === 'kernel_power');
+      if (lastShutdownEvent) {
+        lastShutdownInfo = {
+          time: lastShutdownEvent.time,
+          type: lastShutdownEvent.type,
+          category: lastShutdownEvent.category === 'normal' ? 'reinicio_normal' : 'inesperado',
+          user: lastShutdownEvent.user,
+          process: lastShutdownEvent.process,
+          reason: lastShutdownEvent.reason
+        };
+      }
+    }
 
     const recommendations = [];
     if (unexpectedShutdowns === 0) {
@@ -2099,15 +2237,7 @@ app.post('/api/event-log-analysis', async (req, res) => {
       uptimeSec,
       lastBootTime,
       lastShutdownInfo,
-      powerStats: {
-        totalEvents: filteredPowerEvents.length,
-        totalReboots,
-        cleanShutdowns,
-        unexpectedShutdowns,
-        totalBootEvents,
-        stabilityScore: `${stabilityScore}%`,
-        statusLabel: unexpectedShutdowns === 0 ? 'Excelente - 100% Apagados Limpios' : `${unexpectedShutdowns} Fallos Inesperados Detectados`
-      },
+      powerStats,
       powerEvents: filteredPowerEvents,
       appCrashes: filteredAppCrashes,
       hardwareEvents: filteredHardwareEvents,
@@ -3127,6 +3257,13 @@ app.post('/api/printers/launch-installer', (req, res) => {
   res.json({
     success: true,
     message: 'Ejecutando el instalador de drivers de Canon...'
+  });
+});
+
+app.post('/api/printers/launch-plotter-installer', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Ejecutando el instalador del Plotter Océ ColorWave 3500 (ocewpd2.15.1.exe)...'
   });
 });
 

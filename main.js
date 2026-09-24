@@ -1240,171 +1240,125 @@ function runElevatedCommand(exe, args = '', windowStyle = 1) {
 // para disparar el UAC y abrir CMD como administrador.
 // El .bat secundario captura el código de salida en un fichero temporal.
 // ─────────────────────────────────────────────────────────────────────────────
-function runCmdVisible(command, label, event, channel) {
+// ─────────────────────────────────────────────────────────────────────────────
+// EJECUCIÓN DIRECTA DE HERRAMIENTAS OFICIALES EN CMD (SIN MODIFICACIONES)
+// Ejecuta cmd.exe /k "<comando>" elevado con UAC ("runas").
+// La herramienta se ejecuta en su forma nativa original (sin scripts ni banners)
+// y el CMD no se cierra al terminar (/k), permitiendo al usuario ver el log
+// completo y seguir interactuando con la consola.
+// ─────────────────────────────────────────────────────────────────────────────
+function launchOriginalCmdTool(command, label, event, channel) {
   return new Promise((resolve) => {
-    const tmp         = os.tmpdir();
-    const stamp       = Date.now();
-    const windowTitle = `ITTK_${stamp}`;
-    const initFile    = path.join(tmp, `ittk_init_${stamp}.txt`);
-    const exitFile    = path.join(tmp, `ittk_exit_${stamp}.txt`);
-    const batFile     = path.join(tmp, `ittk_cmd_${stamp}.bat`);
-    const vbsFile     = path.join(tmp, `ittk_run_${stamp}.vbs`);
+    appLog('INFO', `[${label}] Solicitando elevación y apertura de cmd.exe /k ${command}...`);
 
-    appLog('INFO', `[${label}] Preparando CMD elevado (${windowTitle})...`);
+    if (process.platform !== 'win32') {
+      appLog('INFO', `[${label}] Plataforma no-Windows detectada (${process.platform}). Comando preparado.`);
+      return resolve({
+        success: true,
+        summary: `Herramienta oficial preparada: cmd.exe /k ${command}`,
+        elapsedMs: 0,
+      });
+    }
 
-    // .bat: escribe initFile en la PRIMERA LÍNEA, ejecuta el comando, escribe exitFile y borra initFile
-    const bat = [
-      '@echo off',
-      `echo STARTED> "${initFile}"`,
-      `title ${windowTitle}`,
-      'echo.',
-      `echo  ====================================================`,
-      `echo   HCPToolKit - ${label}`,
-      `echo  ====================================================`,
-      'echo.',
-      command,
-      `echo %errorlevel%> "${exitFile}"`,
-      'if exist "' + initFile + '" del "' + initFile + '"',
-      'echo.',
-      'echo  Operacion finalizada. Puede cerrar esta ventana.',
-      'pause',
-    ].join('\r\n');
+    if (event && channel) {
+      event.sender.send(channel, 'Solicitando permisos de administrador... Se abrirá el CMD oficial.');
+    }
 
-    // .vbs: usa Shell.Application.ShellExecute para elevar el .bat con runas
+    const tmp = os.tmpdir();
+    const stamp = Date.now();
+    const vbsFile = path.join(tmp, `launch_cmd_${stamp}.vbs`);
+
+    // ShellExecute de Windows con verbo "runas" para abrir cmd.exe elevado
+    // El parámetro /k ejecuta la herramienta original tal cual y mantiene CMD abierto al terminar
     const vbs = [
       'Set oShell = CreateObject("Shell.Application")',
-      `oShell.ShellExecute "cmd.exe", "/c """ & "${batFile.replace(/\\/g, '\\\\')}" & """", "", "runas", 1`,
+      `oShell.ShellExecute "cmd.exe", "/k ${command}", "", "runas", 1`,
     ].join('\r\n');
 
     try {
-      fs.writeFileSync(batFile, bat, 'latin1');
       fs.writeFileSync(vbsFile, vbs, 'utf8');
     } catch (err) {
-      appLog('ERROR', `[${label}] No se pudieron crear archivos temporales: ${err.message}`);
-      resolve({ exitCode: -1, elapsedMs: 0, elevationDenied: false, error: err.message });
+      appLog('ERROR', `[${label}] Error al crear archivo VBS: ${err.message}`);
+      // Fallback directo con PowerShell
+      const psCmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process cmd.exe -ArgumentList '/k ${command}' -Verb RunAs"`;
+      runExec(psCmd, 10000).then((psRes) => {
+        resolve({
+          success: !psRes.error,
+          cancelled: !!psRes.error,
+          summary: psRes.error
+            ? 'No se pudieron conceder permisos de administrador o la operación fue cancelada.'
+            : `Herramienta oficial iniciada (${command}). La consola CMD permanecerá abierta tras finalizar.`,
+          elapsedMs: 0,
+        });
+      });
       return;
     }
 
-    const start = Date.now();
-    event.sender.send(channel, 'Solicitando permisos de administrador... Se abrirá una ventana CMD.');
+    execFile('cscript', ['//nologo', vbsFile], { timeout: 10000 }, (vbsErr) => {
+      try { fs.unlinkSync(vbsFile); } catch {}
 
-    execFile('cscript', ['//nologo', vbsFile],
-      { timeout: 10000, maxBuffer: 1024 * 256 },
-      (vbsErr) => {
-        if (vbsErr && vbsErr.code !== 0 && !vbsErr.killed) {
-          clearFiles();
-          appLog('WARN', `[${label}] cscript devolvió error: ${vbsErr.message}`);
-          resolve({ exitCode: -1, elapsedMs: Date.now() - start, elevationDenied: true, cancelled: true });
-          return;
-        }
-
-        const MAX_WAIT = 30 * 60 * 1000;
-        const POLL_MS  = 1000;
-        let   waited   = 0;
-        let   cmdStarted = false;
-
-        const heartbeat = setInterval(() => {
-          const mins = Math.floor((Date.now() - start) / 60000);
-          event.sender.send(channel,
-            `Ejecutando en ventana CMD... (${mins} min transcurridos). Cierra la ventana CMD cuando termine.`);
-        }, 10000);
-
-        const poll = setInterval(async () => {
-          waited += POLL_MS;
-          let exitContent = '';
-          try { exitContent = fs.readFileSync(exitFile, 'utf8').trim(); } catch {}
-
-          // 1. Si exitFile existe, la operación completó normalmente
-          if (exitContent !== '') {
-            finish(parseInt(exitContent, 10) || 0, false, false);
-            return;
-          }
-
-          // 2. Comprobar si la ventana CMD ya inició
-          if (!cmdStarted) {
-            if (fs.existsSync(initFile)) {
-              cmdStarted = true;
-            } else if (waited >= 12000) {
-              // 12 segundos sin initFile ni exitFile -> UAC denegado o cancelado por el usuario
-              finish(-1, true, true);
-              return;
-            }
+      if (vbsErr && vbsErr.code !== 0 && !vbsErr.killed) {
+        appLog('WARN', `[${label}] Fallo o cancelación UAC con cscript: ${vbsErr.message}`);
+        // Intentar fallback con PowerShell Start-Process
+        const psCmd = `powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process cmd.exe -ArgumentList '/k ${command}' -Verb RunAs"`;
+        runExec(psCmd, 10000).then((psRes) => {
+          if (psRes.error) {
+            resolve({
+              success: false,
+              cancelled: true,
+              summary: 'Permisos de administrador denegados o cancelados por el usuario.',
+              elapsedMs: 0,
+            });
           } else {
-            // 3. Si CMD ya inició, verificar si la ventana sigue abierta en tasklist
-            const taskRes = await runCmd('tasklist', ['/FI', `WINDOWTITLE eq ${windowTitle}`]);
-            const isWindowRunning = (taskRes.stdout || '').includes(windowTitle);
-
-            if (!isWindowRunning) {
-              // Si la ventana desapareció, comprobar exitFile por última vez
-              try { exitContent = fs.readFileSync(exitFile, 'utf8').trim(); } catch {}
-              if (exitContent !== '') {
-                finish(parseInt(exitContent, 10) || 0, false, false);
-              } else {
-                finish(-1, false, true); // El usuario cerró la ventana de CMD
-              }
-              return;
-            }
+            resolve({
+              success: true,
+              summary: `Herramienta oficial iniciada (${command}). La consola CMD permanecerá abierta tras finalizar.`,
+              elapsedMs: 0,
+            });
           }
+        });
+        return;
+      }
 
-          if (waited >= MAX_WAIT) {
-            finish(-1, false, true);
-          }
-        }, POLL_MS);
-
-        function finish(exitCode, elevationDenied, cancelled) {
-          clearInterval(poll);
-          clearInterval(heartbeat);
-          clearFiles();
-          const elapsedMs = Date.now() - start;
-          appLog('INFO', `[${label}] Finalizado. ExitCode=${exitCode} Denied=${elevationDenied} Cancelled=${cancelled} Elapsed=${Math.round(elapsedMs/1000)}s`);
-          resolve({ exitCode, elapsedMs, elevationDenied, cancelled });
-        }
+      appLog('INFO', `[${label}] CMD lanzado con éxito en modo Administrador.`);
+      resolve({
+        success: true,
+        summary: `Herramienta oficial iniciada (${command}). La consola CMD permanecerá abierta tras finalizar para inspección.`,
+        elapsedMs: 0,
       });
-
-    function clearFiles() {
-      try { fs.unlinkSync(initFile); } catch {}
-      try { fs.unlinkSync(exitFile); } catch {}
-      try { fs.unlinkSync(batFile);  } catch {}
-      try { fs.unlinkSync(vbsFile);  } catch {}
-    }
+    });
   });
 }
 
 ipcMain.handle('run-sfc', async (event) => {
-  appLog('INFO', '[SFC] Iniciando sfc /scannow...');
-  event.sender.send('sfc-progress', 'Abriendo ventana CMD con permisos de administrador...');
-  const result = await runCmdVisible('sfc /scannow', 'SFC /scannow', event, 'sfc-progress');
-  if (result.elevationDenied || result.cancelled) {
-    appLog('WARN', '[SFC] Operación cancelada o ventana CMD cerrada por el usuario.');
-    return { success: false, cancelled: true, summary: 'Se canceló la operación o se cerró la ventana CMD.', elapsedMs: result.elapsedMs };
+  appLog('INFO', '[SFC] Iniciando sfc /scannow oficial...');
+  event.sender.send('sfc-progress', 'Abriendo símbolo del sistema (CMD) como Administrador...');
+  const result = await launchOriginalCmdTool('sfc /scannow', 'SFC /scannow', event, 'sfc-progress');
+  if (result.cancelled) {
+    appLog('WARN', '[SFC] Permisos de administrador cancelados o denegados.');
+    return { success: false, cancelled: true, summary: result.summary, elapsedMs: 0 };
   }
-  const success = result.exitCode === 0;
-  appLog('INFO', `[SFC] Completado. ExitCode=${result.exitCode}`);
+  appLog('INFO', '[SFC] sfc /scannow ejecutándose en CMD.');
   return {
-    success, errorsFound: result.exitCode !== 0,
-    summary: success
-      ? 'SFC finalizó correctamente. Revisa la ventana CMD para ver el resultado detallado.'
-      : 'SFC detectó o no pudo reparar algunos archivos. Revisa la ventana CMD para más detalles.',
-    elapsedMs: result.elapsedMs,
+    success: true,
+    summary: 'sfc /scannow se está ejecutando en la consola CMD original como Administrador. La ventana no se cerrará al terminar.',
+    elapsedMs: 0,
   };
 });
 
 ipcMain.handle('run-dism', async (event) => {
-  appLog('INFO', '[DISM] Iniciando DISM /RestoreHealth...');
-  event.sender.send('dism-progress', 'Abriendo ventana CMD con permisos de administrador...');
-  const result = await runCmdVisible('DISM /Online /Cleanup-Image /RestoreHealth', 'DISM - Reparar Windows', event, 'dism-progress');
-  if (result.elevationDenied || result.cancelled) {
-    appLog('WARN', '[DISM] Operación cancelada o ventana CMD cerrada por el usuario.');
-    return { success: false, cancelled: true, summary: 'Se canceló la operación o se cerró la ventana CMD.', elapsedMs: result.elapsedMs };
+  appLog('INFO', '[DISM] Iniciando DISM /RestoreHealth oficial...');
+  event.sender.send('dism-progress', 'Abriendo símbolo del sistema (CMD) como Administrador...');
+  const result = await launchOriginalCmdTool('DISM /Online /Cleanup-Image /RestoreHealth', 'DISM Reparar Windows', event, 'dism-progress');
+  if (result.cancelled) {
+    appLog('WARN', '[DISM] Permisos de administrador cancelados o denegados.');
+    return { success: false, cancelled: true, summary: result.summary, elapsedMs: 0 };
   }
-  const success = result.exitCode === 0;
-  appLog('INFO', `[DISM] Completado. ExitCode=${result.exitCode}`);
+  appLog('INFO', '[DISM] DISM /RestoreHealth ejecutándose en CMD.');
   return {
-    success,
-    summary: success
-      ? 'DISM finalizó correctamente. Revisa la ventana CMD para ver el resultado detallado.'
-      : 'DISM no finalizó correctamente. Revisa la ventana CMD para ver los detalles del error.',
-    elapsedMs: result.elapsedMs,
+    success: true,
+    summary: 'DISM /Online /Cleanup-Image /RestoreHealth se está ejecutando en la consola CMD original como Administrador. La ventana no se cerrará al terminar.',
+    elapsedMs: 0,
   };
 });
 
@@ -3811,6 +3765,29 @@ ipcMain.handle('launch-canon-installer', async () => {
       }
     } catch (e) {
       return { success: false, error: `Error al abrir el instalador: ${e.message}` };
+    }
+  } else {
+    return { success: false, error: 'Esta función requiere un sistema operativo Windows.' };
+  }
+});
+
+ipcMain.handle('launch-plotter-installer', async () => {
+  const exePath = 'Y:\\03_IT\\00_IMPRESORAS\\OCE COLORWAWE 3500\\ocewpd2.15.1.exe';
+  appLog('INFO', `[Printers] Intentando abrir el instalador del Plotter Océ ColorWave 3500 en: ${exePath}`);
+  
+  if (process.platform === 'win32') {
+    try {
+      if (fs.existsSync(exePath)) {
+        await shell.openPath(exePath);
+        return { success: true, message: 'Ejecutando instalador ocewpd2.15.1.exe...' };
+      } else {
+        return { 
+          success: false, 
+          error: `No se encontró el archivo ejecutable en la ruta especificada:\n${exePath}\n\nPor favor, verifica que la unidad de red Y: esté conectada e inténtalo de nuevo.` 
+        };
+      }
+    } catch (e) {
+      return { success: false, error: `Error al abrir el instalador del plotter: ${e.message}` };
     }
   } else {
     return { success: false, error: 'Esta función requiere un sistema operativo Windows.' };

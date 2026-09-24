@@ -1,64 +1,64 @@
 :root {
-  /* ─── Paleta Dark Slate Profesional con Alto Contraste ─── */
-  --bg: #0F172A;
-  --panel-bg: #151F32;
-  --topbar: #131B2E;
-  --topbar-text: #F8FAFC;
-  --topbar-border: rgba(139, 92, 246, 0.35);
-  --card: #1E293B;
-  --card-border: #334155;
-  --card-hover-border: #475569;
-  --sidebar-bg: #0C1322;
+  /* ─── Paleta Clean White Oficial HCP (Fondo Blanco Luminoso) ─── */
+  --bg: #FFFFFF;
+  --panel-bg: #FFFFFF;
+  --topbar: #FFFFFF;
+  --topbar-text: #0F172A;
+  --topbar-border: #E2E8F0;
+  --card: #FFFFFF;
+  --card-border: #E2E8F0;
+  --card-hover-border: #CBD5E1;
+  --sidebar-bg: #F8FAFC;
 
   /* 5.2 Paleta Oficial HCP (Pág. 50 Manual de Marca) */
   /* HCP LIME - Pantone 389 C - Architecture */
   --brand-lime: #D8FF00;
   --brand-lime-hover: #C5EA00;
-  --brand-lime-glow: rgba(216, 255, 0, 0.38);
-  --brand-lime-subtle: rgba(216, 255, 0, 0.14);
-  --brand-lime-text: #D8FF00;
+  --brand-lime-glow: rgba(216, 255, 0, 0.4);
+  --brand-lime-subtle: rgba(216, 255, 0, 0.18);
+  --brand-lime-text: #4D5C00;
 
   /* HCP PINK - Pantone 213 C - Engineering */
   --brand-pink: #FF006E;
   --brand-pink-hover: #E50063;
-  --brand-pink-glow: rgba(255, 0, 110, 0.38);
-  --brand-pink-subtle: rgba(255, 0, 110, 0.14);
-  --brand-pink-text: #FF2E87;
+  --brand-pink-glow: rgba(255, 0, 110, 0.3);
+  --brand-pink-subtle: rgba(255, 0, 110, 0.1);
+  --brand-pink-text: #BE123C;
 
   /* HCP VIOLET - Pantone 2725 C - Landscape */
-  --brand-violet: #8B5CF6;
-  --brand-violet-hover: #7C3AED;
-  --brand-violet-glow: rgba(139, 92, 246, 0.38);
-  --brand-violet-subtle: rgba(139, 92, 246, 0.16);
-  --brand-violet-text: #A78BFA;
-  --brand-lilac: #8B5CF6; /* Alias para compatibilidad */
+  --brand-violet: #7C3AED;
+  --brand-violet-hover: #6D28D9;
+  --brand-violet-glow: rgba(124, 58, 237, 0.3);
+  --brand-violet-subtle: rgba(124, 58, 237, 0.1);
+  --brand-violet-text: #6D28D9;
+  --brand-lilac: #7C3AED;
 
   /* HCP GRAY - Pantone Cool Gray 6 C - Base Neutra */
-  --brand-gray: #94A3B8;
-  --brand-gray-light: #CBD5E1;
-  --brand-gray-dark: #475569;
+  --brand-gray: #64748B;
+  --brand-gray-light: #F1F5F9;
+  --brand-gray-dark: #334155;
 
   /* Tipografía Oficial HCP (Pág. 42-45) */
   --font-px-grotesk: 'Px Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-narrative: 'HCP Narrative', 'APK Narrative', system-ui, -apple-system, sans-serif;
   --font-mono: 'HCP N. Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Aliases del Sistema - Alto Contraste Legible */
-  --accent: #D8FF00;
-  --accent-light: rgba(216, 255, 0, 0.16);
-  --accent-secondary: #8B5CF6;
+  /* Aliases del Sistema - Alto Contraste en Fondo Blanco */
+  --accent: #2563EB;
+  --accent-light: rgba(37, 99, 235, 0.08);
+  --accent-secondary: #7C3AED;
   --accent-tertiary: #FF006E;
-  --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
-  --text-muted: #94A3B8;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
 
-  --ok: #D8FF00;
-  --warn: #F59E0B;
-  --error: #FF006E;
-  --repair-accent: #8B5CF6;
+  --ok: #16A34A;
+  --warn: #D97706;
+  --error: #DC2626;
+  --repair-accent: #7C3AED;
 
-  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 body.dark-theme {
@@ -91,6 +91,22 @@ body.dark-theme {
 
   --shadow-sm: 0 2px 14px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 10px 38px rgba(0, 0, 0, 0.6);
+}
+
+/* En modo oscuro cuando el acento es Lima, el texto NUNCA debe ser blanco, sino negro de máximo contraste */
+body.dark-theme [style*="background: var(--accent)"],
+body.dark-theme [style*="background:var(--accent)"],
+body.dark-theme .btn-tool-action,
+body.dark-theme .cat-pill:hover,
+body.dark-theme .cat-pill.active,
+body.dark-theme .cat-hero-btn-home:hover,
+body.dark-theme .btn-sb-quick-audit:hover,
+body.dark-theme .btn-breadcrumb-back:hover,
+body.dark-theme .btn-breadcrumb-home:hover,
+body.dark-theme .btn-tut-action:hover,
+body.dark-theme .sidebar-nav-btn.active .sb-nav-badge {
+  color: #000000 !important;
+  font-weight: 900 !important;
 }
 
 * {
@@ -228,59 +244,26 @@ body.dark-theme .topbar {
 .topbar-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   cursor: pointer;
-  padding: 4px 10px;
-  border-radius: 10px;
+  padding: 4px 6px;
+  border-radius: 8px;
   transition: all 0.2s ease;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  border: 1px solid transparent;
 }
 
 .topbar-brand:hover {
-  background: rgba(204, 255, 0, 0.06);
-  border-color: rgba(204, 255, 0, 0.25);
-  box-shadow: 0 0 16px rgba(204, 255, 0, 0.12);
+  background: rgba(0, 0, 0, 0.04);
 }
 
-.topbar-hcp-badge {
+.topbar-brand-icon {
+  font-size: 22px;
+  color: #F97316;
+  line-height: 1;
   display: flex;
   align-items: center;
-  background: #0D0F15;
-  border: 1px solid rgba(216, 255, 0, 0.35);
-  border-radius: 8px;
-  padding: 3px 8px;
-  gap: 6px;
-  box-shadow: 0 0 12px rgba(216, 255, 0, 0.18);
-  transition: all 0.2s ease;
-}
-
-.topbar-hcp-icon-img {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  object-fit: contain;
-  filter: drop-shadow(0 0 4px rgba(216, 255, 0, 0.4));
-}
-
-.topbar-brand:hover .topbar-hcp-badge {
-  border-color: var(--brand-lime);
-  box-shadow: 0 0 20px rgba(216, 255, 0, 0.4);
-}
-
-.tb-hcp-letters {
-  font-size: 15px;
-  font-weight: 900;
-  color: #FFFFFF;
-  letter-spacing: -0.5px;
-}
-
-.tb-hcp-plus {
-  font-size: 17px;
-  font-weight: 900;
-  color: var(--brand-lime);
-  margin-left: 2px;
-  text-shadow: 0 0 10px rgba(204, 255, 0, 0.85);
+  justify-content: center;
 }
 
 .topbar-brand-meta {
@@ -291,39 +274,28 @@ body.dark-theme .topbar {
 .topbar-title-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
 }
 
 .topbar-title {
-  font-weight: 900;
-  letter-spacing: -0.5px;
-  font-size: 16.5px;
-  line-height: 1.15;
-  color: #FFFFFF;
-}
-
-.tb-plus-lime {
-  color: var(--brand-lime);
-  font-weight: 900;
-  text-shadow: 0 0 10px rgba(204, 255, 0, 0.8);
-}
-
-.topbar-suite-tag {
-  font-size: 9.5px;
   font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(192, 132, 252, 0.16);
-  color: var(--brand-lilac);
-  border: 1px solid rgba(192, 132, 252, 0.35);
-  letter-spacing: 0.6px;
+  letter-spacing: -0.4px;
+  font-size: 16px;
+  line-height: 1.15;
+  color: #0F172A;
+}
+
+.topbar-title-toolkit {
+  color: #2563EB;
+  font-weight: 800;
 }
 
 .topbar-corp-label {
   font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  color: #8E98AB;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: #64748B;
+  text-transform: uppercase;
 }
 
 .btn-topbar-intro {
@@ -350,13 +322,14 @@ body.dark-theme .topbar {
 }
 
 .topbar-version-badge {
-  font-size: 10.5px;
-  background: rgba(204, 255, 0, 0.1);
-  color: var(--brand-lime);
-  border: 1px solid rgba(204, 255, 0, 0.28);
+  font-size: 11px;
+  background: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #BFDBFE;
   padding: 2px 7px;
   border-radius: 6px;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: 0.3px;
 }
 
 .topbar-breadcrumb-nav {
@@ -527,14 +500,14 @@ body.dark-theme .btn-clear-search:hover {
 
 .theme-toggle,
 .log-toggle {
-  background: #F1F5F9;
+  background: #FFFFFF;
   border: 1px solid #CBD5E1;
-  color: #0F172A;
-  padding: 6px 14px;
-  border-radius: 10px;
+  color: #334155;
+  padding: 4px 12px;
+  border-radius: 20px;
   cursor: pointer;
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   font-family: inherit;
   transition: all 0.2s ease;
   display: flex;
@@ -544,8 +517,9 @@ body.dark-theme .btn-clear-search:hover {
 
 .theme-toggle:hover,
 .log-toggle:hover {
-  background: #E2E8F0;
+  background: #F8FAFC;
   border-color: #94A3B8;
+  color: #0F172A;
   transform: translateY(-1px);
 }
 
@@ -8834,6 +8808,161 @@ body.dark-theme .btn-lock-session:hover {
   margin-top: 4px;
 }
 
+/* Pestañas de Selección: Canon Multifunción vs Plotter Océ */
+.printer-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #F1F5F9;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  width: fit-content;
+  margin-bottom: 2px;
+  flex-wrap: wrap;
+}
+
+body.dark-theme .printer-mode-tabs {
+  background: #0F172A;
+  border-color: #334155;
+}
+
+.printer-mode-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #64748B;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.printer-mode-tab:hover {
+  color: #0F172A;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+body.dark-theme .printer-mode-tab:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.printer-mode-tab.active {
+  background: #FFFFFF;
+  color: #2563EB;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  border-color: #BFDBFE;
+}
+
+body.dark-theme .printer-mode-tab.active {
+  background: #1E293B;
+  color: #60A5FA;
+  border-color: #3B82F6;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.printer-tab-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #EFF6FF;
+  color: #2563EB;
+  border: 1px solid #DBEAFE;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+body.dark-theme .printer-tab-badge {
+  background: rgba(37, 99, 235, 0.2);
+  color: #93C5FD;
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.plotter-hero-card {
+  background: linear-gradient(135deg, #0F766E 0%, #115E59 50%, #0F172A 100%) !important;
+  box-shadow: 0 10px 30px rgba(15, 118, 110, 0.3) !important;
+}
+
+.plotter-specs-box {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.plotter-spec-item {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+body.dark-theme .plotter-spec-item {
+  background: #090D16;
+  border-color: #1E293B;
+}
+
+.plotter-spec-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748B;
+}
+
+body.dark-theme .plotter-spec-title {
+  color: #94A3B8;
+}
+
+.plotter-spec-value {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+body.dark-theme .plotter-spec-value {
+  color: #F8FAFC;
+}
+
+.plotter-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+}
+
+body.dark-theme .plotter-guide-step {
+  background: #090D16;
+  border-color: #1E293B;
+}
+
+.plotter-step-bullet {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #0D9488;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
 /* PASOS DE INSTALACIÓN IMPRESORAS CANON */
 .printer-steps-container {
   display: flex;
@@ -11065,15 +11194,16 @@ body.dark-theme .inf-badge-tipo.reciclado {
 }
 
 .dash-hero-avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  min-width: 84px;
+  height: 46px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
 }
 
@@ -12386,7 +12516,7 @@ body.dark-theme .dash-quick-card:hover {
 }
 
 .hcp-splash-logo-img {
-  filter: drop-shadow(0 4px 14px rgba(216, 255, 0, 0.3));
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
 }
 
 .hcp-splash-brand-text {
@@ -12773,232 +12903,232 @@ body.dark-theme .dash-quick-card:hover {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
-   INTEGRACIÓN GLOBAL DE LA PALETA: LILA, LIMA, ROSA & FONDO NEGRO
+   INTEGRACIÓN GLOBAL DE LA PALETA: FONDO BLANCO LIMPIO & CONTRASTE ACCESIBLE
    ═══════════════════════════════════════════════════════════════════════════════ */
 
-/* Botones principales y acciones destacadas en Verde Lima */
+/* Botones principales y acciones destacadas en Verde Lima (CONTRASTE PERFECTO CON TEXTO NEGRO) */
 .btn-dash-primary,
 .btn-primary,
-.btn-run-all {
+.btn-run-all,
+.btn-lime,
+button.lime,
+[style*="background: var(--brand-lime)"],
+[style*="background:var(--brand-lime)"],
+[style*="background: #D8FF00"],
+[style*="background:#D8FF00"],
+[style*="background: #CCFF00"],
+[style*="background:#CCFF00"],
+[style*="background-color: var(--brand-lime)"],
+[style*="background-color:var(--brand-lime)"],
+[style*="background-color: #D8FF00"],
+[style*="background-color:#D8FF00"] {
   background: var(--brand-lime) !important;
   color: #000000 !important;
   font-weight: 900 !important;
-  border: 1px solid rgba(204, 255, 0, 0.6) !important;
-  box-shadow: 0 4px 18px rgba(204, 255, 0, 0.35) !important;
+  border: 1px solid rgba(163, 196, 0, 0.7) !important;
+  box-shadow: 0 2px 10px rgba(180, 210, 0, 0.35) !important;
   text-shadow: none !important;
+}
+
+.btn-dash-primary *,
+.btn-primary *,
+.btn-run-all *,
+.btn-lime *,
+button.lime * {
+  color: #000000 !important;
 }
 
 .btn-dash-primary:hover,
 .btn-primary:hover,
-.btn-run-all:hover {
+.btn-run-all:hover,
+.btn-lime:hover,
+button.lime:hover {
   background: var(--brand-lime-hover) !important;
-  box-shadow: 0 6px 25px rgba(204, 255, 0, 0.55) !important;
+  box-shadow: 0 4px 16px rgba(180, 210, 0, 0.5) !important;
   transform: translateY(-2px);
+  color: #000000 !important;
 }
 
-/* Botones secundarios con acentos de la paleta */
+/* Botones secundarios en fondo blanco */
 .btn-dash-secondary,
 .btn-secondary {
-  background: #10121A !important;
-  color: #F8FAFC !important;
-  border: 1px solid rgba(192, 132, 252, 0.25) !important;
+  background: #F1F5F9 !important;
+  color: #0F172A !important;
+  border: 1px solid #CBD5E1 !important;
 }
 
 .btn-dash-secondary:hover,
 .btn-secondary:hover {
-  background: #171A26 !important;
-  border-color: var(--brand-lilac) !important;
-  box-shadow: 0 0 14px rgba(192, 132, 252, 0.25) !important;
+  background: #E2E8F0 !important;
+  border-color: #94A3B8 !important;
+  color: #0F172A !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* Indicadores y navegación activa en el Sidebar */
+/* Indicadores y navegación activa en el Sidebar (Fondo Blanco) */
 .sidebar {
   background: var(--sidebar-bg) !important;
-  border-right: 1px solid rgba(192, 132, 252, 0.15) !important;
+  border-right: 1px solid #E2E8F0 !important;
 }
 
 .sidebar-nav-btn {
-  color: #CBD5E1 !important;
+  color: #334155 !important;
 }
 
 .sidebar-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #0F172A !important;
 }
 
 .sidebar-nav-btn.active {
-  background: linear-gradient(90deg, rgba(204, 255, 0, 0.14) 0%, rgba(204, 255, 0, 0.02) 100%) !important;
-  border-left: 3px solid var(--brand-lime) !important;
-  color: #FFFFFF !important;
+  background: rgba(37, 99, 235, 0.08) !important;
+  border-left: 3px solid #2563EB !important;
+  color: #0F172A !important;
 }
 
 .sidebar-nav-btn.active .sb-nav-title {
-  color: #FFFFFF !important;
+  color: #0F172A !important;
   font-weight: 800 !important;
 }
 
 .sidebar-nav-btn.active .sb-nav-icon {
-  filter: drop-shadow(0 0 8px rgba(204, 255, 0, 0.7));
+  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.35));
 }
 
-/* Badges del Menú Lateral con la Paleta Tríada (Lima, Rosa, Lila) */
-.sb-theme-informes .sb-nav-badge {
-  background: rgba(204, 255, 0, 0.15) !important;
-  color: var(--brand-lime) !important;
-  border: 1px solid rgba(204, 255, 0, 0.35) !important;
+/* Badges del Menú Lateral Limpios y Corporativos */
+.sb-nav-badge {
+  background: #F1F5F9 !important;
+  color: #64748B !important;
+  border: 1px solid #E2E8F0 !important;
+  font-weight: 700 !important;
+  font-size: 10px !important;
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
 }
 
-.sb-theme-software .sb-nav-badge {
-  background: rgba(192, 132, 252, 0.15) !important;
-  color: var(--brand-lilac) !important;
-  border: 1px solid rgba(192, 132, 252, 0.35) !important;
+.sidebar-nav-btn.active {
+  background: #FFFFFF !important;
+  border: 1.5px solid #2563EB !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12) !important;
+  color: #0F172A !important;
 }
 
-.sb-theme-printers .sb-nav-badge {
-  background: rgba(255, 42, 133, 0.15) !important;
-  color: var(--brand-pink) !important;
-  border: 1px solid rgba(255, 42, 133, 0.35) !important;
+.sidebar-nav-btn.active .sb-nav-title {
+  color: #0F172A !important;
+  font-weight: 800 !important;
 }
 
-.sb-theme-tutorials .sb-nav-badge {
-  background: rgba(204, 255, 0, 0.15) !important;
-  color: var(--brand-lime) !important;
-  border: 1px solid rgba(204, 255, 0, 0.35) !important;
+.sidebar-nav-btn.active .sb-nav-icon {
+  background: #EFF6FF !important;
+  border-color: #BFDBFE !important;
 }
 
-.sb-theme-pc .sb-nav-badge {
-  background: rgba(192, 132, 252, 0.15) !important;
-  color: var(--brand-lilac) !important;
-  border: 1px solid rgba(192, 132, 252, 0.35) !important;
-}
-
-.sb-theme-maint .sb-nav-badge {
-  background: rgba(255, 42, 133, 0.15) !important;
-  color: var(--brand-pink) !important;
-  border: 1px solid rgba(255, 42, 133, 0.35) !important;
-}
-
-.sb-theme-net .sb-nav-badge {
-  background: rgba(204, 255, 0, 0.15) !important;
-  color: var(--brand-lime) !important;
-  border: 1px solid rgba(204, 255, 0, 0.35) !important;
-}
-
-.sb-theme-repair .sb-nav-badge {
-  background: rgba(192, 132, 252, 0.15) !important;
-  color: var(--brand-lilac) !important;
-  border: 1px solid rgba(192, 132, 252, 0.35) !important;
+.sidebar-nav-btn.active .sb-nav-badge {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  border: 1px solid #2563EB !important;
+  font-weight: 800 !important;
 }
 
 /* Bento Cards en el Dashboard Principal */
 .dash-bento-card {
-  background: #0B0C12 !important;
-  border: 1px solid #1E2230 !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  color: #0F172A !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
 }
 
 .dash-bento-card:hover {
-  background: #0E1018 !important;
-  border-color: var(--brand-lime) !important;
-  box-shadow: 0 8px 28px var(--brand-lime-glow) !important;
+  background: #FFFFFF !important;
+  border-color: #2563EB !important;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.12) !important;
+  transform: translateY(-3px);
 }
 
-.dash-bento-card:nth-child(2):hover {
-  border-color: var(--brand-violet) !important;
-  box-shadow: 0 8px 28px var(--brand-violet-glow) !important;
+.dash-bento-card .dash-bento-title {
+  color: #0F172A !important;
 }
 
-.dash-bento-card:nth-child(3):hover {
-  border-color: var(--brand-pink) !important;
-  box-shadow: 0 8px 28px var(--brand-pink-glow) !important;
+.dash-bento-card .dash-bento-desc {
+  color: #475569 !important;
 }
 
-.dash-bento-card:nth-child(4):hover {
-  border-color: var(--brand-lime) !important;
-  box-shadow: 0 8px 28px var(--brand-lime-glow) !important;
+.dash-bento-card .dash-bento-footer {
+  color: #2563EB !important;
 }
 
-/* Iconos temáticos de Bento Cards */
-.dash-bento-icon-box.informes-theme {
-  background: var(--brand-lime-subtle) !important;
-  color: var(--brand-lime) !important;
-  border: 1px solid rgba(216, 255, 0, 0.3) !important;
-}
-
-.dash-bento-icon-box.software-theme {
-  background: var(--brand-violet-subtle) !important;
-  color: var(--brand-violet) !important;
-  border: 1px solid rgba(107, 53, 255, 0.3) !important;
-}
-
-.dash-bento-icon-box.printers-theme {
-  background: var(--brand-pink-subtle) !important;
-  color: var(--brand-pink) !important;
-  border: 1px solid rgba(255, 0, 110, 0.3) !important;
-}
-
-.dash-bento-icon-box.tutorials-theme {
-  background: var(--brand-lime-subtle) !important;
-  color: var(--brand-lime) !important;
-  border: 1px solid rgba(216, 255, 0, 0.3) !important;
-}
-
-/* Hero Banner del Dashboard con temática oscura y toques de tríada */
+/* Hero Banner del Dashboard (Panel Principal) */
 .dash-hero-banner {
-  background: linear-gradient(135deg, #07080C 0%, #0F111A 100%) !important;
-  border: 1px solid rgba(107, 53, 255, 0.25) !important;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(216, 255, 0, 0.15) !important;
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25) !important;
+  color: #FFFFFF !important;
+  border-radius: 16px !important;
 }
 
-.dash-hero-banner::after {
-  background: radial-gradient(circle, rgba(107, 53, 255, 0.18) 0%, rgba(216, 255, 0, 0.1) 40%, transparent 70%) !important;
+.dash-hero-title {
+  color: #FFFFFF !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+}
+
+.dash-hero-subtitle {
+  color: #94A3B8 !important;
+}
+
+.dash-hero-tag {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #E2E8F0 !important;
 }
 
 .dash-hero-avatar {
-  background: #0E1018 !important;
-  border: 1px solid var(--brand-lime) !important;
-  box-shadow: 0 0 20px var(--brand-lime-glow) !important;
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 26px !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  flex-shrink: 0 !important;
 }
 
 /* Campo de búsqueda del Topbar */
 .tool-search-input {
-  background: #0B0C12 !important;
-  border: 1px solid #1E2230 !important;
-  color: #FFFFFF !important;
+  background: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #0F172A !important;
 }
 
 .tool-search-input:focus {
-  border-color: var(--brand-lime) !important;
-  box-shadow: 0 0 16px rgba(204, 255, 0, 0.25) !important;
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
 }
 
 .search-kbd-hint {
-  background: #151822 !important;
-  color: var(--brand-lilac) !important;
-  border: 1px solid rgba(192, 132, 252, 0.3) !important;
+  background: #F1F5F9 !important;
+  color: #64748B !important;
+  border: 1px solid #E2E8F0 !important;
 }
 
 /* Tags de búsqueda rápida en Inicio */
 .dash-search-tag {
-  background: #0E1018 !important;
-  border: 1px solid #1F2433 !important;
-  color: #CBD5E1 !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  color: #334155 !important;
 }
 
 .dash-search-tag:hover {
-  border-color: var(--brand-lime) !important;
-  color: var(--brand-lime) !important;
-  background: rgba(204, 255, 0, 0.08) !important;
-}
-
-.dash-search-tag:nth-child(2):hover {
-  border-color: var(--brand-pink) !important;
-  color: var(--brand-pink) !important;
-  background: rgba(255, 42, 133, 0.08) !important;
-}
-
-.dash-search-tag:nth-child(3):hover {
-  border-color: var(--brand-lilac) !important;
-  color: var(--brand-lilac) !important;
-  background: rgba(192, 132, 252, 0.08) !important;
+  border-color: #2563EB !important;
+  color: #2563EB !important;
+  background: rgba(37, 99, 235, 0.06) !important;
 }
 
 /* Contenedores de contenido y paneles */
@@ -13009,6 +13139,64 @@ body.dark-theme .dash-quick-card:hover {
 .card {
   background: var(--card) !important;
   border-color: var(--card-border) !important;
+}
+
+/* Estilos específicos cuando se activa manualmente el modo oscuro */
+body.dark-theme .dash-bento-card {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
+}
+
+body.dark-theme .dash-bento-card .dash-bento-title {
+  color: #F8FAFC !important;
+}
+
+body.dark-theme .dash-bento-card .dash-bento-desc {
+  color: #94A3B8 !important;
+}
+
+body.dark-theme .sidebar {
+  background: #0C1322 !important;
+  border-right-color: #334155 !important;
+}
+
+body.dark-theme .sidebar-nav-btn {
+  color: #CBD5E1 !important;
+}
+
+body.dark-theme .sidebar-nav-btn.active {
+  background: rgba(37, 99, 235, 0.16) !important;
+  border-color: #3B82F6 !important;
+  color: #FFFFFF !important;
+}
+
+body.dark-theme .sidebar-nav-btn.active .sb-nav-title {
+  color: #FFFFFF !important;
+}
+
+body.dark-theme .sidebar-nav-btn.active .sb-nav-badge {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  border-color: #2563EB !important;
+}
+
+body.dark-theme .tool-search-input {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  color: #FFFFFF !important;
+}
+
+body.dark-theme .topbar-title {
+  color: #FFFFFF !important;
+}
+
+body.dark-theme .topbar-title-toolkit {
+  color: #3B82F6 !important;
+}
+
+body.dark-theme .topbar-corp-label {
+  color: #94A3B8 !important;
 }
 
 

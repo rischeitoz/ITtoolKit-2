@@ -26,7 +26,7 @@ const statusText = document.getElementById('status-text');
 const statusBar = document.getElementById('statusbar');
 
 const ALL_BTN_IDS = [
-  'btn-speedtest', 'btn-ping', 'btn-netoptions',
+  'btn-speedtest', 'btn-netoptions',
   'btn-diagnostico', 'btn-gpudrivers', 'btn-sysupdates', 'btn-eventlog', 'btn-highperf', 'btn-healthcheck',
   'btn-sfc', 'btn-dism', 'btn-mdsched', 'btn-cleantemp',
 ];
@@ -2117,10 +2117,10 @@ function buildDiagnosticPdfText(r, summary) {
 // Utilidad 4 — SFC /SCANNOW (abre CMD visible)
 // ═══════════════════════════════════════════════════════════════════════════════
 async function runSfc() {
-  if (!confirm('¿Desea ejecutar el comprobador de archivos del sistema (SFC /SCANNOW)?\n\nSe abrirá una ventana CMD con permisos de administrador que permanecerá abierta sin cerrarse automáticamente tras finalizar para que pueda revisar todos los resultados.')) return;
+  if (!confirm('¿Desea ejecutar el comprobador de archivos del sistema (SFC /SCANNOW)?\n\nSe abrirá la consola oficial de Windows (CMD) como Administrador ejecutando la herramienta original sin modificaciones. La ventana permanecerá abierta al terminar para que pueda revisar los resultados.')) return;
 
   clearResults('Ejecutar SFC /SCANNOW');
-  setBusy(true, 'Solicitando permisos de administrador...');
+  setBusy(true, 'Abriendo CMD original como Administrador...');
   if (window.api && window.api.onSfcProgress) {
     window.api.onSfcProgress(msg => { statusText.textContent = msg; });
   }
@@ -2130,16 +2130,15 @@ async function runSfc() {
     lastSfcResult = r;
 
     addSectionTitle('Resultado');
-    if (r.cancelled || (!r.success && r.summary && (r.summary.includes('cancel') || r.summary.includes('cerró')))) {
-      addResultLine('Estado', r.summary || 'Operación cancelada por el usuario o ventana CMD cerrada.', 'warn');
-      statusText.textContent = '❌ Operación cancelada o ventana CMD cerrada';
+    if (r.cancelled || (!r.success && r.summary && (r.summary.includes('cancel') || r.summary.includes('denegad')))) {
+      addResultLine('Estado', r.summary || 'Operación cancelada por el usuario o permisos denegados.', 'warn');
+      statusText.textContent = '❌ Operación cancelada o permisos denegados';
     } else {
-      const mins = Math.floor(r.elapsedMs / 60000);
-      const secs = Math.floor((r.elapsedMs % 60000) / 1000);
-      addResultLine('Resumen', r.summary, r.success ? 'ok' : 'warn');
-      addResultLine('Tiempo empleado', `${mins} min ${secs} s`);
-      addBanner('La ventana CMD permanecerá abierta tras la ejecución. Revísala para ver los detalles del análisis.', 'ok');
-      statusText.textContent = r.success ? '✔ Operación completada correctamente' : '⚠ Operación completada con advertencias';
+      addResultLine('Herramienta', 'sfc /scannow (Original Microsoft Windows)', 'ok');
+      addResultLine('Consola', 'Símbolo del sistema (CMD) Administrador', 'ok');
+      addResultLine('Estado', 'En ejecución / Abierta', 'ok');
+      addBanner('Se ha lanzado la herramienta oficial "sfc /scannow" en una ventana CMD elevada sin modificaciones. La consola permanecerá abierta tras finalizar para su inspección.', 'ok');
+      statusText.textContent = '✔ CMD original iniciado como Administrador (sfc /scannow)';
     }
   } catch (e) {
     statusText.textContent = `❌ Error durante la operación: ${e.message}`;
@@ -2154,10 +2153,10 @@ document.getElementById('btn-sfc')?.addEventListener('click', runSfc);
 // Utilidad 5 — DISM (abre CMD visible)
 // ═══════════════════════════════════════════════════════════════════════════════
 async function runDism() {
-  if (!confirm('¿Desea reparar la imagen del sistema (DISM)?\n\nSe abrirá una ventana CMD con permisos de administrador que permanecerá abierta sin cerrarse automáticamente tras finalizar para que pueda revisar todos los resultados.')) return;
+  if (!confirm('¿Desea reparar la imagen del sistema de Windows (DISM)?\n\nSe abrirá la consola oficial de Windows (CMD) como Administrador ejecutando la herramienta original sin modificaciones. La ventana permanecerá abierta al terminar para que pueda revisar los resultados.')) return;
 
   clearResults('Reparar Windows (DISM)');
-  setBusy(true, 'Solicitando permisos de administrador...');
+  setBusy(true, 'Abriendo CMD original como Administrador...');
   if (window.api && window.api.onDismProgress) {
     window.api.onDismProgress(msg => { statusText.textContent = msg; });
   }
@@ -2167,16 +2166,15 @@ async function runDism() {
     lastDismResult = r;
 
     addSectionTitle('Resultado');
-    if (r.cancelled || (!r.success && r.summary && (r.summary.includes('cancel') || r.summary.includes('cerró')))) {
-      addResultLine('Estado', r.summary || 'Operación cancelada por el usuario o ventana CMD cerrada.', 'warn');
-      statusText.textContent = '❌ Operación cancelada o ventana CMD cerrada';
+    if (r.cancelled || (!r.success && r.summary && (r.summary.includes('cancel') || r.summary.includes('denegad')))) {
+      addResultLine('Estado', r.summary || 'Operación cancelada por el usuario o permisos denegados.', 'warn');
+      statusText.textContent = '❌ Operación cancelada o permisos denegados';
     } else {
-      const mins = Math.floor(r.elapsedMs / 60000);
-      const secs = Math.floor((r.elapsedMs % 60000) / 1000);
-      addResultLine('Resumen', r.summary, r.success ? 'ok' : 'warn');
-      addResultLine('Tiempo empleado', `${mins} min ${secs} s`);
-      addBanner('La ventana CMD permanecerá abierta tras la ejecución. Revísala para ver los detalles del análisis.', 'ok');
-      statusText.textContent = r.success ? '✔ Operación completada correctamente' : '⚠ Operación completada con advertencias';
+      addResultLine('Herramienta', 'DISM /Online /Cleanup-Image /RestoreHealth (Original Microsoft Windows)', 'ok');
+      addResultLine('Consola', 'Símbolo del sistema (CMD) Administrador', 'ok');
+      addResultLine('Estado', 'En ejecución / Abierta', 'ok');
+      addBanner('Se ha lanzado la herramienta oficial DISM RestoreHealth en una ventana CMD elevada sin modificaciones. La consola permanecerá abierta tras finalizar para su inspección.', 'ok');
+      statusText.textContent = '✔ CMD original iniciado como Administrador (DISM RestoreHealth)';
     }
   } catch (e) {
     statusText.textContent = `❌ Error durante la operación: ${e.message}`;
@@ -4717,18 +4715,16 @@ function renderHomeDashboard() {
   const userDisplay = (window.process && window.process.env && window.process.env.USERNAME) || 'Administrador TI';
 
   container.innerHTML = `
-    <!-- Hero Banner Ejecutivo HCP+ -->
+    <!-- Hero Banner del Equipo -->
     <div class="dash-hero-banner">
       <div class="dash-hero-left">
-        <div class="dash-hero-avatar">
-          <img src="logo.svg" alt="HCP+ Suite" style="width: 44px; height: 44px; border-radius: 9px; object-fit: contain;" />
-        </div>
+        <div class="dash-hero-avatar">⚡</div>
         <div>
-          <h2 class="dash-hero-title">HCP<span style="color:var(--brand-lime);">+</span> Suite TI</h2>
+          <h2 class="dash-hero-title">HCPToolKit · Suite TI</h2>
           <p class="dash-hero-subtitle">
-            <span style="color:var(--brand-violet); font-weight:700;">ARCHITECTURE · ENGINEERING · URBAN PLANNING</span>
             <span class="dash-hero-tag">Host: ${escapeHtml(hostDisplay)}</span>
             <span class="dash-hero-tag">Operador: ${escapeHtml(userDisplay)}</span>
+            <span class="dash-hero-tag">Estado: Operativo</span>
           </p>
         </div>
       </div>
@@ -4754,6 +4750,7 @@ function renderHomeDashboard() {
       <div class="home-search-tags">
         <span class="search-tag" data-query="Informes">📋 Informes</span>
         <span class="search-tag" data-query="Impresoras">🖨️ Impresoras</span>
+        <span class="search-tag" data-query="Plotter">📐 Plotter Océ</span>
         <span class="search-tag" data-query="Software">💻 Software</span>
         <span class="search-tag" data-query="Tutoriales">📚 Guías</span>
         <span class="search-tag" data-query="Información del Equipo">🖥️ Info Equipo</span>
@@ -4805,8 +4802,8 @@ function renderHomeDashboard() {
           <div class="dash-bento-icon-box printers-theme">🖨️</div>
           <span class="dash-bento-pill">Impresión</span>
         </div>
-        <h3 class="dash-bento-title">Impresoras Canon</h3>
-        <p class="dash-bento-desc">Asistente de instalación guiado en 3 pasos con descarga de controladores oficiales y asignación de IPs.</p>
+        <h3 class="dash-bento-title">Impresoras & Plotter</h3>
+        <p class="dash-bento-desc">Asistente en 3 pasos para impresoras Canon multifunción y tutorial del Plotter Océ ColorWave 3500 (IP 192.168.0.110).</p>
         <div class="dash-bento-footer">
           <span>Gestionar Impresoras</span>
           <span class="dash-bento-arrow">→</span>
@@ -4961,20 +4958,26 @@ function renderHomeDashboard() {
 // ═══════════════════════════════════════════════════════════════════════════════
 const themeBtn = document.getElementById('btn-theme-toggle');
 if (themeBtn) {
-  const savedTheme = localStorage.getItem('hcptoolkit-theme') || 'oled';
-  if (savedTheme === 'oled') {
+  let savedTheme = localStorage.getItem('hcptoolkit-theme');
+  // Por defecto fondo blanco limpio
+  if (!savedTheme || savedTheme === 'oled' || savedTheme === 'deep') {
+    savedTheme = 'light';
+    localStorage.setItem('hcptoolkit-theme', 'light');
+  }
+
+  if (savedTheme === 'dark') {
     document.body.classList.add('dark-theme');
-    themeBtn.textContent = '🖤 OLED';
+    themeBtn.textContent = '☀️ Tema Claro';
   } else {
     document.body.classList.remove('dark-theme');
-    themeBtn.textContent = '🌑 Negro Deep';
+    themeBtn.textContent = '🌙 Tema Oscuro';
   }
 
   themeBtn.addEventListener('click', () => {
     document.body.classList.toggle('dark-theme');
-    const isOled = document.body.classList.contains('dark-theme');
-    localStorage.setItem('hcptoolkit-theme', isOled ? 'oled' : 'deep');
-    themeBtn.textContent = isOled ? '🖤 OLED' : '🌑 Negro Deep';
+    const isDark = document.body.classList.contains('dark-theme');
+    localStorage.setItem('hcptoolkit-theme', isDark ? 'dark' : 'light');
+    themeBtn.textContent = isDark ? '☀️ Tema Claro' : '🌙 Tema Oscuro';
   });
 }
 
@@ -5019,6 +5022,82 @@ function performSearch(query) {
       grid.className = 'category-tools-grid grid-2x2';
 
       let count = 0;
+
+      const extraTools = [
+        {
+          title: 'Instalación de Plotter Océ ColorWave 3500',
+          sub: 'Tutorial en 3 pasos para instalar el controlador Océ WPD y vincular el plotter de planos en red (IP: 192.168.0.110).',
+          icon: '📐',
+          badge: 'PLOTTER OCÉ',
+          tags: ['Plotter', 'Oce ColorWave', '192.168.0.110', 'Planos', 'CAD', 'ocewpd2.15.1.exe'],
+          quickMeta: 'Asistente 3 pasos',
+          actionText: 'Instalar Plotter',
+          run: () => {
+            setActiveSidebarButton('btn-open-printers');
+            runImpresorasUtility('plotter');
+          }
+        },
+        {
+          title: 'Instalación de Impresoras Canon',
+          sub: 'Asistente en 3 pasos para instalar el driver oficial Canon C5850i y configurar las impresoras de las 4 plantas.',
+          icon: '🖨️',
+          badge: 'IMPRESORAS',
+          tags: ['Canon', 'C5850i', '1ª Planta', '2ª Planta', '3ª Planta', 'Ejecución', 'Urbanismo'],
+          quickMeta: 'Asistente 3 pasos',
+          actionText: 'Abrir Asistente',
+          run: () => {
+            setActiveSidebarButton('btn-open-printers');
+            runImpresorasUtility('canon');
+          }
+        }
+      ];
+
+      extraTools.forEach(tool => {
+        const textToSearch = `${tool.title} ${tool.sub} ${(tool.tags || []).join(' ')}`.toLowerCase();
+        if (textToSearch.includes(q)) {
+          count++;
+          const card = document.createElement('div');
+          card.className = 'category-tool-card';
+          const tagsHtml = (tool.tags || [])
+            .map(t => `<span class="tool-tag-item">${escapeHtml(t)}</span>`)
+            .join('');
+
+          card.innerHTML = `
+            <div>
+              <div class="tool-card-header">
+                <div class="tool-card-icon-wrap">
+                  <span>${tool.icon}</span>
+                </div>
+                <div class="tool-card-meta-top">
+                  <span class="tool-card-badge">${escapeHtml(tool.badge)}</span>
+                  <span class="tool-card-status">
+                    <span class="status-pulse-dot"></span>
+                    <span>Listo</span>
+                  </span>
+                </div>
+              </div>
+              <div class="tool-card-body">
+                <h3 class="tool-card-title">${escapeHtml(tool.title)}</h3>
+                <p class="tool-card-desc">${escapeHtml(tool.sub)}</p>
+                <div class="tool-card-tags">${tagsHtml}</div>
+              </div>
+            </div>
+            <div class="tool-card-footer">
+              <div class="tool-card-hint">
+                <span class="hint-icon">⚡</span>
+                <span>${escapeHtml(tool.quickMeta)}</span>
+              </div>
+              <button class="btn-tool-action">
+                <span>${escapeHtml(tool.actionText || 'Ejecutar')}</span>
+                <span class="btn-action-arrow">→</span>
+              </button>
+            </div>
+          `;
+          card.addEventListener('click', () => tool.run());
+          grid.appendChild(card);
+        }
+      });
+
       Object.values(CATEGORIES_CONFIG).forEach(cat => {
         cat.tools.forEach(tool => {
           const textToSearch = `${tool.title} ${tool.sub} ${cat.title} ${(tool.tags || []).join(' ')}`.toLowerCase();
@@ -5491,17 +5570,6 @@ const CATEGORIES_CONFIG = {
         quickMeta: 'Medición en tiempo real',
         actionText: 'Iniciar Speedtest',
         run: runSpeedTest
-      },
-      {
-        id: 'btn-ping',
-        title: 'Realizar Ping',
-        sub: 'Comprobación de latencia y estabilidad hacia la puerta de enlace, DNS corporativos y servidores web.',
-        icon: '📡',
-        badge: 'LATENCIA & CONEXIÓN',
-        tags: ['Puerta de Enlace', 'Servidores DNS', 'Pérdida Paquetes', 'Estabilidad ICMP'],
-        quickMeta: 'Diagnóstico de paquetes',
-        actionText: 'Abrir Test Ping',
-        run: () => renderPingUtilityUI()
       },
       {
         id: 'btn-netoptions',
@@ -8771,16 +8839,19 @@ if (btnLockSession) {
 checkInitialAuth();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UTILIDAD: IMPRESORAS CANON (Proceso en 3 Pasos)
+// UTILIDAD: IMPRESORAS CANON & PLOTTER OCÉ
 // ─────────────────────────────────────────────────────────────────────────────
-async function runImpresorasUtility() {
-  clearResults('🖨️ Instalación de Impresoras Canon');
+async function runImpresorasUtility(initialTab = 'canon') {
+  clearResults('🖨️ Instalación de Impresoras & Plotter');
 
   const container = document.createElement('div');
   container.className = 'printer-container panel-fade-in';
   resultsEl.appendChild(container);
 
   const canonInstallerPath = 'Y:\\03_IT\\00_IMPRESORAS\\Canon C5850i Nuevo\\GPlus_PCL6_Driver_V311_32_64_00\\x64\\Setup.exe';
+  const plotterInstallerPath = 'Y:\\03_IT\\00_IMPRESORAS\\OCE COLORWAWE 3500\\ocewpd2.15.1.exe';
+  const plotterIp = '192.168.0.110';
+
   const textPrinterList = `1º Planta 192.168.0.191 (Ejecución)\n\n1º Planta 192.168.0.40 (Administración)\n\n2º Planta 192.168.0.190 (Urbanismo)\n\n3º Planta 192.168.0.244 (Basico)`;
 
   const officePrinters = [
@@ -8822,8 +8893,37 @@ async function runImpresorasUtility() {
     }
   ];
 
-  container.innerHTML = `
-    <div class="printer-utility-wrapper">
+  let currentTab = initialTab;
+
+  function renderView() {
+    container.innerHTML = `
+      <div class="printer-utility-wrapper">
+        <!-- Pestañas de Selección: Canon vs Plotter -->
+        <div class="printer-mode-tabs" role="tablist">
+          <button class="printer-mode-tab ${currentTab === 'canon' ? 'active' : ''}" id="tab-btn-canon" type="button">
+            <span>🖨️ Impresoras Canon (Oficina)</span>
+            <span class="printer-tab-badge">4 Plantas</span>
+          </button>
+          <button class="printer-mode-tab ${currentTab === 'plotter' ? 'active' : ''}" id="tab-btn-plotter" type="button">
+            <span>📐 Plotter Océ ColorWave 3500</span>
+            <span class="printer-tab-badge" style="background:#ECFDF5; color:#059669; border-color:#A7F3D0;">IP: 192.168.0.110</span>
+          </button>
+        </div>
+
+        ${currentTab === 'canon' ? renderCanonViewHTML() : renderPlotterViewHTML()}
+      </div>
+    `;
+
+    bindTabSwitchers();
+    if (currentTab === 'canon') {
+      bindCanonEvents();
+    } else {
+      bindPlotterEvents();
+    }
+  }
+
+  function renderCanonViewHTML() {
+    return `
       <!-- Banner Cabecera Canon -->
       <div class="printer-hero-card">
         <div class="printer-hero-left">
@@ -8836,7 +8936,7 @@ async function runImpresorasUtility() {
       </div>
 
       <div class="printer-steps-container">
-        <!-- PASO 1 -->
+        <!-- PASO 1 CANON -->
         <div class="printer-step-card">
           <div class="printer-step-header">
             <div class="printer-step-number">1</div>
@@ -8850,20 +8950,25 @@ async function runImpresorasUtility() {
             📁 <span>${canonInstallerPath}</span>
           </div>
 
-          <button id="btn-launch-canon-installer" class="btn-step-action primary">
-            <span>🚀 Abrir Instalador de Drivers Canon (Setup.exe)</span>
-          </button>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="btn-launch-canon-installer" class="btn-step-action primary">
+              <span>🚀 Abrir Instalador de Drivers Canon (Setup.exe)</span>
+            </button>
+            <button id="btn-copy-canon-path" class="btn-step-action outline">
+              <span>📋 Copiar Ruta</span>
+            </button>
+          </div>
 
           <div id="step1-status-msg" style="display:none; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600;"></div>
         </div>
 
-        <!-- PASO 2 -->
+        <!-- PASO 2 CANON -->
         <div class="printer-step-card">
           <div class="printer-step-header">
             <div class="printer-step-number">2</div>
             <div class="printer-step-title-group">
               <h3>Paso 2: Directorio de Impresoras por Planta y Departamento</h3>
-              <p>Selecciona la impresora deseada según tu ubicación para copiar su IP o verificar su conexión de red:</p>
+              <p>Selecciona la impresora deseada según tu ubicación para copiar su dirección IP:</p>
             </div>
           </div>
 
@@ -8899,12 +9004,7 @@ async function runImpresorasUtility() {
                     <button class="btn-card-copy-ip" data-ip="${p.ip}" data-dept="${p.dept}" data-floor="${p.floor}">
                       <span>📋 Copiar IP</span>
                     </button>
-                    <button class="btn-card-ping-ip" data-ip="${p.ip}" data-id="${p.id}" title="Comprobar conexión en red local">
-                      <span>🌐 Ping</span>
-                    </button>
                   </div>
-
-                  <div class="printer-ping-badge" id="ping-badge-${p.id}" style="display:none;"></div>
                 </div>
               </div>
             `).join('')}
@@ -8914,7 +9014,7 @@ async function runImpresorasUtility() {
           <div class="printer-step2-footer">
             <div class="printer-step2-hint">
               <span>💡</span>
-              <span>Copia la IP directa para introducirla en el asistente de instalación o copia la lista completa.</span>
+              <span>Copia la IP directa para introducirla en el asistente de instalación o copia la lista completa de la oficina.</span>
             </div>
             <button id="btn-copy-printer-info" class="btn-step-action outline">
               <span>📋 Copiar Lista Completa</span>
@@ -8922,7 +9022,7 @@ async function runImpresorasUtility() {
           </div>
         </div>
 
-        <!-- PASO 3 -->
+        <!-- PASO 3 CANON -->
         <div class="printer-step-card">
           <div class="printer-step-header">
             <div class="printer-step-number">3</div>
@@ -8937,155 +9037,352 @@ async function runImpresorasUtility() {
           </button>
         </div>
       </div>
-    </div>
-  `;
+    `;
+  }
 
-  // Bind Paso 1: Abrir ejecutable
-  const btnStep1 = container.querySelector('#btn-launch-canon-installer');
-  const statusMsgStep1 = container.querySelector('#step1-status-msg');
+  function renderPlotterViewHTML() {
+    return `
+      <!-- Banner Cabecera Plotter Océ ColorWave -->
+      <div class="printer-hero-card plotter-hero-card">
+        <div class="printer-hero-left">
+          <div class="printer-hero-icon-box" style="background:rgba(255,255,255,0.18);">📐</div>
+          <div class="printer-hero-text">
+            <h2>Instalación de Plotter Océ ColorWave 3500</h2>
+            <p>Asistente de instalación del controlador oficial Océ WPD e información de conexión por red (IP: <strong>${plotterIp}</strong>).</p>
+          </div>
+        </div>
+      </div>
 
-  if (btnStep1) {
-    btnStep1.addEventListener('click', async () => {
-      btnStep1.disabled = true;
-      btnStep1.style.opacity = '0.7';
-      if (statusMsgStep1) {
-        statusMsgStep1.style.display = 'block';
-        statusMsgStep1.style.background = '#EFF6FF';
-        statusMsgStep1.style.color = '#1D4ED8';
-        statusMsgStep1.style.border = '1px solid #BFDBFE';
-        statusMsgStep1.innerHTML = '⏳ Intentando ejecutar Setup.exe... Por favor, espera unos segundos.';
-      }
+      <div class="printer-steps-container">
+        <!-- PASO 1 PLOTTER: Instalación -->
+        <div class="printer-step-card">
+          <div class="printer-step-header">
+            <div class="printer-step-number" style="background:#0D9488;">1</div>
+            <div class="printer-step-title-group">
+              <h3>Paso 1: Instalación de Drivers Océ (ocewpd2.15.1.exe)</h3>
+              <p>Haz clic en el botón para ejecutar el instalador oficial de controladores de Océ ubicado en la unidad compartida Y: de la oficina.</p>
+            </div>
+          </div>
 
-      try {
-        const res = await window.api.launchCanonInstaller();
-        if (res && res.success) {
-          if (statusMsgStep1) {
-            statusMsgStep1.style.background = '#ECFDF5';
-            statusMsgStep1.style.color = '#047857';
-            statusMsgStep1.style.border = '1px solid #A7F3D0';
-            statusMsgStep1.innerHTML = '✅ Instalador de Canon iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
+          <div class="printer-path-box">
+            📁 <span>${plotterInstallerPath}</span>
+          </div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="btn-launch-plotter-installer" class="btn-step-action primary" style="background:linear-gradient(135deg, #0D9488 0%, #0F766E 100%);">
+              <span>🚀 Abrir Instalador de Driver Océ (ocewpd2.15.1.exe)</span>
+            </button>
+            <button id="btn-copy-plotter-path" class="btn-step-action outline">
+              <span>📋 Copiar Ruta del Instalador</span>
+            </button>
+          </div>
+
+          <div id="step1-plotter-status-msg" style="display:none; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600;"></div>
+        </div>
+
+        <!-- PASO 2 PLOTTER: Información con la IP -->
+        <div class="printer-step-card">
+          <div class="printer-step-header">
+            <div class="printer-step-number" style="background:#0D9488;">2</div>
+            <div class="printer-step-title-group">
+              <h3>Paso 2: Información de Red y Dirección IP</h3>
+              <p>Información técnica y dirección IP directa para la configuración del plotter en la red local:</p>
+            </div>
+          </div>
+
+          <!-- Tarjeta Visual Principal del Plotter -->
+          <div class="printer-directory-grid" style="grid-template-columns: minmax(300px, 480px);">
+            <div class="printer-dir-card" style="--card-accent: #0D9488;">
+              <div class="printer-dir-card-top">
+                <div class="printer-dir-floor-pill">
+                  <span class="floor-dot" style="background-color: #0D9488;"></span>
+                  <span>Sala de Plóters / IT & Planos</span>
+                </div>
+                <span class="printer-dir-network-badge">🟢 Red Local HCP</span>
+              </div>
+
+              <div class="printer-dir-card-main">
+                <div class="printer-dir-icon-avatar" style="background-color: rgba(13, 148, 136, 0.15); color: #0D9488;">
+                  <span>📐</span>
+                </div>
+                <div class="printer-dir-info">
+                  <h4 class="printer-dir-dept-title">Plotter Océ ColorWave 3500</h4>
+                  <span class="printer-dir-canon-model">Océ Wide Format WPD Printer Driver</span>
+                </div>
+              </div>
+
+              <div class="printer-dir-card-footer">
+                <div class="printer-dir-ip-box">
+                  <span class="printer-dir-ip-label">Dirección IP Local</span>
+                  <span class="printer-dir-ip-code" style="color:#0D9488;">${plotterIp}</span>
+                </div>
+
+                <div class="printer-dir-card-actions">
+                  <button class="btn-card-copy-ip" id="btn-plotter-copy-ip" data-ip="${plotterIp}" data-dept="Plotter Océ" data-floor="Sala Plóters">
+                    <span>📋 Copiar IP (${plotterIp})</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cuadro de Datos Técnicos y Parámetros del Plotter -->
+          <div class="plotter-specs-box">
+            <div class="plotter-spec-item">
+              <span class="plotter-spec-title">Modelo Hardware</span>
+              <span class="plotter-spec-value">Océ ColorWave 3500</span>
+            </div>
+            <div class="plotter-spec-item">
+              <span class="plotter-spec-title">Dirección IP de Red</span>
+              <span class="plotter-spec-value" style="color:#0D9488; font-family:monospace;">${plotterIp}</span>
+            </div>
+            <div class="plotter-spec-item">
+              <span class="plotter-spec-title">Puerto y Protocolo</span>
+              <span class="plotter-spec-value">TCP/IP Estándar (RAW 9100 / LPR)</span>
+            </div>
+            <div class="plotter-spec-item">
+              <span class="plotter-spec-title">Formatos Soportados</span>
+              <span class="plotter-spec-value">Bobinas A0, A1, A2 (hasta 42" CAD/BIM)</span>
+            </div>
+            <div class="plotter-spec-item">
+              <span class="plotter-spec-title">Controlador Requerido</span>
+              <span class="plotter-spec-value">Océ WPD 2.15.1</span>
+            </div>
+            <div class="plotter-spec-item">
+              <span class="plotter-spec-title">Nombre Recomendado en Windows</span>
+              <span class="plotter-spec-value">Plotter Oce ColorWave 3500</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindTabSwitchers() {
+    const tabCanon = container.querySelector('#tab-btn-canon');
+    const tabPlotter = container.querySelector('#tab-btn-plotter');
+
+    if (tabCanon) {
+      tabCanon.addEventListener('click', () => {
+        if (currentTab !== 'canon') {
+          currentTab = 'canon';
+          renderView();
+        }
+      });
+    }
+
+    if (tabPlotter) {
+      tabPlotter.addEventListener('click', () => {
+        if (currentTab !== 'plotter') {
+          currentTab = 'plotter';
+          renderView();
+        }
+      });
+    }
+  }
+
+  function bindCanonEvents() {
+    // Bind Paso 1: Abrir ejecutable Canon
+    const btnStep1 = container.querySelector('#btn-launch-canon-installer');
+    const btnCopyCanonPath = container.querySelector('#btn-copy-canon-path');
+    const statusMsgStep1 = container.querySelector('#step1-status-msg');
+
+    if (btnCopyCanonPath) {
+      btnCopyCanonPath.addEventListener('click', async () => {
+        try {
+          await window.api.copyToClipboard(canonInstallerPath);
+          showToast('Ruta del instalador de Canon copiada al portapapeles.', 'success');
+        } catch {
+          showToast('Error al copiar la ruta.', 'error');
+        }
+      });
+    }
+
+    if (btnStep1) {
+      btnStep1.addEventListener('click', async () => {
+        btnStep1.disabled = true;
+        btnStep1.style.opacity = '0.7';
+        if (statusMsgStep1) {
+          statusMsgStep1.style.display = 'block';
+          statusMsgStep1.style.background = '#EFF6FF';
+          statusMsgStep1.style.color = '#1D4ED8';
+          statusMsgStep1.style.border = '1px solid #BFDBFE';
+          statusMsgStep1.innerHTML = '⏳ Intentando ejecutar Setup.exe... Por favor, espera unos segundos.';
+        }
+
+        try {
+          const res = await window.api.launchCanonInstaller();
+          if (res && res.success) {
+            if (statusMsgStep1) {
+              statusMsgStep1.style.background = '#ECFDF5';
+              statusMsgStep1.style.color = '#047857';
+              statusMsgStep1.style.border = '1px solid #A7F3D0';
+              statusMsgStep1.innerHTML = '✅ Instalador de Canon iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
+            }
+            showToast('✅ Instalador de Canon ejecutado correctamente.', 'success');
+          } else {
+            const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
+            if (statusMsgStep1) {
+              statusMsgStep1.style.background = '#FEF2F2';
+              statusMsgStep1.style.color = '#B91C1C';
+              statusMsgStep1.style.border = '1px solid #FCA5A5';
+              statusMsgStep1.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
+            }
+            showToast('❌ No se pudo abrir el instalador de Canon.', 'error');
           }
-          showToast('✅ Instalador de Canon ejecutado correctamente.', 'success');
-        } else {
-          const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
+        } catch (err) {
           if (statusMsgStep1) {
             statusMsgStep1.style.background = '#FEF2F2';
             statusMsgStep1.style.color = '#B91C1C';
             statusMsgStep1.style.border = '1px solid #FCA5A5';
-            statusMsgStep1.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
+            statusMsgStep1.innerHTML = `⚠️ Error: ${err.message}`;
           }
-          showToast('❌ No se pudo abrir el instalador de Canon.', 'error');
+          showToast(`❌ Error: ${err.message}`, 'error');
+        } finally {
+          btnStep1.disabled = false;
+          btnStep1.style.opacity = '1';
         }
-      } catch (err) {
-        if (statusMsgStep1) {
-          statusMsgStep1.style.background = '#FEF2F2';
-          statusMsgStep1.style.color = '#B91C1C';
-          statusMsgStep1.style.border = '1px solid #FCA5A5';
-          statusMsgStep1.innerHTML = `⚠️ Error: ${err.message}`;
+      });
+    }
+
+    // Bind Paso 2: Copiar IP individual
+    const copyButtons = container.querySelectorAll('.btn-card-copy-ip');
+    copyButtons.forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const ip = btn.getAttribute('data-ip');
+        const dept = btn.getAttribute('data-dept');
+        const floor = btn.getAttribute('data-floor');
+        try {
+          await window.api.copyToClipboard(ip);
+          showToast(`IP ${ip} (${dept} - ${floor}) copiada al portapapeles.`, 'success');
+          const span = btn.querySelector('span');
+          if (span) span.textContent = '✅ Copiada!';
+          setTimeout(() => {
+            if (span) span.textContent = '📋 Copiar IP';
+          }, 2200);
+        } catch (err) {
+          showToast('Error al copiar la IP.', 'error');
         }
-        showToast(`❌ Error: ${err.message}`, 'error');
-      } finally {
-        btnStep1.disabled = false;
-        btnStep1.style.opacity = '1';
-      }
+      });
     });
+
+    // Bind Paso 2: Copiar texto completo
+    const btnCopyInfo = container.querySelector('#btn-copy-printer-info');
+    if (btnCopyInfo) {
+      btnCopyInfo.addEventListener('click', async () => {
+        try {
+          await window.api.copyToClipboard(textPrinterList);
+          showToast('📋 Lista completa de impresoras copiada al portapapeles.', 'success');
+          const spanEl = btnCopyInfo.querySelector('span');
+          if (spanEl) spanEl.textContent = '✅ Copiado al Portapapeles!';
+          setTimeout(() => {
+            if (spanEl) spanEl.textContent = '📋 Copiar Lista Completa';
+          }, 2500);
+        } catch (e) {
+          showToast('Error copiando al portapapeles.', 'error');
+        }
+      });
+    }
+
+    // Bind Paso 3: Abrir menú de impresoras
+    const btnStep3 = container.querySelector('#btn-open-windows-printers');
+    if (btnStep3) {
+      btnStep3.addEventListener('click', async () => {
+        try {
+          await window.api.openWindowsPrinters();
+          showToast('🖨️ Abriendo el menú Impresoras y Escáneres de Windows...', 'info');
+        } catch (e) {
+          showToast('Error al abrir Impresoras y Escáneres.', 'error');
+        }
+      });
+    }
   }
 
-  // Bind Paso 2: Copiar IP individual
-  const copyButtons = container.querySelectorAll('.btn-card-copy-ip');
-  copyButtons.forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const ip = btn.getAttribute('data-ip');
-      const dept = btn.getAttribute('data-dept');
-      const floor = btn.getAttribute('data-floor');
-      try {
-        await window.api.copyToClipboard(ip);
-        showToast(`IP ${ip} (${dept} - ${floor}) copiada al portapapeles.`, 'success');
-        const span = btn.querySelector('span');
-        if (span) span.textContent = '✅ Copiada!';
-        setTimeout(() => {
-          if (span) span.textContent = '📋 Copiar IP';
-        }, 2200);
-      } catch (err) {
-        showToast('Error al copiar la IP.', 'error');
-      }
-    });
-  });
+  function bindPlotterEvents() {
+    // Bind Paso 1: Abrir instalador Plotter Océ
+    const btnLaunchPlotter = container.querySelector('#btn-launch-plotter-installer');
+    const btnCopyPath = container.querySelector('#btn-copy-plotter-path');
+    const statusMsg = container.querySelector('#step1-plotter-status-msg');
 
-  // Bind Paso 2: Ping individual a cada impresora
-  const pingButtons = container.querySelectorAll('.btn-card-ping-ip');
-  pingButtons.forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const ip = btn.getAttribute('data-ip');
-      const pid = btn.getAttribute('data-id');
-      const badge = container.querySelector(`#ping-badge-${pid}`);
-
-      btn.disabled = true;
-      btn.style.opacity = '0.7';
-      if (badge) {
-        badge.style.display = 'block';
-        badge.className = 'printer-ping-badge';
-        badge.textContent = `⏳ Comprobando ${ip}...`;
-      }
-
-      try {
-        const pingRes = await window.api.runPingTest({ host: ip, count: 2 });
-        if (pingRes && (pingRes.success || pingRes.alive || pingRes.avgPing || pingRes.avg)) {
-          const latency = pingRes.avgPing || pingRes.avg || (pingRes.times && pingRes.times[0]) || '<10';
-          if (badge) {
-            badge.className = 'printer-ping-badge ok';
-            badge.textContent = `✅ En línea (${latency} ms)`;
-          }
-          showToast(`✅ Impresora ${ip} responde correctamente (${latency} ms).`, 'success');
-        } else {
-          if (badge) {
-            badge.className = 'printer-ping-badge fail';
-            badge.textContent = `⚠️ Sin respuesta (Offline o firewall)`;
-          }
-          showToast(`⚠️ No se recibió respuesta de ${ip}.`, 'warning');
+    if (btnCopyPath) {
+      btnCopyPath.addEventListener('click', async () => {
+        try {
+          await window.api.copyToClipboard(plotterInstallerPath);
+          showToast('Ruta del instalador del Plotter copiada al portapapeles.', 'success');
+        } catch {
+          showToast('Error al copiar la ruta.', 'error');
         }
-      } catch (err) {
-        if (badge) {
-          badge.className = 'printer-ping-badge fail';
-          badge.textContent = `❌ Error comprobando IP`;
-        }
-      } finally {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-      }
-    });
-  });
+      });
+    }
 
-  // Bind Paso 2: Copiar texto completo
-  const btnCopyInfo = container.querySelector('#btn-copy-printer-info');
-  if (btnCopyInfo) {
-    btnCopyInfo.addEventListener('click', async () => {
-      try {
-        await window.api.copyToClipboard(textPrinterList);
-        showToast('📋 Lista completa de impresoras copiada al portapapeles.', 'success');
-        const spanEl = btnCopyInfo.querySelector('span');
-        if (spanEl) spanEl.textContent = '✅ Copiado al Portapapeles!';
-        setTimeout(() => {
-          if (spanEl) spanEl.textContent = '📋 Copiar Lista Completa';
-        }, 2500);
-      } catch (e) {
-        showToast('Error copiando al portapapeles.', 'error');
-      }
-    });
+    if (btnLaunchPlotter) {
+      btnLaunchPlotter.addEventListener('click', async () => {
+        btnLaunchPlotter.disabled = true;
+        btnLaunchPlotter.style.opacity = '0.7';
+        if (statusMsg) {
+          statusMsg.style.display = 'block';
+          statusMsg.style.background = '#F0FDFA';
+          statusMsg.style.color = '#0F766E';
+          statusMsg.style.border = '1px solid #99F6E4';
+          statusMsg.innerHTML = '⏳ Intentando ejecutar ocewpd2.15.1.exe... Por favor, espera unos segundos.';
+        }
+
+        try {
+          const res = await window.api.launchPlotterInstaller();
+          if (res && res.success) {
+            if (statusMsg) {
+              statusMsg.style.background = '#ECFDF5';
+              statusMsg.style.color = '#047857';
+              statusMsg.style.border = '1px solid #A7F3D0';
+              statusMsg.innerHTML = '✅ Instalador del Plotter Océ iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
+            }
+            showToast('✅ Instalador del Plotter Océ ejecutado correctamente.', 'success');
+          } else {
+            const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
+            if (statusMsg) {
+              statusMsg.style.background = '#FEF2F2';
+              statusMsg.style.color = '#B91C1C';
+              statusMsg.style.border = '1px solid #FCA5A5';
+              statusMsg.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
+            }
+            showToast('❌ No se pudo abrir el instalador del Plotter.', 'error');
+          }
+        } catch (err) {
+          if (statusMsg) {
+            statusMsg.style.background = '#FEF2F2';
+            statusMsg.style.color = '#B91C1C';
+            statusMsg.style.border = '1px solid #FCA5A5';
+            statusMsg.innerHTML = `⚠️ Error: ${err.message}`;
+          }
+          showToast(`❌ Error: ${err.message}`, 'error');
+        } finally {
+          btnLaunchPlotter.disabled = false;
+          btnLaunchPlotter.style.opacity = '1';
+        }
+      });
+    }
+
+    // Bind Paso 2: Copiar IP Plotter
+    const btnPlotterCopyIp = container.querySelector('#btn-plotter-copy-ip');
+    if (btnPlotterCopyIp) {
+      btnPlotterCopyIp.addEventListener('click', async () => {
+        try {
+          await window.api.copyToClipboard(plotterIp);
+          showToast(`IP ${plotterIp} (Plotter Océ) copiada al portapapeles.`, 'success');
+          const span = btnPlotterCopyIp.querySelector('span');
+          if (span) span.textContent = '✅ Copiada!';
+          setTimeout(() => {
+            if (span) span.textContent = `📋 Copiar IP (${plotterIp})`;
+          }, 2200);
+        } catch (err) {
+          showToast('Error al copiar la IP.', 'error');
+        }
+      });
+    }
   }
 
-  // Bind Paso 3: Abrir menú de impresoras
-  const btnStep3 = container.querySelector('#btn-open-windows-printers');
-  if (btnStep3) {
-    btnStep3.addEventListener('click', async () => {
-      try {
-        await window.api.openWindowsPrinters();
-        showToast('🖨️ Abriendo el menú Impresoras y Escáneres de Windows...', 'info');
-      } catch (e) {
-        showToast('Error al abrir Impresoras y Escáneres.', 'error');
-      }
-    });
-  }
+  // Inicializar vista
+  renderView();
 }
 
 function renderOfficePrintersGridHTML(printers = []) {
@@ -9611,7 +9908,7 @@ const INFORMES_VERIFICACIONES_LIST = [
 
 const INFORMES_STEPS_CONFIG = [
   { key: 'general', num: '00', title: 'Datos generales', sub: 'Identificación básica del equipo', anchor: 'inf-sec-00' },
-  { key: 'specs', num: '01', title: 'Especificaciones', sub: 'Hardware y reporte de componentes', anchor: 'inf-sec-01' },
+  { key: 'specs', num: '01', title: 'Informe PDF', sub: 'Adjunto de informe técnico en PDF', anchor: 'inf-sec-01' },
   { key: 'p1', num: '02', title: 'Preparación', sub: 'Usuario local, nombre y dominio', anchor: 'inf-sec-02' },
   { key: 'p2', num: '03', title: 'Software corporativo', sub: 'Instalación de programas base', anchor: 'inf-sec-03' },
   { key: 'p3', num: '04', title: 'Sesión usuario', sub: 'Plugins, backups e impresoras', anchor: 'inf-sec-04' },
@@ -9837,11 +10134,6 @@ function runInformesUtility() {
 
   resultsEl.appendChild(container);
   renderInformesView();
-
-  // Autocompletado inteligente si las especificaciones están vacías
-  setTimeout(() => {
-    autoPopulateHardwareSpecs(false);
-  }, 100);
 }
 
 function renderInformesView() {
@@ -10064,83 +10356,29 @@ function renderStep0General(d) {
   `;
 }
 
-// ── PASO 1: Especificaciones del Equipo ───────────────────────────────────────
+// ── PASO 1: Adjunto de Informe del Equipo (PDF) ──────────────────────────────
 function renderStep1Specs(d) {
   const s = d.specs;
-  const isFilled = Boolean(s.cpu && s.ram);
   return `
     <div class="inf-section-header">
       <span class="inf-eyebrow">Auditoría Técnica · Paso 01</span>
-      <h3 class="inf-section-title">Especificaciones del Hardware</h3>
-      <p class="inf-section-desc">Detalles del procesador, memoria RAM, tarjeta gráfica, almacenamiento y adjuntos de informe PDF.</p>
-    </div>
-
-    <!-- Barra de Autocompletado Inteligente Integrado con Información del Equipo -->
-    <div class="inf-hardware-autofill-bar" id="inf-hardware-sync-box">
-      <div class="inf-hardware-autofill-left">
-        <div class="inf-hardware-autofill-icon">⚡</div>
-        <div>
-          <div class="inf-hardware-autofill-title">Integración con Información del Equipo</div>
-          <div class="inf-hardware-autofill-desc">Rellena automáticamente las especificaciones reales de CPU, RAM, GPU, Sistema Operativo, Almacenamiento e IP de este equipo.</div>
-        </div>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        ${isFilled ? `<span class="inf-hardware-synced-tag">✔ Especificaciones Detectadas</span>` : ''}
-        <button type="button" class="inf-hardware-btn-sync" id="btn-sync-hardware-specs" onclick="window._triggerHardwareAutofill(true)">
-          🔄 Sincronizar Hardware Ahora
-        </button>
-      </div>
-    </div>
-
-    <div class="inf-card">
-      <div class="inf-card-title"><span class="inf-dot"></span>Componentes Detectados / Especificaciones</div>
-      
-      <div class="inf-grid2">
-        <div class="inf-field">
-          <label>Procesador (CPU)</label>
-          <input type="text" id="inf-spec-cpu" value="${escapeHtml(s.cpu)}" oninput="informesState.data.specs.cpu=this.value" placeholder="Ej: Intel Core i7-13700H @ 2.40GHz">
-        </div>
-
-        <div class="inf-field">
-          <label>Memoria RAM</label>
-          <input type="text" id="inf-spec-ram" value="${escapeHtml(s.ram)}" oninput="informesState.data.specs.ram=this.value" placeholder="Ej: 32 GB DDR5 4800MHz">
-        </div>
-
-        <div class="inf-field">
-          <label>Tarjeta Gráfica (GPU)</label>
-          <input type="text" id="inf-spec-gpu" value="${escapeHtml(s.gpu)}" oninput="informesState.data.specs.gpu=this.value" placeholder="Ej: NVIDIA RTX 4060 Laptop GPU (8 GB)">
-        </div>
-
-        <div class="inf-field">
-          <label>Sistema Operativo y Edición</label>
-          <input type="text" id="inf-spec-os" value="${escapeHtml(s.os)}" oninput="informesState.data.specs.os=this.value" placeholder="Ej: Windows 11 Pro 64-bit (23H2)">
-        </div>
-
-        <div class="inf-field">
-          <label>Almacenamiento / Discos</label>
-          <input type="text" id="inf-spec-storage" value="${escapeHtml(s.storage)}" oninput="informesState.data.specs.storage=this.value" placeholder="Ej: NVMe Samsung 980 Pro 1TB">
-        </div>
-
-        <div class="inf-field">
-          <label>Dirección IP / Red</label>
-          <input type="text" id="inf-spec-ip" value="${escapeHtml(s.ip)}" oninput="informesState.data.specs.ip=this.value" placeholder="Ej: 192.168.0.125 (DHCP)">
-        </div>
-      </div>
+      <h3 class="inf-section-title">Adjunto de Informe del Equipo</h3>
+      <p class="inf-section-desc">Adjunta el informe técnico en PDF generado para este equipo para vincularlo a su ficha de instalación.</p>
     </div>
 
     <div class="inf-card">
       <div class="inf-card-title"><span class="inf-dot"></span>Adjunto de Informe PDF (HCPToolKit / Auditoría Externa)</div>
-      <p class="inf-hint">Puedes adjuntar un informe técnico en PDF generado previamente para adjuntarlo o previsualizarlo dentro del informe final.</p>
+      <p class="inf-hint">Adjunta el informe técnico en formato PDF generado previamente para vincularlo y previsualizarlo directamente en el informe final.</p>
 
       <input type="file" id="infSpecsPdfInput" accept=".pdf,application/pdf" style="display:none;" onchange="window._handleInformePdfUpload(this)">
 
       ${s.pdfBase64 ? `
-        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-tertiary, #F1F5F9); padding:12px 16px; border-radius:10px; border:1px solid #CBD5E1;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span style="font-size:22px;">📄</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-tertiary, #F1F5F9); padding:14px 18px; border-radius:10px; border:1px solid #CBD5E1;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:26px;">📄</span>
             <div>
-              <strong style="font-size:13.5px;">${escapeHtml(s.pdfNombre)}</strong>
-              <div style="font-size:11.5px; color:#64748B;">Documento PDF adjunto y listo para visualizar</div>
+              <strong style="font-size:14px; color:#0F172A;">${escapeHtml(s.pdfNombre)}</strong>
+              <div style="font-size:12px; color:#64748B;">Documento PDF adjunto y listo para visualizar o exportar</div>
             </div>
           </div>
           <div style="display:flex; gap:8px;">
@@ -10148,14 +10386,14 @@ function renderStep1Specs(d) {
             <button class="btn-inf-tool ghost" onclick="window._removeInformePdf()" style="color:#EF4444;">🗑 Quitar</button>
           </div>
         </div>
-        <div style="margin-top:12px; border-radius:10px; overflow:hidden; border:1px solid #CBD5E1;">
-          <iframe src="${s.pdfBase64}" style="width:100%; height:450px; border:none; background:#fff;"></iframe>
+        <div style="margin-top:14px; border-radius:10px; overflow:hidden; border:1px solid #CBD5E1;">
+          <iframe src="${s.pdfBase64}" style="width:100%; height:480px; border:none; background:#fff;"></iframe>
         </div>
       ` : `
-        <div style="text-align:center; padding:28px 16px; border:2px dashed #CBD5E1; border-radius:12px; background:var(--bg-tertiary, #F8FAFC);">
-          <div style="font-size:32px; margin-bottom:8px;">📤</div>
-          <h4 style="margin:0 0 6px 0; font-size:15px;">Subir Informe en PDF</h4>
-          <p style="font-size:12.5px; color:#64748B; margin:0 0 14px 0;">Selecciona el archivo .PDF generado por HCPToolKit o auditoría de hardware</p>
+        <div style="text-align:center; padding:36px 20px; border:2px dashed #CBD5E1; border-radius:12px; background:var(--bg-tertiary, #F8FAFC);">
+          <div style="font-size:38px; margin-bottom:10px;">📤</div>
+          <h4 style="margin:0 0 8px 0; font-size:16px; color:#0F172A;">Subir Informe en PDF</h4>
+          <p style="font-size:13px; color:#64748B; margin:0 0 16px 0;">Selecciona el archivo .PDF generado por HCPToolKit o informe de hardware del equipo</p>
           <button class="btn-inf-tool primary" onclick="document.getElementById('infSpecsPdfInput').click()">
             Examinar Archivo PDF...
           </button>
@@ -10503,20 +10741,26 @@ function renderInformesReportHTML(d) {
           </div>
         </div>
 
-        <!-- Bloque: Especificaciones de Hardware -->
+        <!-- Bloque: Informe Técnico Adjunto del Equipo -->
         <div class="inf-r-block">
-          <div class="inf-r-block-title">🖥️ Especificaciones de Hardware</div>
-          <div class="inf-r-grid">
-            <div class="inf-r-row"><span class="inf-rk">Procesador (CPU)</span><span class="inf-rv">${escapeHtml(s.cpu) || '—'}</span></div>
-            <div class="inf-r-row"><span class="inf-rk">Memoria RAM</span><span class="inf-rv">${escapeHtml(s.ram) || '—'}</span></div>
-            <div class="inf-r-row"><span class="inf-rk">Tarjeta Gráfica</span><span class="inf-rv">${escapeHtml(s.gpu) || '—'}</span></div>
-            <div class="inf-r-row"><span class="inf-rk">Sistema Operativo</span><span class="inf-rv">${escapeHtml(s.os) || '—'}</span></div>
-            <div class="inf-r-row"><span class="inf-rk">Almacenamiento</span><span class="inf-rv">${escapeHtml(s.storage) || '—'}</span></div>
-            <div class="inf-r-row"><span class="inf-rk">Dirección IP</span><span class="inf-rv">${escapeHtml(s.ip) || '—'}</span></div>
-          </div>
+          <div class="inf-r-block-title">📄 Informe Técnico del Equipo (PDF)</div>
           ${s.pdfNombre ? `
-            <div style="font-size:12.5px; color:#0284C7; font-weight:700; margin-top:6px;">
-              📄 Informe PDF Adjunto: ${escapeHtml(s.pdfNombre)}
+            <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; background:#F8FAFC; border-radius:8px; border:1px solid #E2E8F0;">
+              <span style="font-size:24px;">📑</span>
+              <div>
+                <strong style="font-size:13.5px; color:#0F172A;">${escapeHtml(s.pdfNombre)}</strong>
+                <div style="font-size:12px; color:#0284C7; font-weight:600;">Informe técnico PDF vinculado y adjunto a esta acta de instalación</div>
+              </div>
+            </div>
+          ` : `
+            <div style="color:#64748B; font-size:13px; font-style:italic; padding:6px 0;">No se ha adjuntado ningún archivo PDF al informe de este equipo.</div>
+          `}
+          ${(s.cpu || s.ram) ? `
+            <div class="inf-r-grid" style="margin-top:10px;">
+              ${s.cpu ? `<div class="inf-r-row"><span class="inf-rk">CPU</span><span class="inf-rv">${escapeHtml(s.cpu)}</span></div>` : ''}
+              ${s.ram ? `<div class="inf-r-row"><span class="inf-rk">RAM</span><span class="inf-rv">${escapeHtml(s.ram)}</span></div>` : ''}
+              ${s.gpu ? `<div class="inf-r-row"><span class="inf-rk">GPU</span><span class="inf-rv">${escapeHtml(s.gpu)}</span></div>` : ''}
+              ${s.os ? `<div class="inf-r-row"><span class="inf-rk">SO</span><span class="inf-rv">${escapeHtml(s.os)}</span></div>` : ''}
             </div>
           ` : ''}
         </div>

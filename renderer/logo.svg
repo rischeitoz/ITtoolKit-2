@@ -1,59 +1,61 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Gradiente de fondo negro profundo oficial -->
+    <!-- Gradiente de fondo blanco puro / ultra sutil oficial -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#080A0F"/>
-      <stop offset="100%" stop-color="#000000"/>
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F8FAFC"/>
     </linearGradient>
 
-    <!-- Resplandor sutil verde lima de la marca -->
-    <filter id="limeGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#D8FF00" flood-opacity="0.5"/>
-    </filter>
-
-    <!-- Resplandor del marco -->
+    <!-- Marco sutil con gradiente elegante -->
     <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2B3045"/>
-      <stop offset="50%" stop-color="#141722"/>
-      <stop offset="100%" stop-color="#D8FF00" stop-opacity="0.4"/>
+      <stop offset="0%" stop-color="#E2E8F0"/>
+      <stop offset="50%" stop-color="#CBD5E1"/>
+      <stop offset="100%" stop-color="#94A3B8"/>
     </linearGradient>
+
+    <!-- Sombra suave para el contenedor -->
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
 
     <!-- Gradiente de la Tríada Oficial: Lima, Rosa y Violeta -->
     <linearGradient id="triadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#D8FF00"/>
+      <stop offset="0%" stop-color="#65A30D"/>
       <stop offset="50%" stop-color="#FF006E"/>
-      <stop offset="100%" stop-color="#6B35FF"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
     </linearGradient>
   </defs>
 
-  <!-- Base del Icono con Squircle moderno -->
-  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="4"/>
+  <!-- Base del Icono con Squircle moderno sobre Fondo Blanco Luminoso -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="4" filter="url(#cardShadow)"/>
 
-  <!-- Rejilla arquitectónica técnica de fondo (Pág. 15 y 16) -->
-  <path d="M 64 160 H 448 M 64 256 H 448 M 64 352 H 448 M 160 64 V 448 M 256 64 V 448 M 352 64 V 448" stroke="#FFFFFF" stroke-opacity="0.03" stroke-width="1.5"/>
+  <!-- Rejilla arquitectónica técnica de fondo en positivo -->
+  <path d="M 64 160 H 448 M 64 256 H 448 M 64 352 H 448 M 160 64 V 448 M 256 64 V 448 M 352 64 V 448" stroke="#0F172A" stroke-opacity="0.05" stroke-width="1.5"/>
 
-  <!-- Logotipo Oficial HCP + en negativo (Pág. 18 y 19) -->
-  <g transform="translate(62, 175)">
-    <!-- Letra H con corte arquitectónico oficial en el travesaño (Pág. 1 y 14) -->
-    <path d="M 0 0 H 26 V 56 L 38 70 L 26 84 V 140 H 0 Z" fill="#FFFFFF"/>
-    <path d="M 38 56 H 72 V 0 H 98 V 140 H 72 V 84 H 38 Z" fill="#FFFFFF"/>
-
-    <!-- Letra C (Grotesca geométrica limpia Px Grotesk) -->
-    <path d="M 218 36 C 208 12 190 0 166 0 C 132 0 108 26 108 70 C 108 114 132 140 166 140 C 190 140 208 128 218 104 H 190 C 182 116 174 120 166 120 C 146 120 134 102 134 70 C 134 38 146 20 166 20 C 174 20 182 24 190 36 Z" fill="#FFFFFF"/>
-
-    <!-- Letra P -->
-    <path d="M 234 0 H 286 C 310 0 326 14 326 44 C 326 74 310 88 286 88 H 260 V 140 H 234 Z M 260 20 V 68 H 284 C 296 68 302 60 302 44 C 302 28 296 20 284 20 Z" fill="#FFFFFF"/>
-
-    <!-- Isotipo Oficial + (Estructura en ángulo recto inferior + Evolución curva superior en HCP Lime, Pág. 15 y 19) -->
-    <g transform="translate(346, 16)" filter="url(#limeGlow)">
-      <!-- Símbolo plus: ángulo recto en base inferior e izquierda, redondeado en superior y derecha -->
-      <path d="M 24 0 C 38 0 48 10 48 24 V 40 H 84 C 94 40 102 48 102 58 C 102 68 94 74 84 74 H 48 V 116 H 24 V 74 H 0 V 40 H 24 V 24 C 24 10 28 0 28 0 Z" fill="#D8FF00"/>
+  <!-- Logotipo Oficial HCP + Vector Exacto (01_logo_positivo.png) -->
+  <g transform="translate(67, 180) scale(0.48)" fill="#0A0E1A">
+    <!-- H -->
+    <g transform="translate(0, 0)">
+      <path d="M 0,0 H 34 V 83 H 126 V 117 H 68 C 48,117 34,136 34,160 V 200 H 0 V 83 H 34 C 16,83 0,64 0,40 Z" />
+      <path d="M 126,0 H 160 V 200 H 126 Z" />
+    </g>
+    <!-- C -->
+    <g transform="translate(192, 0)">
+      <path d="M 156,46 C 144,14 118,0 80,0 C 34,0 0,36 0,100 C 0,164 34,200 80,200 C 118,200 144,186 156,154 H 120 C 112,168 98,172 80,172 C 52,172 34,144 34,100 C 34,56 52,28 80,28 C 98,28 112,32 120,46 Z" />
+    </g>
+    <!-- P -->
+    <g transform="translate(380, 0)">
+      <path d="M 0,0 H 92 C 128,0 154,18 154,60 C 154,102 128,120 92,120 H 34 V 200 H 0 Z M 34,28 V 92 H 90 C 108,92 120,82 120,60 C 120,38 108,28 90,28 Z" />
+    </g>
+    <!-- + (Con cortes arquitectónicos oficiales y simetría rotacional 180°) -->
+    <g transform="translate(586, 0)">
+      <path d="M 83,0 H 117 V 83 H 200 V 117 H 83 C 103,117 117,136 117,160 V 200 H 83 V 117 H 0 V 83 H 117 C 97,83 83,64 83,40 Z" />
     </g>
   </g>
 
   <!-- Barra de Tríada de Marca (Architecture, Engineering, Urban Planning) -->
-  <rect x="156" y="398" width="200" height="7" rx="3.5" fill="url(#triadGrad)"/>
+  <rect x="156" y="398" width="200" height="8" rx="4" fill="url(#triadGrad)"/>
 
-  <!-- Subtítulo de Urban Planning en HCP Silver -->
-  <text x="256" y="432" fill="#CBD5E1" font-family="'Segoe UI', -apple-system, sans-serif" font-size="12" font-weight="700" letter-spacing="4" text-anchor="middle">URBAN PLANNING</text>
+  <!-- Subtítulo de Urban Planning en gris neutro legible -->
+  <text x="256" y="432" fill="#64748B" font-family="'Segoe UI', -apple-system, sans-serif" font-size="13" font-weight="800" letter-spacing="4" text-anchor="middle">URBAN PLANNING</text>
 </svg>

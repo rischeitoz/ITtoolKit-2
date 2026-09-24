@@ -126,6 +126,7 @@
     scanCanonPrinters: () => getJson('/api/printers/scan'),
     installCanonPrinter: (data) => postJson('/api/printers/install', data),
     launchCanonInstaller: () => postJson('/api/printers/launch-installer', {}),
+    launchPlotterInstaller: () => postJson('/api/printers/launch-plotter-installer', {}),
     openWindowsPrinters: () => postJson('/api/printers/open-settings', {}),
     printTestPage: (printerName) => postJson('/api/printers/test-page', { printerName }),
 
