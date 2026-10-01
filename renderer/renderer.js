@@ -26,7 +26,7 @@ const statusText = document.getElementById('status-text');
 const statusBar = document.getElementById('statusbar');
 
 const ALL_BTN_IDS = [
-  'btn-speedtest', 'btn-netoptions',
+  'btn-speedtest',
   'btn-diagnostico', 'btn-gpudrivers', 'btn-sysupdates', 'btn-eventlog', 'btn-highperf', 'btn-healthcheck',
   'btn-sfc', 'btn-dism', 'btn-mdsched', 'btn-cleantemp',
 ];
@@ -39,9 +39,8 @@ function setActiveSidebarButton(buttonId) {
   const sidebarButtons = [
     'btn-nav-home',
     'btn-open-tutorials',
-    'btn-open-software',
     'btn-open-printers',
-    'btn-open-informes',
+    'btn-open-plotter',
     'btn-open-pc',
     'btn-open-maint',
     'btn-open-net',
@@ -633,311 +632,6 @@ function startDiagLoadingSequence() {
   }, 400);
 
   return () => clearInterval(timer);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Utilidad — Realizar Ping (ICMP) y Resumen de Estadísticas
-// ═══════════════════════════════════════════════════════════════════════════════
-document.getElementById('btn-ping')?.addEventListener('click', () => {
-  renderPingUtilityUI();
-});
-
-function renderPingUtilityUI(initialHost = '8.8.8.8') {
-  clearResults('Realizar Ping');
-
-  const container = document.createElement('div');
-  container.className = 'ping-container panel-fade-in';
-
-  // Card de Configuración
-  const configCard = document.createElement('div');
-  configCard.className = 'ping-card';
-  configCard.innerHTML = `
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-      <span style="font-size:28px;">📡</span>
-      <div>
-        <h3 style="margin:0; font-size:18px; font-weight:700; color:var(--text-primary);">Prueba de Conectividad y Ping (ICMP)</h3>
-        <p style="margin:2px 0 0 0; font-size:13px; color:var(--text-secondary);">
-          Mide la latencia, variación de tiempo (jitter) y estabilidad de respuesta con cualquier servidor o IP.
-        </p>
-      </div>
-    </div>
-
-    <div style="margin-bottom:12px;">
-      <label style="font-size:12px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Destinos Frecuentes</label>
-      <div class="ping-presets" style="margin-top:6px;">
-        <button class="ping-preset-chip ${initialHost === '8.8.8.8' ? 'active' : ''}" data-host="8.8.8.8">🌐 Google DNS (8.8.8.8)</button>
-        <button class="ping-preset-chip ${initialHost === '1.1.1.1' ? 'active' : ''}" data-host="1.1.1.1">⚡ Cloudflare DNS (1.1.1.1)</button>
-        <button class="ping-preset-chip ${initialHost === 'www.google.com' ? 'active' : ''}" data-host="www.google.com">🔍 Web Google (www.google.com)</button>
-        <button class="ping-preset-chip ${initialHost === '192.168.1.1' ? 'active' : ''}" data-host="192.168.1.1">🏠 Router Local (192.168.1.1)</button>
-      </div>
-    </div>
-
-    <div class="info-input-grid">
-      <div>
-        <label style="font-size:13px; font-weight:600; color:var(--text-primary);">Dirección IP o Nombre de Host</label>
-        <input type="text" id="ping-host-input" class="info-text-input" value="${initialHost}" placeholder="Ej: 8.8.8.8, google.com o 192.168.1.1" style="width:100%; margin-top:4px;" />
-      </div>
-      <div>
-        <label style="font-size:13px; font-weight:600; color:var(--text-primary);">Paquetes a Enviar</label>
-        <select id="ping-count-select" class="info-text-input" style="width:100%; margin-top:4px;">
-          <option value="4" selected>4 Paquetes (Rápido - ~3s)</option>
-          <option value="8">8 Paquetes (Estándar - ~6s)</option>
-          <option value="12">12 Paquetes (Detallado - ~10s)</option>
-          <option value="20">20 Paquetes (Extensivo - ~16s)</option>
-        </select>
-      </div>
-    </div>
-
-    <button id="btn-run-ping-action" class="info-action-btn primary" style="margin-top:16px; width:100%; justify-content:center; font-size:15px; padding:12px;">
-      📡 Iniciar Prueba Ping
-    </button>
-  `;
-
-  container.appendChild(configCard);
-
-  const resultsArea = document.createElement('div');
-  resultsArea.id = 'ping-results-area';
-  container.appendChild(resultsArea);
-
-  resultsEl.appendChild(container);
-
-  // Chips
-  const chips = configCard.querySelectorAll('.ping-preset-chip');
-  const hostInput = configCard.querySelector('#ping-host-input');
-  chips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      chips.forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      hostInput.value = chip.getAttribute('data-host');
-    });
-  });
-
-  // Action
-  const runBtn = configCard.querySelector('#btn-run-ping-action');
-  runBtn?.addEventListener('click', async () => {
-    const host = hostInput.value.trim() || '8.8.8.8';
-    const count = parseInt(configCard.querySelector('#ping-count-select').value, 10) || 4;
-
-    resultsArea.innerHTML = `
-      <div class="ping-card panel-fade-in" style="text-align:center; padding:30px;">
-        <div class="spinner" style="margin:0 auto 16px auto;"></div>
-        <h3 style="margin:0 0 6px 0; font-size:16px; color:var(--text-primary);">Enviando paquetes ICMP a ${host}...</h3>
-        <p style="margin:0; font-size:13px; color:var(--text-secondary);">Calculando latencia, tiempo mínimo, medio y pérdida de paquetes...</p>
-      </div>
-    `;
-
-    setBusy(true, `Efectuando ping a ${host}...`);
-
-    try {
-      const res = await window.api.runPingTest({ host, count });
-      setBusy(false);
-      renderPingResultsReport(resultsArea, res);
-      statusText.textContent = `✔ Ping finalizado: ${res.received}/${res.sent} respuestas (${res.avgMs} ms media)`;
-    } catch (err) {
-      setBusy(false);
-      resultsArea.innerHTML = `
-        <div class="info-feedback-box error">
-          ❌ Error al ejecutar la prueba de ping: ${err.message}
-        </div>
-      `;
-      statusText.textContent = `❌ Error en la prueba de ping: ${err.message}`;
-    }
-  });
-}
-
-function renderPingResultsReport(containerEl, r) {
-  containerEl.innerHTML = '';
-
-  const report = document.createElement('div');
-  report.className = 'panel-fade-in';
-  report.style.display = 'flex';
-  report.style.flexDirection = 'column';
-  report.style.gap = '16px';
-
-  // 1. Banner
-  const hero = document.createElement('div');
-  hero.className = 'ping-hero-banner';
-  hero.innerHTML = `
-    <div class="ping-hero-left">
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-        <span style="font-size:12px; font-weight:800; background:rgba(255,255,255,0.15); padding:3px 10px; border-radius:12px;">HOST: ${r.host}</span>
-        ${r.resolvedIp !== r.host ? `<span style="font-size:12px; color:#94A3B8;">[${r.resolvedIp}]</span>` : ''}
-      </div>
-      <h3>${r.qualityLabel}</h3>
-      <p>${r.summaryText}</p>
-    </div>
-    <div class="ping-hero-metrics">
-      <div class="ping-metric-block">
-        <div class="ping-metric-val">${r.avgMs} <span style="font-size:14px; font-weight:600;">ms</span></div>
-        <div class="ping-metric-lbl">Latencia Media</div>
-      </div>
-      <div class="ping-metric-block">
-        <div class="ping-metric-val" style="color:${r.lossPercent === 0 ? '#4ADE80' : '#F87171'};">${r.lossPercent}%</div>
-        <div class="ping-metric-lbl">Pérdida</div>
-      </div>
-      <div class="ping-metric-block">
-        <div class="ping-metric-val" style="color:#FBBF24;">${r.jitter} <span style="font-size:14px; font-weight:600;">ms</span></div>
-        <div class="ping-metric-lbl">Jitter</div>
-      </div>
-    </div>
-  `;
-  report.appendChild(hero);
-
-  // 2. KPIs
-  const kpiGrid = document.createElement('div');
-  kpiGrid.className = 'ping-kpi-grid';
-  kpiGrid.innerHTML = `
-    <div class="ping-kpi-card">
-      <span class="ping-kpi-title">📦 Paquetes Transmitidos</span>
-      <span class="ping-kpi-val">${r.received} / ${r.sent} <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">recibidos</span></span>
-      <small style="font-size:11px; color:${r.lost === 0 ? 'var(--ok)' : 'var(--error)'}; font-weight:600;">
-        ${r.lost === 0 ? '✔ Sin pérdidas' : `⚠️ ${r.lost} paquetes perdidos (${r.lossPercent}%)`}
-      </small>
-    </div>
-    <div class="ping-kpi-card">
-      <span class="ping-kpi-title">⏱️ Latencia Mínima / Máxima</span>
-      <span class="ping-kpi-val">${r.minMs} - ${r.maxMs} <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">ms</span></span>
-      <small style="font-size:11px; color:var(--text-secondary);">Rango de variación de respuesta</small>
-    </div>
-    <div class="ping-kpi-card">
-      <span class="ping-kpi-title">📊 Variación (Jitter)</span>
-      <span class="ping-kpi-val">${r.jitter} <span style="font-size:12px; color:var(--text-secondary); font-weight:500;">ms</span></span>
-      <small style="font-size:11px; color:${r.jitter < 15 ? 'var(--ok)' : 'var(--warn)'}; font-weight:600;">
-        ${r.jitter < 15 ? '🟢 Alta Estabilidad' : '🟡 Variación Apreciable'}
-      </small>
-    </div>
-    <div class="ping-kpi-card">
-      <span class="ping-kpi-title">🌐 Evaluación de Calidad</span>
-      <span class="ping-kpi-val" style="font-size:16px; color:${r.qualityColor};">${r.qualityKey.toUpperCase()}</span>
-      <small style="font-size:11px; color:var(--text-secondary);">Score basado en retardo y pérdida</small>
-    </div>
-  `;
-  report.appendChild(kpiGrid);
-
-  // 3. Aptitud por Servicio
-  const suitCard = document.createElement('div');
-  suitCard.className = 'ping-card';
-
-  const gamingOk = r.lossPercent === 0 && r.avgMs < 45 && r.jitter < 15;
-  const gamingWarn = r.lossPercent <= 5 && r.avgMs < 90;
-
-  const voipOk = r.lossPercent === 0 && r.jitter < 25 && r.avgMs < 100;
-  const voipWarn = r.lossPercent <= 5;
-
-  const streamOk = r.lossPercent <= 2 && r.avgMs < 120;
-
-  suitCard.innerHTML = `
-    <h3 style="margin:0 0 10px 0; font-size:16px; font-weight:700; color:var(--text-primary);">
-      🎯 Informe de Experiencia para Aplicaciones
-    </h3>
-    <div class="ping-suitability-grid">
-      <div class="ping-suitability-item">
-        <span class="ping-suitability-icon">🎮</span>
-        <div class="ping-suitability-text">
-          <span class="ping-suitability-label">Juegos Competitivos Online</span>
-          <span class="ping-suitability-status" style="color:${gamingOk ? 'var(--ok)' : gamingWarn ? 'var(--warn)' : 'var(--error)'};">
-            ${gamingOk ? '🟢 Óptimo (Respuesta Inmediata)' : gamingWarn ? '🟡 Aceptable (Posible ligero lag)' : '🔴 No Recomendado (Lags/Cortes)'}
-          </span>
-        </div>
-      </div>
-      <div class="ping-suitability-item">
-        <span class="ping-suitability-icon">📞</span>
-        <div class="ping-suitability-text">
-          <span class="ping-suitability-label">Videollamadas (Teams/Zoom/Meet)</span>
-          <span class="ping-suitability-status" style="color:${voipOk ? 'var(--ok)' : voipWarn ? 'var(--warn)' : 'var(--error)'};">
-            ${voipOk ? '🟢 Excelente (Audio/Video nítido)' : voipWarn ? '🟡 Moderado (Riesgo de robotización)' : '🔴 Deficiente (Pérdida de voz/congelamientos)'}
-          </span>
-        </div>
-      </div>
-      <div class="ping-suitability-item">
-        <span class="ping-suitability-icon">📺</span>
-        <div class="ping-suitability-text">
-          <span class="ping-suitability-label">Streaming 4K y Navegación Web</span>
-          <span class="ping-suitability-status" style="color:${streamOk ? 'var(--ok)' : 'var(--error)'};">
-            ${streamOk ? '🟢 Fluido (Carga rápida y buffer estable)' : '🔴 Lento (Interrupciones y almacenamiento en búfer)'}
-          </span>
-        </div>
-      </div>
-    </div>
-  `;
-  report.appendChild(suitCard);
-
-  // 4. Tabla de Muestras
-  if (r.packets && r.packets.length > 0) {
-    const tableCard = document.createElement('div');
-    tableCard.className = 'ping-card';
-    tableCard.innerHTML = `
-      <h3 style="margin:0 0 12px 0; font-size:16px; font-weight:700; color:var(--text-primary);">
-        📋 Registro Detallado de Muestras ICMP
-      </h3>
-      <div class="ping-table-wrapper">
-        <table class="ping-table">
-          <thead>
-            <tr>
-              <th># Secuencia</th>
-              <th>Bytes</th>
-              <th>Tiempo de Respuesta</th>
-              <th>TTL</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${r.packets.map(p => {
-              const maxBar = Math.max(r.maxMs || 100, 50);
-              const pct = p.timeMs != null ? Math.min(100, Math.round((p.timeMs / maxBar) * 100)) : 0;
-              const barColor = p.timeMs == null ? '#EF4444' : p.timeMs < 30 ? '#22C55E' : p.timeMs < 80 ? '#F59E0B' : '#EF4444';
-              return `
-                <tr>
-                  <td style="font-weight:700;">#${p.seq}</td>
-                  <td>${p.bytes ? p.bytes + ' B' : '—'}</td>
-                  <td>
-                    ${p.timeMs != null ? `
-                      <div class="ping-bar-bg">
-                        <div class="ping-bar-fill" style="width:${Math.max(5, pct)}%; background:${barColor};"></div>
-                      </div>
-                      <b>${p.timeMs} ms</b>
-                    ` : '<span style="color:var(--error); font-weight:700;">Sin Respuesta</span>'}
-                  </td>
-                  <td>${p.ttl != null ? p.ttl : '—'}</td>
-                  <td>
-                    ${p.status === 'ok' ? '<span style="color:var(--ok); font-weight:700;">🟢 OK</span>' : '<span style="color:var(--error); font-weight:700;">🔴 Tiempo Agotado</span>'}
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-    report.appendChild(tableCard);
-  }
-
-  // 5. Botón copiar
-  const actionBar = document.createElement('div');
-  actionBar.style.display = 'flex';
-  actionBar.style.gap = '12px';
-  actionBar.style.flexWrap = 'wrap';
-
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'info-action-btn';
-  copyBtn.style.background = 'var(--card)';
-  copyBtn.style.border = '1px solid var(--card-border)';
-  copyBtn.style.color = 'var(--text-primary)';
-  copyBtn.innerHTML = '📋 Copiar Resumen';
-  copyBtn.addEventListener('click', async () => {
-    const textSummary = `[Informe Ping] Destino: ${r.host} (${r.resolvedIp})\n` +
-      `Estado: ${r.qualityLabel}\n` +
-      `Paquetes: ${r.received}/${r.sent} recibidos (${r.lossPercent}% pérdida)\n` +
-      `Latencia: Mín ${r.minMs} ms | Media ${r.avgMs} ms | Máx ${r.maxMs} ms | Jitter ${r.jitter} ms\n` +
-      `Evaluación: ${r.summaryText}`;
-    await window.api.copyToClipboard(textSummary);
-    statusText.textContent = '✔ Resumen de ping copiado al portapapeles';
-  });
-  actionBar.appendChild(copyBtn);
-
-  report.appendChild(actionBar);
-
-  containerEl.appendChild(report);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2944,7 +2638,7 @@ function startEventLoadingSequence() {
 async function runEventAnalysis(range = '7') {
   clearResults('Visor de Eventos del Sistema');
   const stopLoading = startEventLoadingSequence();
-  setBusy(true, 'Consultando historial de reinicios, apagados del sistema y visor de eventos...');
+  setBusy(true, 'Consultando eventos críticos 41, 6008, 1001 y 1074...');
   window.api.onEventLogProgress(msg => { statusText.textContent = msg; });
 
   try {
@@ -2959,6 +2653,27 @@ async function runEventAnalysis(range = '7') {
       statusText.textContent = '❌ Operación cancelada';
       return;
     }
+
+    // Filtrar estrictamente solo eventos 41, 6008, 1001 y 1074 (sin servicios ni errores de programas)
+    const rawEvents = (report.criticalEvents || report.powerEvents || []);
+    const targetEvents = rawEvents
+      .filter(e => [41, 6008, 1001, 1074].includes(e.eventId || e.id))
+      .sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    const events41 = targetEvents.filter(e => (e.eventId || e.id) === 41);
+    const events6008 = targetEvents.filter(e => (e.eventId || e.id) === 6008);
+    const events1001 = targetEvents.filter(e => (e.eventId || e.id) === 1001);
+    const events1074 = targetEvents.filter(e => (e.eventId || e.id) === 1074);
+
+    const count41 = events41.length;
+    const count6008 = events6008.length;
+    const count1001 = events1001.length;
+    const count1074 = events1074.length;
+    const totalEvents = targetEvents.length;
+    const unexpectedCount = count41 + count6008 + count1001;
+    const stabilityPct = totalEvents === 0 ? 100 : Math.max(10, Math.round(((totalEvents - unexpectedCount) / Math.max(totalEvents, 1)) * 100));
+    const stabilityScore = `${stabilityPct}%`;
+    const statusLabel = unexpectedCount === 0 ? 'Estable' : (unexpectedCount <= 2 ? 'Atención' : 'Inestable');
 
     // ── SELECTOR DE RANGO Y HERRAMIENTAS SUPERIORES ─────────────────────────
     const topBar = document.createElement('div');
@@ -2980,9 +2695,15 @@ async function runEventAnalysis(range = '7') {
           <option value="30" ${range === '30' ? 'selected' : ''}>Últimos 30 días</option>
         </select>
       </div>
-      <button id="btn-export-power-report" class="btn-tut-action" style="background:#2563EB; color:#fff; border:none; padding:9px 18px; border-radius:10px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 2px 8px rgba(37,99,235,0.3);">
-        <span>📄 Exportar Informe Completo (.txt)</span>
-      </button>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div class="view-mode-toggle" style="display:flex; background:rgba(255,255,255,0.06); border-radius:8px; padding:3px; border:1px solid rgba(255,255,255,0.1);">
+          <button id="btn-view-cards" class="view-toggle-btn active" style="padding:5px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; background:#2563EB; color:#fff; border:none;">📋 Tarjetas Detalladas</button>
+          <button id="btn-view-table" class="view-toggle-btn" style="padding:5px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; background:transparent; color:var(--text-secondary); border:none;">📊 Tabla Resumen</button>
+        </div>
+        <button id="btn-export-power-report" class="btn-tut-action" style="background:#2563EB; color:#fff; border:none; padding:8px 16px; border-radius:10px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 2px 8px rgba(37,99,235,0.3);">
+          <span>📄 Exportar Informe (.txt)</span>
+        </button>
+      </div>
     `;
     resultsEl.appendChild(topBar);
 
@@ -2990,610 +2711,461 @@ async function runEventAnalysis(range = '7') {
       runEventAnalysis(e.target.value);
     });
 
-    const powerEvents = report.powerEvents || [];
-    const appCrashes = report.appCrashes || [];
-    const hardwareEvents = report.hardwareEvents || [];
-    const serviceEvents = report.serviceEvents || [];
-    const allEvents = [...powerEvents, ...hardwareEvents, ...serviceEvents].sort((a, b) => new Date(b.time) - new Date(a.time));
-
-    const stats = report.powerStats || {
-      totalEvents: powerEvents.length,
-      totalReboots: 0,
-      cleanShutdowns: 0,
-      unexpectedShutdowns: 0,
-      totalBootEvents: 0,
-      stabilityScore: '100%',
-      statusLabel: 'Estable'
-    };
-
-    // ── HERO: INFORME DE ESTABILIDAD Y SALUD DEL SISTEMA ───────────────────
+    // ── HERO: INFORME DE ESTABILIDAD Y EVENTOS CRÍTICOS (41, 6008, 1001, 1074) ─
     const hero = document.createElement('div');
     hero.className = 'power-summary-hero panel-fade-in';
-    const isUnstable = stats.unexpectedShutdowns > 0 || appCrashes.length > 5;
+    const isUnstable = unexpectedCount > 0;
     hero.innerHTML = `
       <div class="power-hero-header">
         <div>
           <span class="power-hero-badge ${isUnstable ? 'warning' : 'ok'}">
-            ${isUnstable ? '⚠️ ATENCIÓN REQUERIDA — INCIDENCIAS DETECTADAS' : '🟢 ESTABILIDAD ÓPTIMA — SISTEMA SALUDABLE'}
+            ${isUnstable ? '⚠️ INCIDENCIAS DETECTADAS — ANÁLISIS DE REINICIOS' : '🟢 ESTABILIDAD ÓPTIMA — REGISTRO LIMPIO'}
           </span>
-          <h2 class="power-hero-title">Auditoría del Visor de Eventos de Windows</h2>
-          <div style="font-size:12px; color:#94A3B8; margin-top:4px;">
-            Análisis clasificado por historiales: Alimentación, Cierres de Programas, Hardware y Servicios
+          <h2 class="power-hero-title">Auditoría Exclusiva: Eventos 41, 6008, 1001 y 1074</h2>
+          <div style="font-size:12.5px; color:#94A3B8; margin-top:4px;">
+            Diagnóstico forense detallado de reinicios inesperados (41), apagados sucios (6008), pantallazos BSOD (1001) y apagados ordenados (1074).
           </div>
         </div>
         <div style="text-align:right;">
           <div style="font-size:11px; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:0.5px;">Índice de Estabilidad</div>
           <div style="font-size:26px; font-weight:800; color:${isUnstable ? '#F59E0B' : '#34D399'};">
-            ${stats.stabilityScore || '100%'}
+            ${stabilityScore}
           </div>
+          <div style="font-size:11px; font-weight:700; color:${isUnstable ? '#FBBF24' : '#6EE7B7'};">${statusLabel}</div>
         </div>
       </div>
 
-      <div class="power-stats-grid">
+      <div class="power-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+        <div class="power-stat-item">
+          <span class="power-stat-num" style="color:#EF4444;">${count41}</span>
+          <span class="power-stat-label">⚡ ID 41 Kernel-Power</span>
+        </div>
+        <div class="power-stat-item">
+          <span class="power-stat-num" style="color:#F59E0B;">${count6008}</span>
+          <span class="power-stat-label">⚠️ ID 6008 Inesperados</span>
+        </div>
+        <div class="power-stat-item">
+          <span class="power-stat-num" style="color:#DC2626;">${count1001}</span>
+          <span class="power-stat-label">💥 ID 1001 BSOD Stop</span>
+        </div>
+        <div class="power-stat-item">
+          <span class="power-stat-num" style="color:#34D399;">${count1074}</span>
+          <span class="power-stat-label">🛑 ID 1074 Ordenados</span>
+        </div>
         <div class="power-stat-item">
           <span class="power-stat-num" style="color:#38BDF8;">${report.uptimeText || '—'}</span>
           <span class="power-stat-label">⏱️ Tiempo Encendido</span>
         </div>
         <div class="power-stat-item">
-          <span class="power-stat-num" style="color:#818CF8;">${stats.totalReboots}</span>
-          <span class="power-stat-label">🔄 Reinicios</span>
-        </div>
-        <div class="power-stat-item">
-          <span class="power-stat-num" style="color:#34D399;">${stats.cleanShutdowns}</span>
-          <span class="power-stat-label">🛑 Apagados Limpios</span>
-        </div>
-        <div class="power-stat-item">
-          <span class="power-stat-num" style="color:${stats.unexpectedShutdowns > 0 ? '#EF4444' : '#94A3B8'};">
-            ${stats.unexpectedShutdowns}
-          </span>
-          <span class="power-stat-label">⚠️ Cortes / Inesperados</span>
-        </div>
-        <div class="power-stat-item">
-          <span class="power-stat-num" style="color:${appCrashes.length > 0 ? '#F59E0B' : '#34D399'};">
-            ${appCrashes.length}
-          </span>
-          <span class="power-stat-label">💥 Errores de Programas</span>
-        </div>
-        <div class="power-stat-item">
-          <span class="power-stat-num" style="color:${hardwareEvents.length > 0 ? '#EF4444' : '#34D399'};">
-            ${hardwareEvents.length}
-          </span>
-          <span class="power-stat-label">🛡️ Fallos Críticos / HW</span>
+          <span class="power-stat-num" style="color:#A78BFA;">${totalEvents}</span>
+          <span class="power-stat-label">📋 Total Registrados</span>
         </div>
       </div>
     `;
     resultsEl.appendChild(hero);
 
-    // ── NAVEGACIÓN POR PESTAÑAS (SEPARACIÓN DE HISTORIALES) ─────────────────
-    const tabsContainer = document.createElement('div');
-    tabsContainer.className = 'event-nav-tabs panel-fade-in';
-    tabsContainer.innerHTML = `
-      <button class="event-tab-btn active" data-tab="tab-power">
-        <span>⚡ Historial de Energía</span>
-        <span class="event-tab-badge">${powerEvents.length}</span>
-      </button>
-      <button class="event-tab-btn" data-tab="tab-crashes">
-        <span>💥 Errores de Programas</span>
-        <span class="event-tab-badge">${appCrashes.length}</span>
-      </button>
-      <button class="event-tab-btn" data-tab="tab-hardware">
-        <span>🛡️ Fallos Críticos & Hardware</span>
-        <span class="event-tab-badge">${hardwareEvents.length}</span>
-      </button>
-      <button class="event-tab-btn" data-tab="tab-services">
-        <span>⚙️ Servicios del Sistema</span>
-        <span class="event-tab-badge">${serviceEvents.length}</span>
-      </button>
-      <button class="event-tab-btn" data-tab="tab-all">
-        <span>📋 Registro Cronológico Global</span>
-        <span class="event-tab-badge">${allEvents.length}</span>
-      </button>
-    `;
-    resultsEl.appendChild(tabsContainer);
+    // ── BARRA DE FILTROS POR EVENTO Y BÚSQUEDA ─────────────────────────────
+    const filterSection = document.createElement('div');
+    filterSection.className = 'clean-breakdown-card panel-fade-in';
+    filterSection.style.padding = '12px 16px';
+    filterSection.style.marginBottom = '16px';
+    filterSection.style.display = 'flex';
+    filterSection.style.justifyContent = 'space-between';
+    filterSection.style.alignItems = 'center';
+    filterSection.style.flexWrap = 'wrap';
+    filterSection.style.gap = '10px';
 
-    // Contenedor principal de contenidos de pestañas
-    const tabPanesContainer = document.createElement('div');
-    tabPanesContainer.className = 'event-tab-panes-wrapper';
-    resultsEl.appendChild(tabPanesContainer);
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PESTAÑA 1: HISTORIAL DE ENERGÍA Y ALIMENTACIÓN
-    // ─────────────────────────────────────────────────────────────────────────
-    const panePower = document.createElement('div');
-    panePower.className = 'event-tab-pane active';
-    panePower.id = 'tab-power';
-
-    // Tarjeta del último ciclo de energía
-    const lastShutdown = report.lastShutdownInfo || {};
-    const cycleCard = document.createElement('div');
-    cycleCard.className = 'power-last-cycle-card panel-fade-in';
-    cycleCard.style.marginBottom = '16px';
-    cycleCard.innerHTML = `
-      <div style="font-size:14px; font-weight:800; color:var(--text-primary); margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-        <span>⚡</span> Ciclo de Alimentación y Última Operación del Equipo
+    filterSection.innerHTML = `
+      <div style="display:flex; gap:6px; flex-wrap:wrap;" id="event-type-filters">
+        <button class="mini-filter-btn active" data-filter="all" style="padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:#2563EB; color:#fff; border:1px solid #3B82F6;">
+          Todos (${totalEvents})
+        </button>
+        <button class="mini-filter-btn" data-filter="41" style="padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:rgba(239,68,68,0.12); color:#F87171; border:1px solid rgba(239,68,68,0.3);">
+          ⚡ Evento 41 (${count41})
+        </button>
+        <button class="mini-filter-btn" data-filter="6008" style="padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:rgba(245,158,11,0.12); color:#FBBF24; border:1px solid rgba(245,158,11,0.3);">
+          ⚠️ Evento 6008 (${count6008})
+        </button>
+        <button class="mini-filter-btn" data-filter="1001" style="padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:rgba(220,38,38,0.12); color:#FCA5A5; border:1px solid rgba(220,38,38,0.3);">
+          💥 Evento 1001 BSOD (${count1001})
+        </button>
+        <button class="mini-filter-btn" data-filter="1074" style="padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; background:rgba(16,185,129,0.12); color:#6EE7B7; border:1px solid rgba(16,185,129,0.3);">
+          🛑 Evento 1074 (${count1074})
+        </button>
       </div>
-      <div class="power-cycle-grid">
-        <div class="power-cycle-col">
-          <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-secondary); letter-spacing:0.5px;">Último Arranque / Inicio del Sistema</div>
-          <div style="font-size:15px; font-weight:800; color:#38BDF8; margin-top:4px;">
-            ${report.lastBootTime ? fmtDateTime(report.lastBootTime) : 'No disponible'}
-          </div>
-          <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
-            Servicio Registro de Eventos (EventID 6005) iniciado correctamente por el Kernel de Windows.
-          </div>
-        </div>
-        <div class="power-cycle-col">
-          <div style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--text-secondary); letter-spacing:0.5px;">Último Apagado o Reinicio Registrado</div>
-          <div style="font-size:15px; font-weight:800; color:${lastShutdown.time ? (lastShutdown.category === 'reinicio_normal' ? '#34D399' : '#F59E0B') : 'var(--text-secondary)'}; margin-top:4px;">
-            ${lastShutdown.time ? fmtDateTime(lastShutdown.time) : 'Sin apagados en el período'}
-          </div>
-          <div style="font-size:12.5px; color:var(--text-primary); font-weight:600; margin-top:4px;">
-            ${escapeHtml(lastShutdown.type || (lastShutdown.time ? 'Apagado del sistema' : 'El equipo ha permanecido operativo continuamente'))}
-          </div>
-          ${lastShutdown.user ? `<div style="font-size:12px; color:var(--text-secondary); margin-top:2px;"><strong>Iniciado por:</strong> ${escapeHtml(lastShutdown.user)} (${escapeHtml(lastShutdown.process || 'Sistema')})</div>` : ''}
-          ${lastShutdown.reason ? `<div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px; font-style:italic;">"${escapeHtml(lastShutdown.reason)}"</div>` : ''}
-        </div>
+      <div style="flex:1; min-width:220px; max-width:320px;">
+        <input type="text" id="event-keyword-search" class="info-text-input" placeholder="🔍 Filtrar por código, usuario, motivo..." style="width:100%; padding:6px 12px; font-size:12px;">
       </div>
     `;
-    panePower.appendChild(cycleCard);
+    resultsEl.appendChild(filterSection);
 
-    // Barra de filtro rápido para eventos de energía
-    if (powerEvents.length > 0) {
-      const filterBar = document.createElement('div');
-      filterBar.style.display = 'flex';
-      filterBar.style.alignItems = 'center';
-      filterBar.style.justifyContent = 'space-between';
-      filterBar.style.flexWrap = 'wrap';
-      filterBar.style.gap = '8px';
-      filterBar.style.marginBottom = '12px';
-      filterBar.innerHTML = `
-        <div style="font-size:13px; font-weight:800; color:var(--text-primary);">
-          Registro de Eventos de Alimentación (${powerEvents.length} operaciones)
-        </div>
-        <div style="display:flex; gap:6px; flex-wrap:wrap;" id="power-quick-filters">
-          <button class="mini-filter-btn active" data-filter="all" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:var(--text-primary);">Todos (${powerEvents.length})</button>
-          <button class="mini-filter-btn" data-filter="reboot" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Reinicios (${stats.totalReboots})</button>
-          <button class="mini-filter-btn" data-filter="shutdown" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Apagados Limpios (${stats.cleanShutdowns})</button>
-          <button class="mini-filter-btn" data-filter="unexpected" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Inesperados (${stats.unexpectedShutdowns})</button>
-          <button class="mini-filter-btn" data-filter="boot" style="padding:4px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:var(--text-secondary);">Arranques (${stats.totalBootEvents})</button>
-        </div>
-      `;
-      panePower.appendChild(filterBar);
+    // Contenedores de vistas (Tarjetas y Tabla)
+    const cardsViewContainer = document.createElement('div');
+    cardsViewContainer.id = 'event-cards-view-wrap';
+    cardsViewContainer.className = 'panel-fade-in';
+    resultsEl.appendChild(cardsViewContainer);
 
-      const tableWrap = document.createElement('div');
-      tableWrap.className = 'power-events-table-wrap panel-fade-in';
-      tableWrap.innerHTML = `
-        <table class="power-events-table" id="power-events-table">
-          <thead>
-            <tr>
-              <th style="width:17%;">Fecha y Hora</th>
-              <th style="width:9%;">ID Evento</th>
-              <th style="width:22%;">Tipo de Evento</th>
-              <th style="width:24%;">Usuario / Proceso</th>
-              <th style="width:28%;">Motivo / Diagnóstico</th>
-            </tr>
-          </thead>
-          <tbody id="power-events-tbody">
-            ${renderPowerTableRows(powerEvents)}
-          </tbody>
-        </table>
-      `;
-      panePower.appendChild(tableWrap);
+    const tableViewContainer = document.createElement('div');
+    tableViewContainer.id = 'event-table-view-wrap';
+    tableViewContainer.className = 'panel-fade-in';
+    tableViewContainer.style.display = 'none';
+    resultsEl.appendChild(tableViewContainer);
 
-      // Handler para filtros rápidos de energía
-      filterBar.querySelectorAll('.mini-filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          filterBar.querySelectorAll('.mini-filter-btn').forEach(b => {
-            b.classList.remove('active');
-            b.style.background = 'rgba(255,255,255,0.03)';
-            b.style.color = 'var(--text-secondary)';
-          });
-          btn.classList.add('active');
-          btn.style.background = 'rgba(37,99,235,0.3)';
-          btn.style.borderColor = 'rgba(96,165,250,0.5)';
-          btn.style.color = '#FFFFFF';
+    // Estado local de filtrado
+    let currentFilterType = 'all';
+    let currentSearchText = '';
 
-          const filt = btn.getAttribute('data-filter');
-          let subset = powerEvents;
-          if (filt === 'reboot') subset = powerEvents.filter(e => e.typeCode === 'reboot');
-          else if (filt === 'shutdown') subset = powerEvents.filter(e => e.typeCode === 'shutdown');
-          else if (filt === 'unexpected') subset = powerEvents.filter(e => e.typeCode === 'unexpected' || e.typeCode === 'kernel_power' || e.typeCode === 'bsod');
-          else if (filt === 'boot') subset = powerEvents.filter(e => e.typeCode === 'boot');
+    function getFilteredList() {
+      return targetEvents.filter(ev => {
+        const eid = String(ev.eventId || ev.id);
+        const matchesType = (currentFilterType === 'all') || (eid === currentFilterType);
+        if (!matchesType) return false;
 
-          const tbody = panePower.querySelector('#power-events-tbody');
-          if (tbody) tbody.innerHTML = renderPowerTableRows(subset);
-        });
+        if (!currentSearchText) return true;
+        const textToSearch = [
+          ev.type,
+          ev.user,
+          ev.process,
+          ev.provider,
+          ev.reason,
+          ev.detail,
+          ev.diagnostic,
+          JSON.stringify(ev.rawParams || {})
+        ].join(' ').toLowerCase();
+
+        return textToSearch.includes(currentSearchText);
       });
-    } else {
-      const banner = document.createElement('div');
-      banner.className = 'clean-breakdown-card';
-      banner.style.padding = '18px';
-      banner.style.color = '#34D399';
-      banner.innerHTML = '✔ No se han detectado eventos de alimentación anormales en el registro del período seleccionado.';
-      panePower.appendChild(banner);
     }
 
-    tabPanesContainer.appendChild(panePower);
+    function renderActiveViews() {
+      const list = getFilteredList();
+      renderCardsList(cardsViewContainer, list);
+      renderTableView(tableViewContainer, list);
+    }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PESTAÑA 2: ERRORES DE PROGRAMAS Y CIERRES DETALLADOS (MOTIVO Y DIAGNÓSTICO)
-    // ─────────────────────────────────────────────────────────────────────────
-    const paneCrashes = document.createElement('div');
-    paneCrashes.className = 'event-tab-pane';
-    paneCrashes.id = 'tab-crashes';
+    // ── VISTA DE TARJETAS TÉCNICAS DETALLADAS ──────────────────────────────
+    function renderCardsList(container, list) {
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="clean-breakdown-card" style="padding:28px; text-align:center; color:var(--text-secondary);">
+            <div style="font-size:32px; margin-bottom:8px;">🔍</div>
+            <div style="font-size:14px; font-weight:700; color:var(--text-primary);">No hay eventos que coincidan con el filtro seleccionado.</div>
+            <div style="font-size:12px; margin-top:4px;">No se encontraron registros de eventos 41, 6008, 1001 ni 1074 para este criterio.</div>
+          </div>
+        `;
+        return;
+      }
 
-    if (appCrashes.length === 0) {
-      const emptyCard = document.createElement('div');
-      emptyCard.className = 'power-summary-hero panel-fade-in';
-      emptyCard.style.padding = '24px';
-      emptyCard.innerHTML = `
-        <div style="display:flex; align-items:center; gap:16px;">
-          <div style="font-size:36px;">🟢</div>
-          <div>
-            <h3 style="font-size:16px; font-weight:800; color:#34D399; margin:0 0 4px 0;">Sin Errores de Programas Registrados</h3>
-            <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">
-              No se han registrado fallos de aplicaciones (Event ID 1000, 1002 ni 1026) en el registro de Windows durante el período analizado. Todas las aplicaciones han finalizado y procesado sus tareas de manera ordenada.
+      container.innerHTML = list.map((ev, idx) => {
+        const eid = ev.eventId || ev.id;
+        const cardThemeClass = eid === 41 ? 'event-card-41'
+          : eid === 6008 ? 'event-card-6008'
+          : eid === 1001 ? 'event-card-1001'
+          : 'event-card-1074';
+
+        const idBadgeClass = `id-${eid}`;
+        const icon = eid === 41 ? '⚡'
+          : eid === 6008 ? '⚠️'
+          : eid === 1001 ? '💥'
+          : (ev.typeCode === 'reboot' ? '🔄' : '🛑');
+
+        const sevLabel = eid === 41 ? '🔴 Fallo Crítico (Corte de Energía)'
+          : eid === 6008 ? '🟡 Advertencia (Apagado Sucio)'
+          : eid === 1001 ? '🔴 Fallo Crítico (Pantallazo Azul BSOD)'
+          : (ev.typeCode === 'reboot' ? '🟢 Informativo (Reinicio Limpio)' : '🟢 Informativo (Apagado Limpio)');
+
+        // Generar badges de parámetros raw
+        const raw = ev.rawParams || {};
+        let paramsHtml = '';
+        if (eid === 41) {
+          paramsHtml = `
+            <div class="event-params-grid">
+              <span class="event-param-chip"><strong>BugCheckCode:</strong> ${escapeHtml(raw.bugcheckCode || '0x00000000')}</span>
+              <span class="event-param-chip"><strong>P1:</strong> ${escapeHtml(raw.param1 || '0x0')}</span>
+              <span class="event-param-chip"><strong>P2:</strong> ${escapeHtml(raw.param2 || '0x0')}</span>
+              <span class="event-param-chip"><strong>P3:</strong> ${escapeHtml(raw.param3 || '0x0')}</span>
+              <span class="event-param-chip"><strong>P4:</strong> ${escapeHtml(raw.param4 || '0x0')}</span>
+              <span class="event-param-chip"><strong>PowerButton:</strong> ${escapeHtml(raw.powerButtonTimestamp || '0')}</span>
+              <span class="event-param-chip"><strong>SleepInProgress:</strong> ${escapeHtml(raw.sleepInProgress || '0')}</span>
             </div>
-          </div>
-        </div>
-      `;
-      paneCrashes.appendChild(emptyCard);
-    } else {
-      // Cabecera descriptiva de la sección de errores de programas
-      const crashHeader = document.createElement('div');
-      crashHeader.style.display = 'flex';
-      crashHeader.style.justifyContent = 'space-between';
-      crashHeader.style.alignItems = 'center';
-      crashHeader.style.flexWrap = 'wrap';
-      crashHeader.style.gap = '10px';
-      crashHeader.style.marginBottom = '14px';
-      crashHeader.innerHTML = `
-        <div>
-          <div style="font-size:15px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-            <span>💥</span> Cierres Inesperados y Fallos de Aplicaciones (${appCrashes.length} detectados)
-          </div>
-          <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">
-            Cada incidencia ha sido analizada técnicamente identificando el <strong>motivo de origen (causa raíz)</strong>, su <strong>diagnóstico de impacto</strong> y las <strong>soluciones recomendadas</strong>.
-          </div>
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <input type="text" id="crash-search-input" class="info-text-input" placeholder="🔍 Filtrar por programa o dll..." style="padding:6px 12px; font-size:12.5px; width:220px;">
-        </div>
-      `;
-      paneCrashes.appendChild(crashHeader);
-
-      const crashesContainer = document.createElement('div');
-      crashesContainer.className = 'crash-events-list';
-      crashesContainer.id = 'crash-cards-list';
-
-      function renderCrashCards(list) {
-        if (list.length === 0) {
-          return `
-            <div class="clean-breakdown-card" style="padding:20px; text-align:center; color:var(--text-secondary);">
-              No se encontraron cierres de aplicaciones que coincidan con la búsqueda.
+          `;
+        } else if (eid === 6008) {
+          paramsHtml = `
+            <div class="event-params-grid">
+              <span class="event-param-chip"><strong>Fecha Registrada:</strong> ${escapeHtml(raw.shutdownDate || 'Anterior')}</span>
+              <span class="event-param-chip"><strong>Hora Registrada:</strong> ${escapeHtml(raw.shutdownTime || 'Anterior')}</span>
+              <span class="event-param-chip"><strong>Estado:</strong> Apagado Sucio Detectado por Kernel</span>
+            </div>
+          `;
+        } else if (eid === 1001) {
+          paramsHtml = `
+            <div class="event-params-grid">
+              <span class="event-param-chip"><strong>Código Stop:</strong> ${escapeHtml(raw.stopCode || '0x00000000')}</span>
+              <span class="event-param-chip"><strong>Archivo Volcado:</strong> ${escapeHtml(raw.dumpPath || 'C:\\Windows\\MEMORY.DMP')}</span>
+              <span class="event-param-chip"><strong>ID Reporte WER:</strong> ${escapeHtml(raw.reportId || 'N/D')}</span>
+            </div>
+          `;
+        } else if (eid === 1074) {
+          paramsHtml = `
+            <div class="event-params-grid">
+              <span class="event-param-chip"><strong>Acción:</strong> ${escapeHtml(raw.action || 'Apagado')}</span>
+              <span class="event-param-chip"><strong>Código Motivo:</strong> ${escapeHtml(raw.reasonCode || '0x00000000')}</span>
+              <span class="event-param-chip"><strong>Usuario Solicitante:</strong> ${escapeHtml(raw.user || ev.user || 'Sistema')}</span>
+              <span class="event-param-chip"><strong>Proceso:</strong> ${escapeHtml(raw.process || ev.process || 'shutdown.exe')}</span>
+              ${raw.extraComment ? `<span class="event-param-chip"><strong>Comentario:</strong> ${escapeHtml(raw.extraComment)}</span>` : ''}
             </div>
           `;
         }
 
-        return list.map((c, idx) => {
-          const sevClass = c.severity === 'critico' ? 'critico' : (c.severity === 'medio' ? 'medio' : 'alto');
-          const sevLabel = c.severity === 'critico' ? '🔴 Fallo Crítico' : (c.severity === 'medio' ? '🔵 Advertencia' : '🟠 Fallo Elevado');
+        // Recomendación técnica específica por evento
+        let recomendacion = '';
+        if (eid === 41) {
+          const powerBtn = raw.powerButtonTimestamp && raw.powerButtonTimestamp !== '0';
+          if (powerBtn) {
+            recomendacion = 'El apagado fue provocado porque el usuario mantuvo presionado el botón físico de encendido durante varios segundos. Informar al usuario de que debe utilizar el menú Inicio para apagar de forma ordenada y evitar corrupción del sistema de archivos.';
+          } else {
+            recomendacion = 'Comprobar que el equipo esté conectado a una regleta de calidad o Sistema de Alimentación Ininterrumpida (SAI). Si las caídas se repiten, revisar la fuente de alimentación (PSU), comprobar que el disipador de la CPU no esté obstruido y que los cables de corriente estén firmemente encajados.';
+          }
+        } else if (eid === 6008) {
+          recomendacion = 'El sistema se apagó de forma inesperada sin que el Kernel pudiera completar el volcado de caché ni cerrar handles. Se recomienda ejecutar "Reparar SFC" y "DISM" para certificar que ningún archivo del sistema haya quedado inconsistente tras el corte.';
+        } else if (eid === 1001) {
+          recomendacion = `Se produjo un pantallazo azul de parada (${escapeHtml(raw.stopCode || 'BSOD')}). Se recomienda inspeccionar el archivo de volcado minidump, verificar la integridad de la memoria física RAM mediante la utilidad de Diagnóstico de Memoria de Windows (mdsched.exe) y actualizar los controladores gráficos y de placa base.`;
+        } else if (eid === 1074) {
+          recomendacion = 'Operación rutinaria y limpia solicitada de forma ordenada. Todos los procesos guardaron su estado antes del apagado. No se requiere ninguna acción de soporte correctivo.';
+        }
 
-          // Solución en lista
-          const solLines = (c.solucion || '')
-            .split('\n')
-            .filter(Boolean)
-            .map(l => `<li>${escapeHtml(l.replace(/^\d+\.\s*/, ''))}</li>`)
-            .join('');
-
-          return `
-            <div class="crash-event-card panel-fade-in" data-app="${escapeHtml((c.appName || '').toLowerCase())}" data-mod="${escapeHtml((c.faultModule || '').toLowerCase())}">
-              <div class="crash-card-header">
-                <div class="crash-icon-box">
-                  ${c.appName.toLowerCase().includes('acad') ? '📐' : (c.appName.toLowerCase().includes('revit') ? '🏢' : (c.appName.toLowerCase().includes('excel') ? '📊' : '💥'))}
-                </div>
-                <div class="crash-title-group">
-                  <div class="crash-app-title-row">
-                    <span class="crash-app-name">${escapeHtml(c.appName)}</span>
-                    <span class="crash-severity-badge ${sevClass}">${sevLabel}</span>
-                    <span style="font-family:monospace; font-size:11.5px; color:#F87171; background:rgba(239,68,68,0.12); padding:2px 8px; border-radius:4px; font-weight:700;">
-                      ${escapeHtml(c.errCode)}
-                    </span>
-                  </div>
-                  <div style="font-size:12px; font-weight:600; color:#E2E8F0; margin-top:3px;">
-                    ${escapeHtml(c.errCodeName || 'Excepción no interceptada')}
-                  </div>
-                  <div class="crash-app-path">${escapeHtml(c.appPath || 'Ruta del ejecutable no especificada en el evento')}</div>
-                </div>
+        return `
+          <div class="event-critical-card ${cardThemeClass} panel-fade-in" data-event-id="${eid}">
+            <div class="crash-card-header">
+              <div class="crash-icon-box" style="background:${eid === 41 ? 'rgba(239,68,68,0.15)' : eid === 6008 ? 'rgba(245,158,11,0.15)' : eid === 1001 ? 'rgba(220,38,38,0.2)' : 'rgba(16,185,129,0.15)'}; border-color:${eid === 41 ? 'rgba(239,68,68,0.3)' : eid === 6008 ? 'rgba(245,158,11,0.3)' : eid === 1001 ? 'rgba(220,38,38,0.4)' : 'rgba(16,185,129,0.3)'};">
+                ${icon}
               </div>
-
-              <!-- Metadatos técnicos del módulo y proceso -->
-              <div class="crash-meta-grid">
-                <div class="crash-meta-item">
-                  <span class="crash-meta-label">Módulo con errores</span>
-                  <span class="crash-meta-val" style="color:#60A5FA;">${escapeHtml(c.faultModule || 'Proceso principal')}</span>
+              <div class="crash-title-group">
+                <div class="crash-app-title-row">
+                  <span class="event-id-badge ${idBadgeClass}">#${eid} ${escapeHtml(ev.provider || 'System')}</span>
+                  <span class="crash-app-name" style="font-size:15px;">${escapeHtml(ev.type)}</span>
+                  <span class="crash-severity-badge ${eid === 41 || eid === 1001 ? 'critico' : (eid === 6008 ? 'alto' : 'medio')}">
+                    ${sevLabel}
+                  </span>
                 </div>
-                <div class="crash-meta-item">
-                  <span class="crash-meta-label">Desplazamiento / Offset</span>
-                  <span class="crash-meta-val">${escapeHtml(c.faultOffset || '0x00000000')}</span>
+                <div style="font-size:12px; color:var(--text-secondary); margin-top:4px;">
+                  📅 Registrado el <strong>${fmtDateTime(ev.time)}</strong> &nbsp;·&nbsp; Origen: <code>${escapeHtml(ev.provider || 'Windows')}</code>
                 </div>
-                <div class="crash-meta-item">
-                  <span class="crash-meta-label">Ruta del Módulo</span>
-                  <span class="crash-meta-val" style="font-size:11px;">${escapeHtml(c.faultModulePath || 'Ubicación estándar del sistema / binarios')}</span>
-                </div>
-              </div>
-
-              <!-- Bloques detallados de Motivo, Diagnóstico y Solución -->
-              <div class="crash-explanation-container">
-                <div class="crash-block crash-block-motivo">
-                  <div class="crash-block-title">
-                    <span>🔍</span> Motivo del Fallo (Causa Raíz)
-                  </div>
-                  <div>${escapeHtml(c.motivo || 'La aplicación finalizó de forma anómala.')}</div>
-                </div>
-
-                <div class="crash-block crash-block-diag">
-                  <div class="crash-block-title">
-                    <span>🩺</span> Diagnóstico Técnico e Impacto
-                  </div>
-                  <div>${escapeHtml(c.diagnostico || 'Interrupción de hilo principal.')}</div>
-                </div>
-
-                <div class="crash-block crash-block-sol">
-                  <div class="crash-block-title">
-                    <span>🛠️</span> Solución y Recomendaciones Técnicas
-                  </div>
-                  <ul class="crash-sol-list">
-                    ${solLines}
-                  </ul>
-                </div>
-              </div>
-
-              <div class="crash-card-footer">
-                <div style="display:flex; align-items:center; gap:12px;">
-                  <span class="crash-time">📅 ${fmtDateTime(c.time)}</span>
-                  <span style="color:var(--text-secondary); font-size:11px;">EventID 1000 (Application Error)</span>
-                </div>
-                <button class="btn-copy-crash-diag" data-index="${idx}" title="Copiar informe técnico para soporte">
-                  <span>📋</span> Copiar Diagnóstico
-                </button>
               </div>
             </div>
-          `;
-        }).join('');
-      }
 
-      crashesContainer.innerHTML = renderCrashCards(appCrashes);
-      paneCrashes.appendChild(crashesContainer);
+            <!-- Metadatos de proceso y usuario -->
+            <div class="crash-meta-grid">
+              <div class="crash-meta-item">
+                <span class="crash-meta-label">Usuario Responsable</span>
+                <span class="crash-meta-val" style="color:#60A5FA;">${escapeHtml(ev.user || 'NT AUTHORITY\\SYSTEM')}</span>
+              </div>
+              <div class="crash-meta-item">
+                <span class="crash-meta-label">Proceso Iniciador</span>
+                <span class="crash-meta-val" style="color:#A78BFA;">${escapeHtml(ev.process || 'services.exe')}</span>
+              </div>
+              <div class="crash-meta-item">
+                <span class="crash-meta-label">Tipo de Acción</span>
+                <span class="crash-meta-val">${escapeHtml(ev.type)}</span>
+              </div>
+            </div>
 
-      // Evento de búsqueda / filtrado de cierres
-      crashHeader.querySelector('#crash-search-input')?.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        const filtered = appCrashes.filter(c => {
-          return (c.appName || '').toLowerCase().includes(query) ||
-                 (c.faultModule || '').toLowerCase().includes(query) ||
-                 (c.errCode || '').toLowerCase().includes(query);
-        });
-        crashesContainer.innerHTML = renderCrashCards(filtered);
-        attachCopyButtons(crashesContainer, filtered);
-      });
+            <!-- Parámetros técnicos del evento -->
+            ${paramsHtml}
 
-      function attachCopyButtons(container, currentList) {
-        container.querySelectorAll('.btn-copy-crash-diag').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            const idx = parseInt(btn.getAttribute('data-index'), 10);
-            const crash = currentList[idx];
-            if (!crash) return;
+            <!-- Bloques detallados de Causa, Diagnóstico y Recomendación -->
+            <div class="crash-explanation-container">
+              <div class="crash-block crash-block-motivo">
+                <div class="crash-block-title">
+                  <span>🔍</span> Motivo Técnico (Causa Raíz)
+                </div>
+                <div>${escapeHtml(ev.reason || 'Operación registrada en el visor de eventos de Windows.')}</div>
+              </div>
 
-            const diagReport = [
-              `=============================================================`,
-              `REPORTE TÉCNICO DE CIERRE DE APLICACIÓN — HCPTOOLKIT`,
-              `=============================================================`,
-              `Programa Afectado : ${crash.appName}`,
-              `Fecha del Fallo   : ${fmtDateTime(crash.time)}`,
-              `Código Excepción  : ${crash.errCode} (${crash.errCodeName || 'Error'})`,
-              `Módulo Causante   : ${crash.faultModule} (Offset: ${crash.faultOffset || 'N/D'})`,
-              `Ruta Ejecutable   : ${crash.appPath || 'N/D'}`,
-              `Ruta Módulo       : ${crash.faultModulePath || 'N/D'}`,
-              ``,
-              `[MOTIVO - CAUSA RAÍZ]`,
-              crash.motivo || 'N/D',
-              ``,
-              `[DIAGNÓSTICO TÉCNICO]`,
-              crash.diagnostico || 'N/D',
-              ``,
-              `[SOLUCIÓN Y RECOMENDACIONES]`,
-              crash.solucion || 'N/D',
-              `=============================================================`
-            ].join('\n');
+              <div class="crash-block crash-block-diag">
+                <div class="crash-block-title">
+                  <span>🩺</span> Diagnóstico e Impacto en el Sistema
+                </div>
+                <div>${escapeHtml(ev.diagnostic || ev.detail || 'Verificación de estabilidad de la sesión del sistema operativo.')}</div>
+              </div>
 
-            navigator.clipboard.writeText(diagReport).then(() => {
-              showToast(`📋 Diagnóstico de ${crash.appName} copiado al portapapeles.`, 'success');
-            }).catch(() => {
-              showToast('No se pudo copiar al portapapeles.', 'error');
-            });
-          });
-        });
-      }
+              <div class="crash-block crash-block-sol">
+                <div class="crash-block-title">
+                  <span>🛠️</span> Recomendación Técnica para Administradores IT
+                </div>
+                <div>${escapeHtml(recomendacion)}</div>
+              </div>
+            </div>
 
-      attachCopyButtons(crashesContainer, appCrashes);
-    }
-
-    tabPanesContainer.appendChild(paneCrashes);
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PESTAÑA 3: FALLOS CRÍTICOS & HARDWARE (WHEA, BSOD, DISCO)
-    // ─────────────────────────────────────────────────────────────────────────
-    const paneHardware = document.createElement('div');
-    paneHardware.className = 'event-tab-pane';
-    paneHardware.id = 'tab-hardware';
-
-    if (hardwareEvents.length === 0) {
-      const hwClean = document.createElement('div');
-      hwClean.className = 'power-summary-hero panel-fade-in';
-      hwClean.style.padding = '24px';
-      hwClean.innerHTML = `
-        <div style="display:flex; align-items:center; gap:16px;">
-          <div style="font-size:36px;">🟢</div>
-          <div>
-            <h3 style="font-size:16px; font-weight:800; color:#34D399; margin:0 0 4px 0;">Hardware y Kernel Completamente Íntegros</h3>
-            <div style="font-size:13px; color:var(--text-secondary); line-height:1.5;">
-              ✔ Cero comprobaciones de error de volcado de memoria (BSOD BugCheck Event ID 1001).<br>
-              ✔ Cero eventos de la Arquitectura de Errores de Hardware de Windows (WHEA-Logger Event ID 17, 18, 19, 47).<br>
-              ✔ Cero incidencias críticas de bloques defectuosos o degradación SMART en subsistemas de almacenamiento (Disk, NTFS, storahci).
+            <div class="crash-card-footer">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="crash-time">🕒 ${fmtDateTime(ev.time)}</span>
+                <span style="color:var(--text-secondary); font-size:11px;">(EventID ${eid})</span>
+              </div>
+              <button class="btn-copy-crash-diag" data-index="${idx}" title="Copiar ficha técnica para informe o ticket de soporte">
+                <span>📋</span> Copiar Ficha Técnica
+              </button>
             </div>
           </div>
+        `;
+      }).join('');
+
+      // Vincular botones de copia
+      container.querySelectorAll('.btn-copy-crash-diag').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.getAttribute('data-index'), 10);
+          const ev = list[idx];
+          if (!ev) return;
+
+          const eid = ev.eventId || ev.id;
+          const raw = ev.rawParams || {};
+          const ficha = [
+            `========================================================================`,
+            `FICHA TÉCNICA DE EVENTO DEL SISTEMA — HCPTOOLKIT`,
+            `========================================================================`,
+            `ID de Evento        : #${eid}`,
+            `Tipo de Operación   : ${ev.type}`,
+            `Fecha y Hora        : ${fmtDateTime(ev.time)}`,
+            `Proveedor / Origen  : ${ev.provider || 'Windows'}`,
+            `Usuario Responsable : ${ev.user || 'NT AUTHORITY\\SYSTEM'}`,
+            `Proceso Iniciador   : ${ev.process || 'services.exe'}`,
+            ``,
+            `[MOTIVO - CAUSA RAÍZ]`,
+            ev.reason || 'N/D',
+            ``,
+            `[DIAGNÓSTICO E IMPACTO]`,
+            ev.diagnostic || ev.detail || 'N/D',
+            ``,
+            `[PARÁMETROS TÉCNICOS]`,
+            JSON.stringify(raw, null, 2),
+            `========================================================================`
+          ].join('\n');
+
+          navigator.clipboard.writeText(ficha).then(() => {
+            showToast(`📋 Ficha técnica del Evento #${eid} copiada al portapapeles.`, 'success');
+          }).catch(() => {
+            showToast('No se pudo copiar al portapapeles.', 'error');
+          });
+        });
+      });
+    }
+
+    // ── VISTA DE TABLA COMPACTA ─────────────────────────────────────────────
+    function renderTableView(container, list) {
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="clean-breakdown-card" style="padding:20px; text-align:center; color:var(--text-secondary);">
+            No hay eventos registrados para el filtro actual.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="power-events-table-wrap panel-fade-in">
+          <table class="power-events-table">
+            <thead>
+              <tr>
+                <th style="width:17%;">Fecha y Hora</th>
+                <th style="width:11%;">ID Evento</th>
+                <th style="width:22%;">Tipo de Operación</th>
+                <th style="width:22%;">Usuario / Proceso</th>
+                <th style="width:28%;">Motivo y Diagnóstico</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map(ev => {
+                const eid = ev.eventId || ev.id;
+                const badgeClass = eid === 41 ? 'unexpected' : eid === 6008 ? 'unexpected' : eid === 1001 ? 'unexpected' : (ev.typeCode === 'reboot' ? 'reboot' : 'shutdown');
+                const badgeLabel = eid === 41 ? '⚡ 41 Kernel-Power' : eid === 6008 ? '⚠️ 6008 Inesperado' : eid === 1001 ? '💥 1001 BSOD' : (ev.typeCode === 'reboot' ? '🔄 1074 Reinicio' : '🛑 1074 Apagado');
+
+                return `
+                  <tr>
+                    <td><strong style="color:var(--text-primary); font-size:12.5px;">${fmtDateTime(ev.time)}</strong></td>
+                    <td>
+                      <span class="event-id-badge id-${eid}">#${eid}</span>
+                    </td>
+                    <td>
+                      <span class="power-badge-type ${badgeClass}">
+                        ${badgeLabel}
+                      </span>
+                    </td>
+                    <td>
+                      <div style="font-size:12px; font-weight:700; color:var(--text-primary);">${escapeHtml(ev.user || 'Sistema')}</div>
+                      <div style="font-size:11px; color:var(--text-secondary); font-family:monospace; word-break:break-all;">${escapeHtml(ev.process || 'services.exe')}</div>
+                    </td>
+                    <td>
+                      <div style="font-size:12px; color:var(--text-primary); font-weight:600;">${escapeHtml(ev.reason || 'Operación registrada')}</div>
+                      <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(ev.diagnostic || ev.detail || '')}</div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
         </div>
       `;
-      paneHardware.appendChild(hwClean);
-    } else {
-      const hwWrap = document.createElement('div');
-      hwWrap.className = 'power-events-table-wrap panel-fade-in';
-      hwWrap.innerHTML = `
-        <table class="power-events-table">
-          <thead>
-            <tr>
-              <th style="width:20%;">Fecha</th>
-              <th style="width:12%;">ID / Nivel</th>
-              <th style="width:25%;">Componente / Proveedor</th>
-              <th style="width:43%;">Diagnóstico y Detalle de Hardware</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${hardwareEvents.map(h => `
-              <tr>
-                <td><strong>${fmtDateTime(h.time)}</strong></td>
-                <td><span class="power-badge-type unexpected">${escapeHtml(h.level || 'Crítico')}</span></td>
-                <td><strong>${escapeHtml(h.provider || 'Hardware')}</strong><div style="font-size:11px; color:var(--text-secondary);">${escapeHtml(h.title || 'Evento')}</div></td>
-                <td>
-                  <div style="font-size:12.5px; color:var(--text-primary); font-weight:600;">${escapeHtml(h.diagnostic || h.detail)}</div>
-                  <div style="font-size:11.5px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(h.detail || '')}</div>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-      paneHardware.appendChild(hwWrap);
     }
 
-    tabPanesContainer.appendChild(paneHardware);
+    // Renderizar vistas iniciales
+    renderActiveViews();
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // PESTAÑA 4: SERVICIOS DEL SISTEMA (SERVICE CONTROL MANAGER)
-    // ─────────────────────────────────────────────────────────────────────────
-    const paneServices = document.createElement('div');
-    paneServices.className = 'event-tab-pane';
-    paneServices.id = 'tab-services';
-
-    if (serviceEvents.length === 0) {
-      const srvClean = document.createElement('div');
-      srvClean.className = 'clean-breakdown-card';
-      srvClean.style.padding = '18px';
-      srvClean.style.color = '#34D399';
-      srvClean.innerHTML = '✔ Todos los servicios de Windows han arrancado y respondido en tiempo y forma sin caídas registradas.';
-      paneServices.appendChild(srvClean);
-    } else {
-      const srvWrap = document.createElement('div');
-      srvWrap.className = 'power-events-table-wrap panel-fade-in';
-      srvWrap.innerHTML = `
-        <table class="power-events-table">
-          <thead>
-            <tr>
-              <th style="width:20%;">Fecha y Hora</th>
-              <th style="width:12%;">ID Evento</th>
-              <th style="width:28%;">Servicio de Windows</th>
-              <th style="width:40%;">Motivo y Detalle Registrado</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${serviceEvents.map(s => `
-              <tr>
-                <td><strong>${fmtDateTime(s.time)}</strong></td>
-                <td><span style="font-family:monospace; font-weight:700; color:var(--text-secondary);">#${s.id || s.eventId}</span></td>
-                <td>
-                  <div style="font-weight:700; color:var(--text-primary); font-size:12.5px;">${escapeHtml(s.serviceName || s.provider || 'Servicio')}</div>
-                  <div style="font-size:11px; color:#F59E0B;">${escapeHtml(s.type || s.level || 'Aviso')}</div>
-                </td>
-                <td>
-                  <div style="font-size:12px; color:var(--text-primary);">${escapeHtml(s.reason || s.detail || '')}</div>
-                  ${s.diagnostic ? `<div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(s.diagnostic)}</div>` : ''}
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
-      paneServices.appendChild(srvWrap);
-    }
-
-    tabPanesContainer.appendChild(paneServices);
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PESTAÑA 5: REGISTRO CRONOLÓGICO GLOBAL (CONSOLIDADO)
-    // ─────────────────────────────────────────────────────────────────────────
-    const paneAll = document.createElement('div');
-    paneAll.className = 'event-tab-pane';
-    paneAll.id = 'tab-all';
-
-    const allWrap = document.createElement('div');
-    allWrap.className = 'power-events-table-wrap panel-fade-in';
-    allWrap.innerHTML = `
-      <table class="power-events-table">
-        <thead>
-          <tr>
-            <th style="width:18%;">Fecha</th>
-            <th style="width:10%;">Categoría</th>
-            <th style="width:10%;">ID</th>
-            <th style="width:24%;">Origen / Proceso</th>
-            <th style="width:38%;">Descripción / Diagnóstico</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${allEvents.map(ev => {
-            const isPower = ev.typeCode !== undefined;
-            const isHw = ev.title !== undefined && !isPower;
-            const categoryLabel = isPower ? '⚡ Energía' : (isHw ? '🛡️ Hardware' : '⚙️ Servicio');
-            const badgeClass = isPower ? (ev.typeCode === 'boot' ? 'boot' : (ev.typeCode === 'shutdown' ? 'shutdown' : (ev.typeCode === 'reboot' ? 'reboot' : 'unexpected'))) : 'unexpected';
-
-            return `
-              <tr>
-                <td><strong>${fmtDateTime(ev.time)}</strong></td>
-                <td><span style="font-size:11px; font-weight:700; color:var(--text-secondary);">${categoryLabel}</span></td>
-                <td><span style="font-family:monospace; font-weight:700; color:var(--text-secondary);">#${ev.id || ev.eventId}</span></td>
-                <td>
-                  <div style="font-size:12px; font-weight:600; color:var(--text-primary);">${escapeHtml(ev.user || ev.serviceName || ev.provider || 'Sistema')}</div>
-                  <div style="font-size:11px; color:var(--text-secondary); font-family:monospace; word-break:break-all;">${escapeHtml(ev.process || ev.provider || '')}</div>
-                </td>
-                <td>
-                  <span class="power-badge-type ${badgeClass}" style="margin-bottom:4px; display:inline-block;">${escapeHtml(ev.type || ev.title || 'Evento')}</span>
-                  <div style="font-size:12px; color:var(--text-primary);">${escapeHtml(ev.reason || ev.diagnostic || ev.detail || '')}</div>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-    `;
-    paneAll.appendChild(allWrap);
-    tabPanesContainer.appendChild(paneAll);
-
-    // Lógica para cambiar de pestaña
-    tabsContainer.querySelectorAll('.event-tab-btn').forEach(btn => {
+    // Handlers para botones de filtro
+    filterSection.querySelectorAll('.mini-filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        tabsContainer.querySelectorAll('.event-tab-btn').forEach(b => b.classList.remove('active'));
-        tabPanesContainer.querySelectorAll('.event-tab-pane').forEach(p => p.classList.remove('active'));
-
+        filterSection.querySelectorAll('.mini-filter-btn').forEach(b => {
+          b.classList.remove('active');
+          b.style.background = 'rgba(255,255,255,0.04)';
+          b.style.color = 'var(--text-secondary)';
+          b.style.borderColor = 'rgba(255,255,255,0.1)';
+        });
         btn.classList.add('active');
-        const targetId = btn.getAttribute('data-tab');
-        const targetPane = tabPanesContainer.querySelector(`#${targetId}`);
-        if (targetPane) targetPane.classList.add('active');
+        btn.style.background = '#2563EB';
+        btn.style.color = '#FFFFFF';
+        btn.style.borderColor = '#3B82F6';
+
+        currentFilterType = btn.getAttribute('data-filter') || 'all';
+        renderActiveViews();
       });
     });
 
-    // ── RECOMENDACIONES DE ESTABILIDAD GENERALES ─────────────────────────────
+    // Handler para búsqueda en tiempo real
+    filterSection.querySelector('#event-keyword-search')?.addEventListener('input', (e) => {
+      currentSearchText = e.target.value.toLowerCase().trim();
+      renderActiveViews();
+    });
+
+    // Handler para alternar entre vista de tarjetas y tabla
+    const btnViewCards = topBar.querySelector('#btn-view-cards');
+    const btnViewTable = topBar.querySelector('#btn-view-table');
+
+    btnViewCards?.addEventListener('click', () => {
+      btnViewCards.classList.add('active');
+      btnViewCards.style.background = '#2563EB';
+      btnViewCards.style.color = '#FFFFFF';
+      btnViewTable.classList.remove('active');
+      btnViewTable.style.background = 'transparent';
+      btnViewTable.style.color = 'var(--text-secondary)';
+
+      cardsViewContainer.style.display = 'block';
+      tableViewContainer.style.display = 'none';
+    });
+
+    btnViewTable?.addEventListener('click', () => {
+      btnViewTable.classList.add('active');
+      btnViewTable.style.background = '#2563EB';
+      btnViewTable.style.color = '#FFFFFF';
+      btnViewCards.classList.remove('active');
+      btnViewCards.style.background = 'transparent';
+      btnViewCards.style.color = 'var(--text-secondary)';
+
+      cardsViewContainer.style.display = 'none';
+      tableViewContainer.style.display = 'block';
+    });
+
+    // ── RECOMENDACIONES DE ESTABILIDAD BASADAS EN LOS 4 EVENTOS ──────────────
     if (report.recommendations && report.recommendations.length > 0) {
-      addSectionTitle('Recomendaciones de Estabilidad y Mantenimiento');
+      addSectionTitle('Recomendaciones de Estabilidad y Mantenimiento Técnico');
       const recCard = document.createElement('div');
       recCard.className = 'clean-breakdown-card panel-fade-in';
       recCard.style.marginTop = '20px';
@@ -3605,7 +3177,7 @@ async function runEventAnalysis(range = '7') {
       resultsEl.appendChild(recCard);
     }
 
-    // ── EVENTO: EXPORTAR INFORME DETALLADO MULTI-HISTORIAL ───────────────────
+    // ── EVENTO: EXPORTAR INFORME DETALLADO DE LOS EVENTOS 41, 6008, 1001 Y 1074 ───
     topBar.querySelector('#btn-export-power-report')?.addEventListener('click', () => {
       const dateStr = new Date().toLocaleString('es-ES');
       const meta = report.systemMeta || {};
@@ -3614,8 +3186,8 @@ async function runEventAnalysis(range = '7') {
       const osName = meta.os || 'Windows';
 
       let text = `========================================================================\n`;
-      text += `    HCPTOOLKIT — INFORME TÉCNICO COMPLETO DEL VISOR DE EVENTOS          \n`;
-      text += `    ARQUITECTURA · INGENIERÍA · URBAN PLANNING                         \n`;
+      text += `    HCPTOOLKIT — AUDITORÍA EXCLUSIVA DE EVENTOS CRÍTICOS DE WINDOWS    \n`;
+      text += `    EVENTOS REGISTRADOS: 41 (Kernel-Power), 6008, 1001 (BSOD) y 1074    \n`;
       text += `========================================================================\n\n`;
       text += `Fecha del informe   : ${dateStr}\n`;
       text += `Equipo / Host       : ${host}\n`;
@@ -3624,70 +3196,42 @@ async function runEventAnalysis(range = '7') {
       text += `Período analizado   : Últimos ${report.daysBack || 7} días\n`;
       text += `Tiempo encendido    : ${report.uptimeText || '—'}\n`;
       text += `Último arranque     : ${report.lastBootTime ? fmtDateTime(report.lastBootTime) : 'N/D'}\n`;
-      text += `Índice estabilidad  : ${stats.stabilityScore || '100%'} (${stats.statusLabel || 'Estable'})\n\n`;
+      text += `Índice estabilidad  : ${stabilityScore} (${statusLabel})\n\n`;
 
       text += `------------------------------------------------------------------------\n`;
-      text += `1. RESUMEN ESTADÍSTICO DE ESTABILIDAD\n`;
+      text += `1. RESUMEN ESTADÍSTICO DE EVENTOS CRÍTICOS\n`;
       text += `------------------------------------------------------------------------\n`;
-      text += `• Total reinicios registrados      : ${stats.totalReboots}\n`;
-      text += `• Total apagados limpios           : ${stats.cleanShutdowns}\n`;
-      text += `• Total apagados inesperados/cortes: ${stats.unexpectedShutdowns}\n`;
-      text += `• Total arranques registrados      : ${stats.totalBootEvents}\n`;
-      text += `• Total errores de aplicaciones    : ${appCrashes.length}\n`;
-      text += `• Total fallos de hardware/críticos: ${hardwareEvents.length}\n\n`;
+      text += `• Total Eventos Registrados        : ${totalEvents}\n`;
+      text += `• Evento 41 (Kernel-Power Cortes)  : ${count41}\n`;
+      text += `• Evento 6008 (Apagados Inesperados): ${count6008}\n`;
+      text += `• Evento 1001 (Pantallazos BSOD)   : ${count1001}\n`;
+      text += `• Evento 1074 (Apagados/Reinicios) : ${count1074}\n`;
+      text += `• Total Fallos Inesperados         : ${unexpectedCount}\n\n`;
 
       text += `------------------------------------------------------------------------\n`;
-      text += `2. ÚLTIMO CICLO DE ALIMENTACIÓN REGISTRADO\n`;
+      text += `2. DESGLOSE DETALLADO DE EVENTOS (CRONOLÓGICO DESCENDENTE)\n`;
       text += `------------------------------------------------------------------------\n`;
-      text += `• Fecha y hora    : ${lastShutdown.time ? fmtDateTime(lastShutdown.time) : 'N/D'}\n`;
-      text += `• Tipo de ciclo   : ${lastShutdown.type || 'Apagado'}\n`;
-      text += `• Categoría       : ${lastShutdown.category === 'reinicio_normal' ? 'Ordenado / Limpio' : 'Inesperado'}\n`;
-      text += `• Usuario/Servicio: ${lastShutdown.user || 'Sistema'} (${lastShutdown.process || 'services.exe'})\n`;
-      text += `• Motivo oficial  : ${lastShutdown.reason || 'Sin motivo especificado'}\n\n`;
-
-      text += `------------------------------------------------------------------------\n`;
-      text += `3. HISTORIAL DE ERRORES DE PROGRAMAS Y DIAGNÓSTICO DETALLADO (${appCrashes.length})\n`;
-      text += `------------------------------------------------------------------------\n`;
-      if (appCrashes.length === 0) {
-        text += `✔ No se registraron fallos ni cierres anormales de aplicaciones en el período.\n\n`;
+      if (targetEvents.length === 0) {
+        text += `No se detectaron eventos 41, 6008, 1001 ni 1074 en el período seleccionado.\n\n`;
       } else {
-        appCrashes.forEach((c, idx) => {
-          text += `[FALLO #${idx + 1}] ${fmtDateTime(c.time)} — ${c.appName}\n`;
-          text += `  • Código Excepción  : ${c.errCode} (${c.errCodeName || 'Fallo de aplicación'})\n`;
-          text += `  • Severidad         : ${(c.severity || 'alto').toUpperCase()}\n`;
-          text += `  • Módulo Causante   : ${c.faultModule} (Offset: ${c.faultOffset || '0x00000000'})\n`;
-          text += `  • Ruta Aplicación   : ${c.appPath || 'N/D'}\n`;
-          text += `  • Ruta Módulo       : ${c.faultModulePath || 'N/D'}\n`;
-          text += `  • MOTIVO (CAUSA)    : ${c.motivo || 'No disponible'}\n`;
-          text += `  • DIAGNÓSTICO TÉCN. : ${c.diagnostico || 'No disponible'}\n`;
-          text += `  • SOLUCIÓN SUGERIDA : \n`;
-          (c.solucion || '').split('\n').forEach(line => {
-            text += `      ${line}\n`;
-          });
-          text += `\n`;
-        });
-      }
-
-      text += `------------------------------------------------------------------------\n`;
-      text += `4. HISTORIAL DE EVENTOS DE ENERGÍA (${powerEvents.length})\n`;
-      text += `------------------------------------------------------------------------\n`;
-      if (powerEvents.length === 0) {
-        text += `No hay registros de eventos en el período seleccionado.\n\n`;
-      } else {
-        powerEvents.forEach((ev, i) => {
-          text += `[${i + 1}] ${fmtDateTime(ev.time)} | EventID: ${ev.id || ev.eventId}\n`;
-          text += `    Tipo    : ${ev.type}\n`;
-          text += `    Usuario : ${ev.user || 'Sistema'} (Proceso: ${ev.process || 'services.exe'})\n`;
-          text += `    Motivo  : ${ev.reason || 'Operación registrada'}\n`;
-          if (ev.detail && ev.detail !== ev.reason) {
-            text += `    Detalle : ${ev.detail}\n`;
+        targetEvents.forEach((ev, i) => {
+          const eid = ev.eventId || ev.id;
+          text += `[EVENTO #${i + 1}] ID ${eid} — ${ev.type}\n`;
+          text += `  • Fecha y Hora        : ${fmtDateTime(ev.time)}\n`;
+          text += `  • Proveedor / Origen  : ${ev.provider || 'Windows'}\n`;
+          text += `  • Usuario Responsable : ${ev.user || 'NT AUTHORITY\\SYSTEM'}\n`;
+          text += `  • Proceso Ejecutor    : ${ev.process || 'services.exe'}\n`;
+          text += `  • MOTIVO (CAUSA RAÍZ) : ${ev.reason || 'N/D'}\n`;
+          text += `  • DIAGNÓSTICO E IMPAC.: ${ev.diagnostic || ev.detail || 'N/D'}\n`;
+          if (ev.rawParams && Object.keys(ev.rawParams).length > 0) {
+            text += `  • PARÁMETROS TÉCNICOS : ${JSON.stringify(ev.rawParams)}\n`;
           }
           text += `\n`;
         });
       }
 
       text += `------------------------------------------------------------------------\n`;
-      text += `5. RECOMENDACIONES DE ESTABILIDAD\n`;
+      text += `3. RECOMENDACIONES TÉCNICAS DE MANTENIMIENTO\n`;
       text += `------------------------------------------------------------------------\n`;
       (report.recommendations || []).forEach(r => {
         text += `• ${r}\n`;
@@ -3695,68 +3239,29 @@ async function runEventAnalysis(range = '7') {
       text += `\n`;
 
       text += `========================================================================\n`;
-      text += `Informe emitido por HCPToolKit — Auditoría de Visor de Eventos de Windows\n`;
+      text += `Informe forense generado automáticamente por HCPToolKit System Suite\n`;
       text += `========================================================================\n`;
 
       const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Informe_Eventos_Diagnostico_${host}_${new Date().toISOString().slice(0, 10)}.txt`;
+      a.download = `Auditoria_Eventos_41_6008_1001_1074_${host}_${new Date().toISOString().slice(0, 10)}.txt`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast('📄 Informe técnico completo exportado con éxito.', 'success');
+      showToast('📄 Informe técnico exclusivo (41, 6008, 1001, 1074) exportado con éxito.', 'success');
     });
 
-    // Función auxiliar para renderizar filas de la tabla de energía
-    function renderPowerTableRows(list) {
-      if (list.length === 0) {
-        return `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-secondary);">No hay eventos de energía que coincidan con el filtro seleccionado.</td></tr>`;
-      }
-      return list.map(ev => {
-        const badgeClass = ev.typeCode === 'boot' ? 'boot'
-          : ev.typeCode === 'reboot' ? 'reboot'
-          : ev.typeCode === 'shutdown' ? 'shutdown'
-          : 'unexpected';
-
-        return `
-          <tr>
-            <td>
-              <strong style="color:var(--text-primary); font-size:12.5px;">${fmtDateTime(ev.time)}</strong>
-            </td>
-            <td>
-              <span style="font-family:monospace; font-weight:700; font-size:12px; color:var(--text-secondary);">
-                #${ev.id || ev.eventId}
-              </span>
-            </td>
-            <td>
-              <span class="power-badge-type ${badgeClass}">
-                ${ev.typeCode === 'boot' ? '🚀' : ev.typeCode === 'reboot' ? '🔄' : ev.typeCode === 'shutdown' ? '🛑' : '⚠️'}
-                ${escapeHtml(ev.type)}
-              </span>
-            </td>
-            <td>
-              <div style="font-size:12px; font-weight:600; color:var(--text-primary);">${escapeHtml(ev.user || 'Sistema')}</div>
-              <div style="font-size:11px; color:var(--text-secondary); font-family:monospace; word-break:break-all;">${escapeHtml(ev.process || 'services.exe')}</div>
-            </td>
-            <td>
-              <div style="font-size:12px; color:var(--text-primary);">${escapeHtml(ev.reason || ev.detail || 'Operación del sistema')}</div>
-              ${ev.detail && ev.detail !== ev.reason ? `<div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${escapeHtml(ev.detail)}</div>` : ''}
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    statusText.textContent = '✔ Informe de eventos y diagnóstico de errores generado correctamente';
+    statusText.textContent = `✔ Auditoría forense finalizada: ${targetEvents.length} eventos (41, 6008, 1001, 1074) analizados`;
   } catch (e) {
     statusText.textContent = `❌ Error: ${e.message}`;
   } finally {
     setBusy(false);
   }
 }
+
 
 document.getElementById('btn-eventlog')?.addEventListener('click', () => runEventAnalysis('7'));
 
@@ -4034,8 +3539,6 @@ async function runNetOptions() {
     setBusy(false);
   }
 }
-
-document.getElementById('btn-netoptions')?.addEventListener('click', runNetOptions);
 
 function renderNetworkOptionsPanel(adapters) {
   clearResults('Opciones de Red');
@@ -4744,16 +4247,15 @@ function renderHomeDashboard() {
     <div class="home-search-section">
       <div class="home-search-box">
         <span class="home-search-icon">🔍</span>
-        <input type="text" id="home-hero-search" class="home-search-input" placeholder="Buscar utilidad o función (ej: Informes, Impresoras, RAM, GPU, Speedtest, DNS, SFC)..." />
+        <input type="text" id="home-hero-search" class="home-search-input" placeholder="Buscar utilidad o función (ej: Diagnóstico, Impresoras, Plotter, RAM, GPU, Speedtest, Eventos, SFC)..." />
         <button id="btn-home-clear-search" class="btn-home-clear" style="display:none;">✕</button>
       </div>
       <div class="home-search-tags">
-        <span class="search-tag" data-query="Informes">📋 Informes</span>
-        <span class="search-tag" data-query="Impresoras">🖨️ Impresoras</span>
+        <span class="search-tag" data-query="Impresoras">🖨️ Impresoras Canon</span>
         <span class="search-tag" data-query="Plotter">📐 Plotter Océ</span>
-        <span class="search-tag" data-query="Software">💻 Software</span>
         <span class="search-tag" data-query="Tutoriales">📚 Guías</span>
         <span class="search-tag" data-query="Información del Equipo">🖥️ Info Equipo</span>
+        <span class="search-tag" data-query="Eventos">📋 Visor Eventos</span>
         <span class="search-tag" data-query="GPU">🎮 Drivers GPU</span>
         <span class="search-tag" data-query="Speedtest">🌐 Velocidad</span>
         <span class="search-tag" data-query="SFC">🛡️ Reparar SFC</span>
@@ -4762,74 +4264,12 @@ function renderHomeDashboard() {
 
     <div id="home-search-results-box" style="display:none; margin-bottom: 10px;"></div>
 
-    <!-- Módulos de Gestión y Soporte Técnico (Bento Grid) -->
+    <!-- 1. DIAGNÓSTICO Y MANTENIMIENTO -->
     <div class="dash-section-header">
       <div class="dash-section-title">
-        <span>⭐ Módulos Principales de Gestión</span>
+        <span>🚀 Diagnóstico y Mantenimiento del Sistema</span>
       </div>
-      <span class="dash-section-badge">Acceso Directo</span>
-    </div>
-
-    <div class="dash-bento-grid">
-      <div class="dash-bento-card" id="bento-informes">
-        <div class="dash-bento-top">
-          <div class="dash-bento-icon-box informes-theme">📋</div>
-          <span class="dash-bento-pill">Documentación</span>
-        </div>
-        <h3 class="dash-bento-title">Informes de Equipos</h3>
-        <p class="dash-bento-desc">Generación de fichas técnicas de alta para puestos nuevos o reciclados con checklist de instalación.</p>
-        <div class="dash-bento-footer">
-          <span>Abrir Informes</span>
-          <span class="dash-bento-arrow">→</span>
-        </div>
-      </div>
-
-      <div class="dash-bento-card" id="bento-software">
-        <div class="dash-bento-top">
-          <div class="dash-bento-icon-box software-theme">💻</div>
-          <span class="dash-bento-pill">Instaladores</span>
-        </div>
-        <h3 class="dash-bento-title">Software Corporativo</h3>
-        <p class="dash-bento-desc">Catálogo de aplicaciones departamentales, herramientas ofimáticas y paquetes de red.</p>
-        <div class="dash-bento-footer">
-          <span>Ver Catálogo</span>
-          <span class="dash-bento-arrow">→</span>
-        </div>
-      </div>
-
-      <div class="dash-bento-card" id="bento-printers">
-        <div class="dash-bento-top">
-          <div class="dash-bento-icon-box printers-theme">🖨️</div>
-          <span class="dash-bento-pill">Impresión</span>
-        </div>
-        <h3 class="dash-bento-title">Impresoras & Plotter</h3>
-        <p class="dash-bento-desc">Asistente en 3 pasos para impresoras Canon multifunción y tutorial del Plotter Océ ColorWave 3500 (IP 192.168.0.110).</p>
-        <div class="dash-bento-footer">
-          <span>Gestionar Impresoras</span>
-          <span class="dash-bento-arrow">→</span>
-        </div>
-      </div>
-
-      <div class="dash-bento-card" id="bento-tutorials">
-        <div class="dash-bento-top">
-          <div class="dash-bento-icon-box tutorials-theme">📚</div>
-          <span class="dash-bento-pill">Manuales</span>
-        </div>
-        <h3 class="dash-bento-title">Guías & Tutoriales</h3>
-        <p class="dash-bento-desc">Base de conocimiento técnico en red con manuales de configuración en formato PDF y Word.</p>
-        <div class="dash-bento-footer">
-          <span>Explorar Guías</span>
-          <span class="dash-bento-arrow">→</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Herramientas de Diagnóstico y Mantenimiento -->
-    <div class="dash-section-header" style="margin-top: 10px;">
-      <div class="dash-section-title">
-        <span>🚀 Diagnóstico Rápido y Optimización</span>
-      </div>
-      <span class="dash-section-badge">Herramientas</span>
+      <span class="dash-section-badge">Herramientas Principales</span>
     </div>
 
     <div class="dash-quick-grid">
@@ -4841,11 +4281,19 @@ function renderHomeDashboard() {
         </div>
       </div>
 
+      <div class="dash-quick-card" id="sc-eventlog">
+        <div class="dash-quick-icon">📋</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Visor de Eventos</span>
+          <span class="dash-quick-sub">Eventos 41, 6008, 1001 y 1074</span>
+        </div>
+      </div>
+
       <div class="dash-quick-card" id="sc-speedtest">
         <div class="dash-quick-icon">🌐</div>
         <div class="dash-quick-meta">
           <span class="dash-quick-name">Test de Velocidad</span>
-          <span class="dash-quick-sub">Descarga, subida y latencia ping</span>
+          <span class="dash-quick-sub">Descarga, subida y latencia</span>
         </div>
       </div>
 
@@ -4862,14 +4310,6 @@ function renderHomeDashboard() {
         <div class="dash-quick-meta">
           <span class="dash-quick-name">Salud General</span>
           <span class="dash-quick-sub">Puntuación 1-10 y recomendaciones</span>
-        </div>
-      </div>
-
-      <div class="dash-quick-card" id="sc-highperf">
-        <div class="dash-quick-icon">⚡</div>
-        <div class="dash-quick-meta">
-          <span class="dash-quick-name">Alto Rendimiento</span>
-          <span class="dash-quick-sub">Plan de energía de máxima potencia</span>
         </div>
       </div>
 
@@ -4896,6 +4336,63 @@ function renderHomeDashboard() {
           <span class="dash-quick-sub">Escanear archivos del sistema</span>
         </div>
       </div>
+
+      <div class="dash-quick-card" id="sc-highperf">
+        <div class="dash-quick-icon">⚡</div>
+        <div class="dash-quick-meta">
+          <span class="dash-quick-name">Alto Rendimiento</span>
+          <span class="dash-quick-sub">Plan de energía de máxima potencia</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. SERVICIOS Y PUESTO IT -->
+    <div class="dash-section-header" style="margin-top: 18px;">
+      <div class="dash-section-title">
+        <span>⭐ Servicios y Puesto IT</span>
+      </div>
+      <span class="dash-section-badge">Puestos de Trabajo</span>
+    </div>
+
+    <div class="dash-bento-grid">
+      <div class="dash-bento-card" id="bento-printers">
+        <div class="dash-bento-top">
+          <div class="dash-bento-icon-box printers-theme">🖨️</div>
+          <span class="dash-bento-pill">Multifunción</span>
+        </div>
+        <h3 class="dash-bento-title">Impresoras Canon</h3>
+        <p class="dash-bento-desc">Asistente en 3 pasos para instalar el controlador oficial Canon C5850i y configurar las impresoras de las 4 plantas.</p>
+        <div class="dash-bento-footer">
+          <span>Abrir Impresoras Canon</span>
+          <span class="dash-bento-arrow">→</span>
+        </div>
+      </div>
+
+      <div class="dash-bento-card" id="bento-plotter">
+        <div class="dash-bento-top">
+          <div class="dash-bento-icon-box plotter-theme">📐</div>
+          <span class="dash-bento-pill">Planos CAD</span>
+        </div>
+        <h3 class="dash-bento-title">Plotter Océ 3500</h3>
+        <p class="dash-bento-desc">Controlador oficial Océ WPD y parámetros de red para trazado e impresión técnica de planos (IP: 192.168.0.110).</p>
+        <div class="dash-bento-footer">
+          <span>Abrir Plotter Océ</span>
+          <span class="dash-bento-arrow">→</span>
+        </div>
+      </div>
+
+      <div class="dash-bento-card" id="bento-tutorials">
+        <div class="dash-bento-top">
+          <div class="dash-bento-icon-box tutorials-theme">📚</div>
+          <span class="dash-bento-pill">Manuales</span>
+        </div>
+        <h3 class="dash-bento-title">Guías & Tutoriales</h3>
+        <p class="dash-bento-desc">Base de conocimiento técnico en red con manuales de configuración en formato PDF y Word.</p>
+        <div class="dash-bento-footer">
+          <span>Explorar Guías</span>
+          <span class="dash-bento-arrow">→</span>
+        </div>
+      </div>
     </div>
   `;
 
@@ -4906,17 +4403,13 @@ function renderHomeDashboard() {
   document.getElementById('btn-hero-refresh')?.addEventListener('click', () => renderHomeDashboard());
 
   // Vincular Bento Cards
-  document.getElementById('bento-informes')?.addEventListener('click', () => {
-    setActiveSidebarButton('btn-open-informes');
-    runInformesUtility();
-  });
-  document.getElementById('bento-software')?.addEventListener('click', () => {
-    setActiveSidebarButton('btn-open-software');
-    openSoftwarePanel();
-  });
   document.getElementById('bento-printers')?.addEventListener('click', () => {
     setActiveSidebarButton('btn-open-printers');
-    runImpresorasUtility();
+    runCanonPrintersUtility();
+  });
+  document.getElementById('bento-plotter')?.addEventListener('click', () => {
+    setActiveSidebarButton('btn-open-plotter');
+    runPlotterUtility();
   });
   document.getElementById('bento-tutorials')?.addEventListener('click', () => {
     setActiveSidebarButton('btn-open-tutorials');
@@ -4925,6 +4418,10 @@ function renderHomeDashboard() {
 
   // Vincular Accesos Rápidos
   document.getElementById('sc-diagnostico')?.addEventListener('click', () => runDiagnostico());
+  document.getElementById('sc-eventlog')?.addEventListener('click', () => {
+    setActiveSidebarButton('btn-open-maint');
+    runEventAnalysis('7');
+  });
   document.getElementById('sc-speedtest')?.addEventListener('click', () => runSpeedTest());
   document.getElementById('sc-sysupdates')?.addEventListener('click', () => runSysUpdates());
   document.getElementById('sc-healthcheck')?.addEventListener('click', () => runHealthCheck());
@@ -5026,15 +4523,15 @@ function performSearch(query) {
       const extraTools = [
         {
           title: 'Instalación de Plotter Océ ColorWave 3500',
-          sub: 'Tutorial en 3 pasos para instalar el controlador Océ WPD y vincular el plotter de planos en red (IP: 192.168.0.110).',
+          sub: 'Asistente técnico para instalar el controlador oficial Océ WPD y vincular el plotter en red local (IP: 192.168.0.110).',
           icon: '📐',
           badge: 'PLOTTER OCÉ',
           tags: ['Plotter', 'Oce ColorWave', '192.168.0.110', 'Planos', 'CAD', 'ocewpd2.15.1.exe'],
-          quickMeta: 'Asistente 3 pasos',
+          quickMeta: 'Asistente independiente',
           actionText: 'Instalar Plotter',
           run: () => {
-            setActiveSidebarButton('btn-open-printers');
-            runImpresorasUtility('plotter');
+            setActiveSidebarButton('btn-open-plotter');
+            runPlotterUtility();
           }
         },
         {
@@ -5043,11 +4540,11 @@ function performSearch(query) {
           icon: '🖨️',
           badge: 'IMPRESORAS',
           tags: ['Canon', 'C5850i', '1ª Planta', '2ª Planta', '3ª Planta', 'Ejecución', 'Urbanismo'],
-          quickMeta: 'Asistente 3 pasos',
+          quickMeta: 'Asistente independiente',
           actionText: 'Abrir Asistente',
           run: () => {
             setActiveSidebarButton('btn-open-printers');
-            runImpresorasUtility('canon');
+            runCanonPrintersUtility();
           }
         }
       ];
@@ -5477,17 +4974,6 @@ const CATEGORIES_CONFIG = {
     btnId: 'btn-open-pc',
     tools: [
       {
-        id: 'btn-informes-pc',
-        title: 'Informe de Instalación',
-        sub: 'Ficha y checklist oficial de alta técnica para puestos nuevos o reciclados con exportación a PDF.',
-        icon: '📋',
-        badge: 'INFORMES',
-        tags: ['Checklist Puesto', 'Exportar PDF', 'Ficha de Alta', 'Sedes HCP'],
-        quickMeta: 'Acta oficial de entrega',
-        actionText: 'Generar Informe',
-        run: runInformesUtility
-      },
-      {
         id: 'btn-diagnostico',
         title: 'Información del Equipo',
         sub: 'Auditoría en tiempo real de CPU, memoria RAM, tarjeta gráfica GPU y almacenamiento en disco.',
@@ -5554,13 +5040,13 @@ const CATEGORIES_CONFIG = {
       },
       {
         id: 'btn-eventlog',
-        title: 'Analizar Visor de Eventos',
-        sub: 'Extracción forense de apagados repentinos, pantallas azules (BSOD) y registros críticos del sistema.',
+        title: 'Visor de Eventos Críticos (41, 6008, 1001, 1074)',
+        sub: 'Auditoría forense detallada de reinicios inesperados (41), apagados sucios (6008), pantallazos azules BSOD (1001) y apagados ordenados (1074).',
         icon: '📋',
-        badge: 'LOGS DE SISTEMA',
-        tags: ['Eventos Críticos', 'Pantallazos BSOD', 'Apagados Inesperados', 'Filtro 7 Días'],
-        quickMeta: 'Auditoría forense',
-        actionText: 'Analizar Registros',
+        badge: 'EVENTOS 41, 6008, 1001, 1074',
+        tags: ['Evento 41 Kernel-Power', 'Evento 6008 Inesperado', 'Evento 1001 BSOD', 'Evento 1074 User32'],
+        quickMeta: 'Análisis exclusivo 41, 6008, 1001, 1074',
+        actionText: 'Auditar Eventos',
         run: () => runEventAnalysis('7')
       },
       {
@@ -5579,7 +5065,7 @@ const CATEGORIES_CONFIG = {
   red: {
     key: 'red',
     title: 'Red & Conectividad',
-    desc: 'Test de velocidad en tiempo real, latencia Ping hacia servidores e infraestructura de red IP/DNS.',
+    desc: 'Medición interactiva en tiempo real de velocidad de descarga, subida y ancho de banda.',
     icon: '🌐',
     themeClass: 'net-theme',
     btnId: 'btn-open-net',
@@ -5594,17 +5080,6 @@ const CATEGORIES_CONFIG = {
         quickMeta: 'Medición en tiempo real',
         actionText: 'Iniciar Speedtest',
         run: runSpeedTest
-      },
-      {
-        id: 'btn-netoptions',
-        title: 'Opciones de Red',
-        sub: 'Gestión de direccionamiento IP (DHCP o Manual), renovación de concesión de red y vaciado de DNS.',
-        icon: '⚙️',
-        badge: 'CONFIGURACIÓN IP',
-        tags: ['DHCP / IP Fija', 'Liberar & Renovar IP', 'Flush DNS', 'Adaptadores'],
-        quickMeta: 'Herramientas de red',
-        actionText: 'Configurar Red',
-        run: runNetOptions
       }
     ]
   },
@@ -5907,19 +5382,14 @@ document.getElementById('btn-open-tutorials')?.addEventListener('click', () => {
   loadAndRenderTutorials();
 });
 
-document.getElementById('btn-open-software')?.addEventListener('click', () => {
-  setActiveSidebarButton('btn-open-software');
-  openSoftwarePanel();
-});
-
 document.getElementById('btn-open-printers')?.addEventListener('click', () => {
   setActiveSidebarButton('btn-open-printers');
-  runImpresorasUtility();
+  runCanonPrintersUtility();
 });
 
-document.getElementById('btn-open-informes')?.addEventListener('click', () => {
-  setActiveSidebarButton('btn-open-informes');
-  runInformesUtility();
+document.getElementById('btn-open-plotter')?.addEventListener('click', () => {
+  setActiveSidebarButton('btn-open-plotter');
+  runPlotterUtility();
 });
 
 document.getElementById('btn-open-pc')?.addEventListener('click', () => {
@@ -8863,19 +8333,17 @@ if (btnLockSession) {
 checkInitialAuth();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UTILIDAD: IMPRESORAS CANON & PLOTTER OCÉ
+// UTILIDAD INDEPENDIENTE 1: IMPRESORAS CANON (OFICINA - 4 PLANTAS)
 // ─────────────────────────────────────────────────────────────────────────────
-async function runImpresorasUtility(initialTab = 'canon') {
-  clearResults('🖨️ Instalación de Impresoras & Plotter');
+async function runCanonPrintersUtility() {
+  setActiveSidebarButton('btn-open-printers');
+  clearResults('🖨️ Impresoras Canon · Oficina');
 
   const container = document.createElement('div');
   container.className = 'printer-container panel-fade-in';
   resultsEl.appendChild(container);
 
   const canonInstallerPath = 'Y:\\03_IT\\00_IMPRESORAS\\Canon C5850i Nuevo\\GPlus_PCL6_Driver_V311_32_64_00\\x64\\Setup.exe';
-  const plotterInstallerPath = 'Y:\\03_IT\\00_IMPRESORAS\\OCE COLORWAWE 3500\\ocewpd2.15.1.exe';
-  const plotterIp = '192.168.0.110';
-
   const textPrinterList = `1º Planta 192.168.0.191 (Ejecución)\n\n1º Planta 192.168.0.40 (Administración)\n\n2º Planta 192.168.0.190 (Urbanismo)\n\n3º Planta 192.168.0.244 (Basico)`;
 
   const officePrinters = [
@@ -8917,45 +8385,19 @@ async function runImpresorasUtility(initialTab = 'canon') {
     }
   ];
 
-  let currentTab = initialTab;
-
-  function renderView() {
-    container.innerHTML = `
-      <div class="printer-utility-wrapper">
-        <!-- Pestañas de Selección: Canon vs Plotter -->
-        <div class="printer-mode-tabs" role="tablist">
-          <button class="printer-mode-tab ${currentTab === 'canon' ? 'active' : ''}" id="tab-btn-canon" type="button">
-            <span>🖨️ Impresoras Canon (Oficina)</span>
-            <span class="printer-tab-badge">4 Plantas</span>
-          </button>
-          <button class="printer-mode-tab ${currentTab === 'plotter' ? 'active' : ''}" id="tab-btn-plotter" type="button">
-            <span>📐 Plotter Océ ColorWave 3500</span>
-            <span class="printer-tab-badge" style="background:#ECFDF5; color:#059669; border-color:#A7F3D0;">IP: 192.168.0.110</span>
-          </button>
-        </div>
-
-        ${currentTab === 'canon' ? renderCanonViewHTML() : renderPlotterViewHTML()}
-      </div>
-    `;
-
-    bindTabSwitchers();
-    if (currentTab === 'canon') {
-      bindCanonEvents();
-    } else {
-      bindPlotterEvents();
-    }
-  }
-
-  function renderCanonViewHTML() {
-    return `
+  container.innerHTML = `
+    <div class="printer-utility-wrapper">
       <!-- Banner Cabecera Canon -->
       <div class="printer-hero-card">
         <div class="printer-hero-left">
           <div class="printer-hero-icon-box">🖨️</div>
           <div class="printer-hero-text">
             <h2>Instalación de Impresoras Canon</h2>
-            <p>Guía y proceso simplificado en 3 pasos para instalar el controlador de Canon y configurar la impresora requerida en Windows.</p>
+            <p>Guía y proceso simplificado en 3 pasos para instalar el controlador oficial Canon C5850i y configurar la impresora requerida en Windows.</p>
           </div>
+        </div>
+        <div class="printer-hero-badge-pill">
+          <span>🏢 4 Plantas · Red Local</span>
         </div>
       </div>
 
@@ -8966,7 +8408,7 @@ async function runImpresorasUtility(initialTab = 'canon') {
             <div class="printer-step-number">1</div>
             <div class="printer-step-title-group">
               <h3>Paso 1: Instalación de Drivers Canon</h3>
-              <p>Haz clic en el botón para ejecutar el instalador oficial de drivers de Canon ubicado en la red de la oficina.</p>
+              <p>Haz clic en el botón para ejecutar el instalador oficial de drivers de Canon ubicado en la red de la oficina (Y:\\).</p>
             </div>
           </div>
 
@@ -9052,28 +8494,161 @@ async function runImpresorasUtility(initialTab = 'canon') {
             <div class="printer-step-number">3</div>
             <div class="printer-step-title-group">
               <h3>Paso 3: Abrir Impresoras en Windows</h3>
-              <p>Abre el menú de Impresoras y Escáneres de Windows para vincular o verificar la impresora.</p>
+              <p>Abre el panel de Impresoras y Escáneres de Windows para vincular o verificar la impresora instalada.</p>
             </div>
           </div>
 
           <button id="btn-open-windows-printers" class="btn-step-action secondary">
-            <span>🖨️ Abrir Impresoras</span>
+            <span>🖨️ Abrir Impresoras y Escáneres de Windows</span>
           </button>
         </div>
       </div>
-    `;
+    </div>
+  `;
+
+  // Bind Paso 1: Abrir ejecutable Canon
+  const btnStep1 = container.querySelector('#btn-launch-canon-installer');
+  const btnCopyCanonPath = container.querySelector('#btn-copy-canon-path');
+  const statusMsgStep1 = container.querySelector('#step1-status-msg');
+
+  if (btnCopyCanonPath) {
+    btnCopyCanonPath.addEventListener('click', async () => {
+      try {
+        await window.api.copyToClipboard(canonInstallerPath);
+        showToast('Ruta del instalador de Canon copiada al portapapeles.', 'success');
+      } catch {
+        showToast('Error al copiar la ruta.', 'error');
+      }
+    });
   }
 
-  function renderPlotterViewHTML() {
-    return `
+  if (btnStep1) {
+    btnStep1.addEventListener('click', async () => {
+      btnStep1.disabled = true;
+      btnStep1.style.opacity = '0.7';
+      if (statusMsgStep1) {
+        statusMsgStep1.style.display = 'block';
+        statusMsgStep1.style.background = '#EFF6FF';
+        statusMsgStep1.style.color = '#1D4ED8';
+        statusMsgStep1.style.border = '1px solid #BFDBFE';
+        statusMsgStep1.innerHTML = '⏳ Intentando ejecutar Setup.exe... Por favor, espera unos segundos.';
+      }
+
+      try {
+        const res = await window.api.launchCanonInstaller();
+        if (res && res.success) {
+          if (statusMsgStep1) {
+            statusMsgStep1.style.background = '#ECFDF5';
+            statusMsgStep1.style.color = '#047857';
+            statusMsgStep1.style.border = '1px solid #A7F3D0';
+            statusMsgStep1.innerHTML = '✅ Instalador de Canon iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
+          }
+          showToast('✅ Instalador de Canon ejecutado correctamente.', 'success');
+        } else {
+          const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
+          if (statusMsgStep1) {
+            statusMsgStep1.style.background = '#FEF2F2';
+            statusMsgStep1.style.color = '#B91C1C';
+            statusMsgStep1.style.border = '1px solid #FCA5A5';
+            statusMsgStep1.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
+          }
+          showToast('❌ No se pudo abrir el instalador de Canon.', 'error');
+        }
+      } catch (err) {
+        if (statusMsgStep1) {
+          statusMsgStep1.style.background = '#FEF2F2';
+          statusMsgStep1.style.color = '#B91C1C';
+          statusMsgStep1.style.border = '1px solid #FCA5A5';
+          statusMsgStep1.innerHTML = `⚠️ Error: ${err.message}`;
+        }
+        showToast(`❌ Error: ${err.message}`, 'error');
+      } finally {
+        btnStep1.disabled = false;
+        btnStep1.style.opacity = '1';
+      }
+    });
+  }
+
+  // Bind Paso 2: Copiar IP individual
+  const copyButtons = container.querySelectorAll('.btn-card-copy-ip');
+  copyButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const ip = btn.getAttribute('data-ip');
+      const dept = btn.getAttribute('data-dept');
+      const floor = btn.getAttribute('data-floor');
+      try {
+        await window.api.copyToClipboard(ip);
+        showToast(`IP ${ip} (${dept} - ${floor}) copiada al portapapeles.`, 'success');
+        const span = btn.querySelector('span');
+        if (span) span.textContent = '✅ Copiada!';
+        setTimeout(() => {
+          if (span) span.textContent = '📋 Copiar IP';
+        }, 2200);
+      } catch (err) {
+        showToast('Error al copiar la IP.', 'error');
+      }
+    });
+  });
+
+  // Bind Paso 2: Copiar texto completo
+  const btnCopyInfo = container.querySelector('#btn-copy-printer-info');
+  if (btnCopyInfo) {
+    btnCopyInfo.addEventListener('click', async () => {
+      try {
+        await window.api.copyToClipboard(textPrinterList);
+        showToast('📋 Lista completa de impresoras copiada al portapapeles.', 'success');
+        const spanEl = btnCopyInfo.querySelector('span');
+        if (spanEl) spanEl.textContent = '✅ Copiado al Portapapeles!';
+        setTimeout(() => {
+          if (spanEl) spanEl.textContent = '📋 Copiar Lista Completa';
+        }, 2500);
+      } catch (e) {
+        showToast('Error copiando al portapapeles.', 'error');
+      }
+    });
+  }
+
+  // Bind Paso 3: Abrir menú de impresoras
+  const btnStep3 = container.querySelector('#btn-open-windows-printers');
+  if (btnStep3) {
+    btnStep3.addEventListener('click', async () => {
+      try {
+        await window.api.openWindowsPrinters();
+        showToast('🖨️ Abriendo el menú Impresoras y Escáneres de Windows...', 'info');
+      } catch (e) {
+        showToast('Error al abrir Impresoras y Escáneres.', 'error');
+      }
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILIDAD INDEPENDIENTE 2: PLOTTER OCÉ COLORWAVE 3500 (PLANOS CAD & BIM)
+// ─────────────────────────────────────────────────────────────────────────────
+async function runPlotterUtility() {
+  setActiveSidebarButton('btn-open-plotter');
+  clearResults('📐 Plotter Océ ColorWave 3500 · Planos CAD');
+
+  const container = document.createElement('div');
+  container.className = 'printer-container panel-fade-in';
+  resultsEl.appendChild(container);
+
+  const plotterInstallerPath = 'Y:\\03_IT\\00_IMPRESORAS\\OCE COLORWAWE 3500\\ocewpd2.15.1.exe';
+  const plotterIp = '192.168.0.110';
+
+  container.innerHTML = `
+    <div class="printer-utility-wrapper">
       <!-- Banner Cabecera Plotter Océ ColorWave -->
       <div class="printer-hero-card plotter-hero-card">
         <div class="printer-hero-left">
           <div class="printer-hero-icon-box" style="background:rgba(255,255,255,0.18);">📐</div>
           <div class="printer-hero-text">
             <h2>Instalación de Plotter Océ ColorWave 3500</h2>
-            <p>Asistente de instalación del controlador oficial Océ WPD e información de conexión por red (IP: <strong>${plotterIp}</strong>).</p>
+            <p>Asistente técnico para la instalación del controlador oficial Océ WPD y vinculación por red (IP: <strong>${plotterIp}</strong>).</p>
           </div>
+        </div>
+        <div class="printer-hero-badge-pill" style="background:rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color:#FFFFFF;">
+          <span>📐 Formato Grande · CAD / BIM</span>
         </div>
       </div>
 
@@ -9084,7 +8659,7 @@ async function runImpresorasUtility(initialTab = 'canon') {
             <div class="printer-step-number" style="background:#0D9488;">1</div>
             <div class="printer-step-title-group">
               <h3>Paso 1: Instalación de Drivers Océ (ocewpd2.15.1.exe)</h3>
-              <p>Haz clic en el botón para ejecutar el instalador oficial de controladores de Océ ubicado en la unidad compartida Y: de la oficina.</p>
+              <p>Haz clic en el botón para ejecutar el instalador oficial de controladores de Océ ubicado en la unidad compartida Y:\\ de la oficina.</p>
             </div>
           </div>
 
@@ -9104,7 +8679,7 @@ async function runImpresorasUtility(initialTab = 'canon') {
           <div id="step1-plotter-status-msg" style="display:none; padding:12px 16px; border-radius:10px; font-size:13px; font-weight:600;"></div>
         </div>
 
-        <!-- PASO 2 PLOTTER: Información con la IP -->
+        <!-- PASO 2 PLOTTER: Información con la IP y Datos Técnicos -->
         <div class="printer-step-card">
           <div class="printer-step-header">
             <div class="printer-step-number" style="background:#0D9488;">2</div>
@@ -9178,235 +8753,127 @@ async function runImpresorasUtility(initialTab = 'canon') {
             </div>
           </div>
         </div>
+
+        <!-- PASO 3 PLOTTER: Abrir Impresoras en Windows -->
+        <div class="printer-step-card">
+          <div class="printer-step-header">
+            <div class="printer-step-number" style="background:#0D9488;">3</div>
+            <div class="printer-step-title-group">
+              <h3>Paso 3: Abrir Impresoras en Windows</h3>
+              <p>Abre el panel de Impresoras y Escáneres de Windows para agregar el puerto TCP/IP y vincular el Plotter.</p>
+            </div>
+          </div>
+
+          <button id="btn-open-windows-printers-plotter" class="btn-step-action secondary">
+            <span>🖨️ Abrir Impresoras y Escáneres de Windows</span>
+          </button>
+        </div>
       </div>
-    `;
-  }
+    </div>
+  `;
 
-  function bindTabSwitchers() {
-    const tabCanon = container.querySelector('#tab-btn-canon');
-    const tabPlotter = container.querySelector('#tab-btn-plotter');
+  // Bind Paso 1: Abrir instalador Plotter Océ
+  const btnLaunchPlotter = container.querySelector('#btn-launch-plotter-installer');
+  const btnCopyPath = container.querySelector('#btn-copy-plotter-path');
+  const statusMsg = container.querySelector('#step1-plotter-status-msg');
 
-    if (tabCanon) {
-      tabCanon.addEventListener('click', () => {
-        if (currentTab !== 'canon') {
-          currentTab = 'canon';
-          renderView();
-        }
-      });
-    }
-
-    if (tabPlotter) {
-      tabPlotter.addEventListener('click', () => {
-        if (currentTab !== 'plotter') {
-          currentTab = 'plotter';
-          renderView();
-        }
-      });
-    }
-  }
-
-  function bindCanonEvents() {
-    // Bind Paso 1: Abrir ejecutable Canon
-    const btnStep1 = container.querySelector('#btn-launch-canon-installer');
-    const btnCopyCanonPath = container.querySelector('#btn-copy-canon-path');
-    const statusMsgStep1 = container.querySelector('#step1-status-msg');
-
-    if (btnCopyCanonPath) {
-      btnCopyCanonPath.addEventListener('click', async () => {
-        try {
-          await window.api.copyToClipboard(canonInstallerPath);
-          showToast('Ruta del instalador de Canon copiada al portapapeles.', 'success');
-        } catch {
-          showToast('Error al copiar la ruta.', 'error');
-        }
-      });
-    }
-
-    if (btnStep1) {
-      btnStep1.addEventListener('click', async () => {
-        btnStep1.disabled = true;
-        btnStep1.style.opacity = '0.7';
-        if (statusMsgStep1) {
-          statusMsgStep1.style.display = 'block';
-          statusMsgStep1.style.background = '#EFF6FF';
-          statusMsgStep1.style.color = '#1D4ED8';
-          statusMsgStep1.style.border = '1px solid #BFDBFE';
-          statusMsgStep1.innerHTML = '⏳ Intentando ejecutar Setup.exe... Por favor, espera unos segundos.';
-        }
-
-        try {
-          const res = await window.api.launchCanonInstaller();
-          if (res && res.success) {
-            if (statusMsgStep1) {
-              statusMsgStep1.style.background = '#ECFDF5';
-              statusMsgStep1.style.color = '#047857';
-              statusMsgStep1.style.border = '1px solid #A7F3D0';
-              statusMsgStep1.innerHTML = '✅ Instalador de Canon iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
-            }
-            showToast('✅ Instalador de Canon ejecutado correctamente.', 'success');
-          } else {
-            const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
-            if (statusMsgStep1) {
-              statusMsgStep1.style.background = '#FEF2F2';
-              statusMsgStep1.style.color = '#B91C1C';
-              statusMsgStep1.style.border = '1px solid #FCA5A5';
-              statusMsgStep1.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
-            }
-            showToast('❌ No se pudo abrir el instalador de Canon.', 'error');
-          }
-        } catch (err) {
-          if (statusMsgStep1) {
-            statusMsgStep1.style.background = '#FEF2F2';
-            statusMsgStep1.style.color = '#B91C1C';
-            statusMsgStep1.style.border = '1px solid #FCA5A5';
-            statusMsgStep1.innerHTML = `⚠️ Error: ${err.message}`;
-          }
-          showToast(`❌ Error: ${err.message}`, 'error');
-        } finally {
-          btnStep1.disabled = false;
-          btnStep1.style.opacity = '1';
-        }
-      });
-    }
-
-    // Bind Paso 2: Copiar IP individual
-    const copyButtons = container.querySelectorAll('.btn-card-copy-ip');
-    copyButtons.forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const ip = btn.getAttribute('data-ip');
-        const dept = btn.getAttribute('data-dept');
-        const floor = btn.getAttribute('data-floor');
-        try {
-          await window.api.copyToClipboard(ip);
-          showToast(`IP ${ip} (${dept} - ${floor}) copiada al portapapeles.`, 'success');
-          const span = btn.querySelector('span');
-          if (span) span.textContent = '✅ Copiada!';
-          setTimeout(() => {
-            if (span) span.textContent = '📋 Copiar IP';
-          }, 2200);
-        } catch (err) {
-          showToast('Error al copiar la IP.', 'error');
-        }
-      });
+  if (btnCopyPath) {
+    btnCopyPath.addEventListener('click', async () => {
+      try {
+        await window.api.copyToClipboard(plotterInstallerPath);
+        showToast('Ruta del instalador del Plotter copiada al portapapeles.', 'success');
+      } catch {
+        showToast('Error al copiar la ruta.', 'error');
+      }
     });
-
-    // Bind Paso 2: Copiar texto completo
-    const btnCopyInfo = container.querySelector('#btn-copy-printer-info');
-    if (btnCopyInfo) {
-      btnCopyInfo.addEventListener('click', async () => {
-        try {
-          await window.api.copyToClipboard(textPrinterList);
-          showToast('📋 Lista completa de impresoras copiada al portapapeles.', 'success');
-          const spanEl = btnCopyInfo.querySelector('span');
-          if (spanEl) spanEl.textContent = '✅ Copiado al Portapapeles!';
-          setTimeout(() => {
-            if (spanEl) spanEl.textContent = '📋 Copiar Lista Completa';
-          }, 2500);
-        } catch (e) {
-          showToast('Error copiando al portapapeles.', 'error');
-        }
-      });
-    }
-
-    // Bind Paso 3: Abrir menú de impresoras
-    const btnStep3 = container.querySelector('#btn-open-windows-printers');
-    if (btnStep3) {
-      btnStep3.addEventListener('click', async () => {
-        try {
-          await window.api.openWindowsPrinters();
-          showToast('🖨️ Abriendo el menú Impresoras y Escáneres de Windows...', 'info');
-        } catch (e) {
-          showToast('Error al abrir Impresoras y Escáneres.', 'error');
-        }
-      });
-    }
   }
 
-  function bindPlotterEvents() {
-    // Bind Paso 1: Abrir instalador Plotter Océ
-    const btnLaunchPlotter = container.querySelector('#btn-launch-plotter-installer');
-    const btnCopyPath = container.querySelector('#btn-copy-plotter-path');
-    const statusMsg = container.querySelector('#step1-plotter-status-msg');
+  if (btnLaunchPlotter) {
+    btnLaunchPlotter.addEventListener('click', async () => {
+      btnLaunchPlotter.disabled = true;
+      btnLaunchPlotter.style.opacity = '0.7';
+      if (statusMsg) {
+        statusMsg.style.display = 'block';
+        statusMsg.style.background = '#F0FDFA';
+        statusMsg.style.color = '#0F766E';
+        statusMsg.style.border = '1px solid #99F6E4';
+        statusMsg.innerHTML = '⏳ Intentando ejecutar ocewpd2.15.1.exe... Por favor, espera unos segundos.';
+      }
 
-    if (btnCopyPath) {
-      btnCopyPath.addEventListener('click', async () => {
-        try {
-          await window.api.copyToClipboard(plotterInstallerPath);
-          showToast('Ruta del instalador del Plotter copiada al portapapeles.', 'success');
-        } catch {
-          showToast('Error al copiar la ruta.', 'error');
-        }
-      });
-    }
-
-    if (btnLaunchPlotter) {
-      btnLaunchPlotter.addEventListener('click', async () => {
-        btnLaunchPlotter.disabled = true;
-        btnLaunchPlotter.style.opacity = '0.7';
-        if (statusMsg) {
-          statusMsg.style.display = 'block';
-          statusMsg.style.background = '#F0FDFA';
-          statusMsg.style.color = '#0F766E';
-          statusMsg.style.border = '1px solid #99F6E4';
-          statusMsg.innerHTML = '⏳ Intentando ejecutar ocewpd2.15.1.exe... Por favor, espera unos segundos.';
-        }
-
-        try {
-          const res = await window.api.launchPlotterInstaller();
-          if (res && res.success) {
-            if (statusMsg) {
-              statusMsg.style.background = '#ECFDF5';
-              statusMsg.style.color = '#047857';
-              statusMsg.style.border = '1px solid #A7F3D0';
-              statusMsg.innerHTML = '✅ Instalador del Plotter Océ iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
-            }
-            showToast('✅ Instalador del Plotter Océ ejecutado correctamente.', 'success');
-          } else {
-            const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
-            if (statusMsg) {
-              statusMsg.style.background = '#FEF2F2';
-              statusMsg.style.color = '#B91C1C';
-              statusMsg.style.border = '1px solid #FCA5A5';
-              statusMsg.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
-            }
-            showToast('❌ No se pudo abrir el instalador del Plotter.', 'error');
+      try {
+        const res = await window.api.launchPlotterInstaller();
+        if (res && res.success) {
+          if (statusMsg) {
+            statusMsg.style.background = '#ECFDF5';
+            statusMsg.style.color = '#047857';
+            statusMsg.style.border = '1px solid #A7F3D0';
+            statusMsg.innerHTML = '✅ Instalador del Plotter Océ iniciado correctamente. Sigue las instrucciones del asistente en pantalla.';
           }
-        } catch (err) {
+          showToast('✅ Instalador del Plotter Océ ejecutado correctamente.', 'success');
+        } else {
+          const errMsg = (res && res.error) ? res.error : 'No se pudo abrir el archivo ejecutable.';
           if (statusMsg) {
             statusMsg.style.background = '#FEF2F2';
             statusMsg.style.color = '#B91C1C';
             statusMsg.style.border = '1px solid #FCA5A5';
-            statusMsg.innerHTML = `⚠️ Error: ${err.message}`;
+            statusMsg.innerHTML = `⚠️ ${errMsg.replace(/\n/g, '<br>')}`;
           }
-          showToast(`❌ Error: ${err.message}`, 'error');
-        } finally {
-          btnLaunchPlotter.disabled = false;
-          btnLaunchPlotter.style.opacity = '1';
+          showToast('❌ No se pudo abrir el instalador del Plotter.', 'error');
         }
-      });
-    }
-
-    // Bind Paso 2: Copiar IP Plotter
-    const btnPlotterCopyIp = container.querySelector('#btn-plotter-copy-ip');
-    if (btnPlotterCopyIp) {
-      btnPlotterCopyIp.addEventListener('click', async () => {
-        try {
-          await window.api.copyToClipboard(plotterIp);
-          showToast(`IP ${plotterIp} (Plotter Océ) copiada al portapapeles.`, 'success');
-          const span = btnPlotterCopyIp.querySelector('span');
-          if (span) span.textContent = '✅ Copiada!';
-          setTimeout(() => {
-            if (span) span.textContent = `📋 Copiar IP (${plotterIp})`;
-          }, 2200);
-        } catch (err) {
-          showToast('Error al copiar la IP.', 'error');
+      } catch (err) {
+        if (statusMsg) {
+          statusMsg.style.background = '#FEF2F2';
+          statusMsg.style.color = '#B91C1C';
+          statusMsg.style.border = '1px solid #FCA5A5';
+          statusMsg.innerHTML = `⚠️ Error: ${err.message}`;
         }
-      });
-    }
+        showToast(`❌ Error: ${err.message}`, 'error');
+      } finally {
+        btnLaunchPlotter.disabled = false;
+        btnLaunchPlotter.style.opacity = '1';
+      }
+    });
   }
 
-  // Inicializar vista
-  renderView();
+  // Bind Paso 2: Copiar IP Plotter
+  const btnPlotterCopyIp = container.querySelector('#btn-plotter-copy-ip');
+  if (btnPlotterCopyIp) {
+    btnPlotterCopyIp.addEventListener('click', async () => {
+      try {
+        await window.api.copyToClipboard(plotterIp);
+        showToast(`IP ${plotterIp} (Plotter Océ) copiada al portapapeles.`, 'success');
+        const span = btnPlotterCopyIp.querySelector('span');
+        if (span) span.textContent = '✅ Copiada!';
+        setTimeout(() => {
+          if (span) span.textContent = `📋 Copiar IP (${plotterIp})`;
+        }, 2200);
+      } catch (err) {
+        showToast('Error al copiar la IP.', 'error');
+      }
+    });
+  }
+
+  // Bind Paso 3: Abrir impresoras Windows para Plotter
+  const btnOpenPrintersPlotter = container.querySelector('#btn-open-windows-printers-plotter');
+  if (btnOpenPrintersPlotter) {
+    btnOpenPrintersPlotter.addEventListener('click', async () => {
+      try {
+        await window.api.openWindowsPrinters();
+        showToast('🖨️ Abriendo el menú Impresoras y Escáneres de Windows...', 'info');
+      } catch (e) {
+        showToast('Error al abrir Impresoras y Escáneres.', 'error');
+      }
+    });
+  }
+}
+
+// Alias de retrocompatibilidad
+function runImpresorasUtility(initialTab = 'canon') {
+  if (initialTab === 'plotter') {
+    runPlotterUtility();
+  } else {
+    runCanonPrintersUtility();
+  }
 }
 
 function renderOfficePrintersGridHTML(printers = []) {
@@ -10149,7 +9616,6 @@ window._triggerHardwareAutofill = autoPopulateHardwareSpecs;
 
 // ── Punto de Entrada de la Utilidad ──────────────────────────────────────────
 function runInformesUtility() {
-  setActiveSidebarButton('btn-open-informes');
   clearResults('HCP · Informe de Instalación de Equipos');
 
   const container = document.createElement('div');
