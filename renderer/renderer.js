@@ -2655,10 +2655,10 @@ async function runEventAnalysis(range = '7') {
     }
 
     // Filtrar estrictamente solo eventos 41, 6008, 1001 y 1074 (sin servicios ni errores de programas)
-    const rawEvents = (report.criticalEvents || report.powerEvents || []);
+    const rawEvents = (report.criticalEvents || report.powerEvents || report.rawEvents || []);
     const targetEvents = rawEvents
       .filter(e => [41, 6008, 1001, 1074].includes(e.eventId || e.id))
-      .sort((a, b) => new Date(b.time) - new Date(a.time));
+      .sort((a, b) => new Date(b.time || b.timeCreated) - new Date(a.time || a.timeCreated));
 
     const events41 = targetEvents.filter(e => (e.eventId || e.id) === 41);
     const events6008 = targetEvents.filter(e => (e.eventId || e.id) === 6008);
@@ -2721,9 +2721,9 @@ async function runEventAnalysis(range = '7') {
           <span class="power-hero-badge ${isUnstable ? 'warning' : 'ok'}">
             ${isUnstable ? '⚠️ INCIDENCIAS DETECTADAS — ANÁLISIS DE REINICIOS' : '🟢 ESTABILIDAD ÓPTIMA — REGISTRO LIMPIO'}
           </span>
-          <h2 class="power-hero-title">Auditoría Exclusiva: Eventos 41, 6008, 1001 y 1074</h2>
+          <h2 class="power-hero-title">Visor de Eventos — Registros de Sistema</h2>
           <div style="font-size:12.5px; color:#94A3B8; margin-top:4px;">
-            Diagnóstico forense detallado de reinicios inesperados (41), apagados sucios (6008), pantallazos BSOD (1001) y apagados ordenados (1074).
+            Auditoría exclusiva de Windows: Kernel-Power (41), EventLog (6008), BugCheck BSOD (1001) y User32 (1074).
           </div>
         </div>
         <div style="text-align:right;">
@@ -2763,6 +2763,73 @@ async function runEventAnalysis(range = '7') {
       </div>
     `;
     resultsEl.appendChild(hero);
+
+    // ── CORRELACIÓN FORENSE DE SECUENCIAS DE REINICIO ───────────────────────
+    const sequences = report.sequences || [];
+    if (sequences.length > 0) {
+      const corrBox = document.createElement('div');
+      corrBox.className = 'clean-breakdown-card panel-fade-in';
+      corrBox.style.marginBottom = '16px';
+      corrBox.style.padding = '16px';
+      corrBox.style.background = 'rgba(15, 23, 42, 0.75)';
+      corrBox.style.border = '1px solid rgba(59, 130, 246, 0.25)';
+
+      corrBox.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">🔗</span>
+            <span style="font-size:13.5px; font-weight:800; color:#F8FAFC; text-transform:uppercase; letter-spacing:0.5px;">Secuencias y Correlación Forense de Reinicios</span>
+          </div>
+          <span style="font-size:11px; font-weight:700; color:#60A5FA; background:rgba(96,165,250,0.12); padding:3px 8px; border-radius:6px; border:1px solid rgba(96,165,250,0.25);">
+            ${sequences.length} ${sequences.length === 1 ? 'secuencia identificada' : 'secuencias identificadas'}
+          </span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
+          ${sequences.map(seq => {
+            const isUnexpected = seq.type === 'unexpected_reboot' || seq.type === 'unexpected_shutdown';
+            const cardBorder = isUnexpected ? '#EF4444' : (seq.type === 'standalone_bsod' ? '#DC2626' : '#10B981');
+            const cardBg = isUnexpected ? 'rgba(239, 68, 68, 0.06)' : (seq.type === 'standalone_bsod' ? 'rgba(220, 38, 38, 0.06)' : 'rgba(16, 185, 129, 0.06)');
+
+            return `
+              <div style="background:${cardBg}; border:1px solid ${cardBorder}40; border-left:4px solid ${cardBorder}; border-radius:8px; padding:12px; font-size:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                  <strong style="color:#FFFFFF; font-size:13px;">${escapeHtml(seq.title)}</strong>
+                  <span style="font-size:11px; color:#94A3B8;">${escapeHtml(seq.formattedDate || fmtDateTime(seq.timeCreated))}</span>
+                </div>
+
+                <div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
+                  ${seq.has41 ? `<span style="background:rgba(239,68,68,0.2); color:#FCA5A5; border:1px solid rgba(239,68,68,0.4); padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px;">Kernel-Power 41</span>` : ''}
+                  ${seq.has6008 ? `<span style="background:rgba(245,158,11,0.2); color:#FCD34D; border:1px solid rgba(245,158,11,0.4); padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px;">EventLog 6008</span>` : ''}
+                  ${seq.has1074 ? `<span style="background:rgba(16,185,129,0.2); color:#6EE7B7; border:1px solid rgba(16,185,129,0.4); padding:2px 6px; border-radius:4px; font-weight:700; font-size:11px;">User32 1074</span>` : ''}
+                </div>
+
+                ${seq.relatedEvents && seq.relatedEvents.length > 0 ? `
+                  <div style="margin-top:6px; padding:6px 8px; background:rgba(0,0,0,0.3); border-radius:6px; border:1px dashed rgba(239,68,68,0.3);">
+                    <div style="font-size:11px; font-weight:700; color:#F87171; text-transform:uppercase;">Eventos relacionados:</div>
+                    ${seq.relatedEvents.map(re => `
+                      <div style="font-size:11.5px; color:#E2E8F0; margin-top:2px;">
+                        💥 <strong>BugCheck ${re.id || 1001}</strong> ${re.parsedDetails?.stopCode ? `(Código: <code>${escapeHtml(re.parsedDetails.stopCode)}</code>)` : ''}
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+
+                <div style="color:#CBD5E1; margin-top:8px; line-height:1.4;">
+                  ${escapeHtml(seq.diagnosis)}
+                </div>
+
+                ${seq.hardwareNote ? `
+                  <div style="margin-top:6px; font-size:11px; color:#94A3B8; font-style:italic;">
+                    ℹ️ ${escapeHtml(seq.hardwareNote)}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+      resultsEl.appendChild(corrBox);
+    }
 
     // ── BARRA DE FILTROS POR EVENTO Y BÚSQUEDA ─────────────────────────────
     const filterSection = document.createElement('div');
@@ -5040,8 +5107,8 @@ const CATEGORIES_CONFIG = {
       },
       {
         id: 'btn-eventlog',
-        title: 'Visor de Eventos Críticos (41, 6008, 1001, 1074)',
-        sub: 'Auditoría forense detallada de reinicios inesperados (41), apagados sucios (6008), pantallazos azules BSOD (1001) y apagados ordenados (1074).',
+        title: 'Visor de Eventos',
+        sub: 'Auditoría forense de reinicios inesperados (41), apagados sucios (6008), pantallazos BSOD (1001) y apagados ordenados (1074).',
         icon: '📋',
         badge: 'EVENTOS 41, 6008, 1001, 1074',
         tags: ['Evento 41 Kernel-Power', 'Evento 6008 Inesperado', 'Evento 1001 BSOD', 'Evento 1074 User32'],

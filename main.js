@@ -4,6 +4,13 @@ const os    = require('os');
 const { execFile, exec } = require('child_process');
 const https = require('https');
 const fs    = require('fs');
+const {
+  getSystemEvents,
+  getLatestSystemEvent,
+  correlateRebootSequences,
+  extractEventDetails,
+  formatDateTimeEs
+} = require('./system-event-log');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OPTIMIZACIONES DE INICIO Y RENDIMIENTO DE ELECTRON (Cero Lag / Arranque Rápido)
@@ -2611,6 +2618,27 @@ ipcMain.handle('run-event-log-analysis', async (_event, range = '7') => {
   dedupedEvents.sort((a, b) => new Date(b.time) - new Date(a.time));
   powerStats = calculatePowerStats(dedupedEvents);
 
+  // Formato estandarizado de eventos del sistema (id, provider, level, timeCreated, message)
+  const systemLogFormatEvents = dedupedEvents.map(e => ({
+    id: e.eventId,
+    eventId: e.eventId,
+    provider: e.provider || 'System',
+    level: e.severity === 'critico' ? 'Crítico' : (e.severity === 'alto' ? 'Advertencia' : 'Información'),
+    timeCreated: e.time,
+    time: e.time,
+    message: e.detail || e.reason || '',
+    type: e.type,
+    user: e.user,
+    process: e.process,
+    reason: e.reason,
+    diagnostic: e.diagnostic,
+    computerName: os.hostname(),
+    rawParams: e.rawParams,
+    parsedDetails: extractEventDetails(e.eventId, e.detail || e.reason, Object.values(e.rawParams || {}))
+  }));
+
+  const correlation = correlateRebootSequences(systemLogFormatEvents);
+
   return {
     range: rangeStr,
     uptimeText,
@@ -2618,11 +2646,48 @@ ipcMain.handle('run-event-log-analysis', async (_event, range = '7') => {
     lastShutdownInfo,
     criticalEvents: dedupedEvents.slice(0, 200),
     powerEvents: dedupedEvents.slice(0, 200),
+    rawEvents: systemLogFormatEvents,
+    sequences: correlation.sequences,
+    summary: correlation.summary,
     appCrashes: [],
     hardwareEvents: dedupedEvents.filter(e => e.eventId === 1001),
     serviceEvents: [],
     powerStats
   };
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MÓDULO VISOR DE EVENTOS (41, 6008, 1001, 1074) — IPC PRINCIPAL
+// ─────────────────────────────────────────────────────────────────────────────
+ipcMain.handle('get-system-events', async (_event, options = {}) => {
+  try {
+    appLog('INFO', `[SystemEvents] Consultando eventos del sistema: ${JSON.stringify(options)}`);
+    return await getSystemEvents(options);
+  } catch (err) {
+    appLog('ERROR', `[SystemEvents] Error al consultar eventos: ${err.message}`);
+    throw err;
+  }
+});
+
+ipcMain.handle('get-latest-system-event', async () => {
+  try {
+    appLog('INFO', `[SystemEvents] Consultando evento más reciente...`);
+    return await getLatestSystemEvent();
+  } catch (err) {
+    appLog('ERROR', `[SystemEvents] Error al consultar evento más reciente: ${err.message}`);
+    throw err;
+  }
+});
+
+ipcMain.handle('get-reboot-analysis', async (_event, options = {}) => {
+  try {
+    appLog('INFO', `[SystemEvents] Ejecutando análisis de secuencias de reinicio...`);
+    const events = await getSystemEvents(options);
+    return correlateRebootSequences(events);
+  } catch (err) {
+    appLog('ERROR', `[SystemEvents] Error en análisis de secuencias: ${err.message}`);
+    throw err;
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

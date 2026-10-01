@@ -11,7 +11,6 @@ contextBridge.exposeInMainWorld('api', {
 
   getNetworkOptions: () => ipcRenderer.invoke('get-network-options'),
   runNetworkAction: (data) => ipcRenderer.invoke('run-network-action', data),
-  runPingTest: (data) => ipcRenderer.invoke('run-ping-test', data),
 
   runDiagnostico: () => ipcRenderer.invoke('run-diagnostico'),
 
@@ -58,6 +57,10 @@ contextBridge.exposeInMainWorld('api', {
   openUrl: (url) => ipcRenderer.invoke('open-url', url),
   copyToClipboard: (text) => ipcRenderer.invoke('copy-to-clipboard', text),
 
+  // Visor de Eventos del Sistema (Event IDs 41, 6008, 1001, 1074)
+  getSystemEvents: (options) => ipcRenderer.invoke('get-system-events', options),
+  getLatestSystemEvent: () => ipcRenderer.invoke('get-latest-system-event'),
+  getRebootAnalysis: (options) => ipcRenderer.invoke('get-reboot-analysis', options),
   runEventLogAnalysis: (daysBack) => ipcRenderer.invoke('run-event-log-analysis', daysBack),
   onEventLogProgress: (cb) => ipcRenderer.on('event-log-progress', (_e, msg) => cb(msg)),
   exportEventReport: (payload) => ipcRenderer.invoke('export-event-report', payload),

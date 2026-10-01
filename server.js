@@ -6,6 +6,13 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { execFile, exec } = require('child_process');
+const {
+  getSystemEvents,
+  getLatestSystemEvent,
+  correlateRebootSequences,
+  extractEventDetails,
+  formatDateTimeEs
+} = require('./system-event-log');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -2432,6 +2439,26 @@ app.post('/api/event-log-analysis', async (req, res) => {
       }
     }
 
+    const systemLogFormatEvents = filteredPowerEvents.map(e => ({
+      id: e.eventId || e.id,
+      eventId: e.eventId || e.id,
+      provider: e.provider || 'System',
+      level: e.level || 'Información',
+      timeCreated: e.time,
+      time: e.time,
+      message: e.detail || e.reason || '',
+      type: e.type,
+      user: e.user,
+      process: e.process,
+      reason: e.reason,
+      diagnostic: e.diagnostic,
+      computerName: os.hostname(),
+      rawParams: e.rawParams,
+      parsedDetails: extractEventDetails(e.eventId || e.id, e.detail || e.reason, Object.values(e.rawParams || {}))
+    }));
+
+    const correlation = correlateRebootSequences(systemLogFormatEvents);
+
     res.json({
       range,
       daysBack,
@@ -2442,6 +2469,9 @@ app.post('/api/event-log-analysis', async (req, res) => {
       powerStats,
       powerEvents: filteredPowerEvents,
       criticalEvents: filteredPowerEvents,
+      rawEvents: systemLogFormatEvents,
+      sequences: correlation.sequences,
+      summary: correlation.summary,
       appCrashes: [],
       hardwareEvents: [],
       serviceEvents: [],
@@ -2454,6 +2484,41 @@ app.post('/api/event-log-analysis', async (req, res) => {
       },
       elevationDenied: false,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoints REST de paridad con la arquitectura Electron IPC
+app.get('/api/system-events', async (req, res) => {
+  try {
+    const hours = req.query.hours ? parseInt(req.query.hours, 10) : undefined;
+    const days = req.query.days ? parseInt(req.query.days, 10) : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+    const events = await getSystemEvents({ hours, days, limit });
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/latest-system-event', async (_req, res) => {
+  try {
+    const event = await getLatestSystemEvent();
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reboot-analysis', async (req, res) => {
+  try {
+    const hours = req.query.hours ? parseInt(req.query.hours, 10) : undefined;
+    const days = req.query.days ? parseInt(req.query.days, 10) : undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 100;
+    const events = await getSystemEvents({ hours, days, limit });
+    const analysis = correlateRebootSequences(events);
+    res.json(analysis);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
